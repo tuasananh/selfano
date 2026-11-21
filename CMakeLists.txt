@@ -108,9 +108,10 @@ target_include_directories(piano_core PUBLIC
 )
 target_link_libraries(piano_core PRIVATE selfano_warnings)
 
-# 2. MIDI & audio bridge (stubbed in Phase 1; implemented in Phase 2)
+# 2. MIDI & audio bridge
 add_library(piano_midi STATIC
   src/midi/midi_engine_stub.cpp
+  src/midi/chord_grouper.cpp
 )
 target_include_directories(piano_midi PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -181,10 +182,12 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/key_signature_tests.cpp
     tests/theory_tests.cpp
     tests/staff_layout_tests.cpp
+    tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
     PRIVATE
       piano_core
+      piano_midi
       Catch2::Catch2WithMain
       selfano_warnings
   )
