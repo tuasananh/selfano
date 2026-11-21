@@ -1,0 +1,28 @@
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++23
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Left
+ReferenceAlignment: Left
+AccessModifierOffset: -2
+NamespaceIndentation: None
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Attach
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"core/'
+    Priority: 1
+  - Regex: '^"midi/'
+    Priority: 2
+  - Regex: '^"ui/'
+    Priority: 3
+  - Regex: '^"'
+    Priority: 4
+  - Regex: '^<'
+    Priority: 5
