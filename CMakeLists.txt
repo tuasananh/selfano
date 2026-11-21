@@ -112,6 +112,9 @@ target_link_libraries(piano_core PRIVATE selfano_warnings)
 add_library(piano_midi STATIC
   src/midi/midi_engine_stub.cpp
   src/midi/chord_grouper.cpp
+  src/midi/midi_scheduler.cpp
+  src/midi/audio_synth.cpp
+  src/midi/midi_engine.cpp
 )
 target_include_directories(piano_midi PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src

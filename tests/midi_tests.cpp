@@ -1,10 +1,13 @@
+#include "midi/audio_synth.hpp"
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_event.hpp"
+#include "midi/midi_scheduler.hpp"
 #include "midi/spsc_queue.hpp"
 
-#include <catch2/catch_test_macros.hpp>
-
+#include <algorithm>
 #include <array>
+#include <catch2/catch_test_macros.hpp>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -158,4 +161,85 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
     REQUIRE(chords.size() == 1);
     REQUIRE(chords[0].notes == std::vector<std::uint8_t>{60, 64, 67});
   }
+}
+
+TEST_CASE("MidiPlaybackScheduler dispatches timed NoteOn, NoteOff, and panic cleanup",
+          "[midi][scheduler]") {
+  MidiPlaybackScheduler scheduler;
+  scheduler.schedule(ScheduledMidiNote{60, 96, 100.0, 250.0, 0});
+  scheduler.schedule(ScheduledMidiNote{64, 96, 100.0, 250.0, 0});
+  scheduler.schedule(ScheduledMidiNote{67, 90, 400.0, 200.0, 0});
+
+  REQUIRE(scheduler.has_pending_or_active());
+  REQUIRE(scheduler.update(50.0).empty());
+
+  const auto at_100 = scheduler.update(100.0);
+  REQUIRE(at_100.size() == 2);
+  REQUIRE(at_100[0].is_note_on);
+  REQUIRE(at_100[1].is_note_on);
+
+  const auto at_360 = scheduler.update(360.0);
+  REQUIRE(at_360.size() == 2);
+  REQUIRE_FALSE(at_360[0].is_note_on);
+  REQUIRE_FALSE(at_360[1].is_note_on);
+
+  const auto at_400 = scheduler.update(400.0);
+  REQUIRE(at_400.size() == 1);
+  REQUIRE(at_400[0].note == 67);
+  REQUIRE(at_400[0].is_note_on);
+
+  const auto panic = scheduler.panic_all_notes_off();
+  REQUIRE(panic.size() == 1);
+  REQUIRE(panic[0].note == 67);
+  REQUIRE_FALSE(panic[0].is_note_on);
+  REQUIRE_FALSE(scheduler.has_pending_or_active());
+}
+
+TEST_CASE("AudioSynth DSP renders bounded finite audio for notes, metronome, and chimes",
+          "[midi][audio]") {
+  AudioSynth synth;
+  std::array<float, 2048> buffer{};
+
+  // Silent when idle
+  synth.render_stereo_frames(buffer);
+  float peak_idle = 0.0f;
+  for (const float s : buffer) {
+    REQUIRE(std::isfinite(s));
+    peak_idle = std::max(peak_idle, std::abs(s));
+  }
+  REQUIRE(peak_idle == 0.0f);
+
+  // Audible bounded signal on NoteOn
+  synth.note_on(69, 100);
+  synth.render_stereo_frames(buffer);
+  float peak_on = 0.0f;
+  for (const float s : buffer) {
+    REQUIRE(std::isfinite(s));
+    REQUIRE(std::abs(s) <= 1.0f);
+    peak_on = std::max(peak_on, std::abs(s));
+  }
+  REQUIRE(peak_on > 0.05f);
+
+  // Decays to silence after NoteOff
+  synth.note_off(69);
+  for (int i = 0; i < 20; ++i) {
+    synth.render_stereo_frames(buffer);
+  }
+  float peak_after = 0.0f;
+  for (const float s : buffer) {
+    peak_after = std::max(peak_after, std::abs(s));
+  }
+  REQUIRE(peak_after < 0.01f);
+
+  // Metronome click & confirmation chime produce finite audio
+  synth.play_metronome_click(true);
+  synth.play_confirmation_chime();
+  synth.render_stereo_frames(buffer);
+  float peak_cue = 0.0f;
+  for (const float s : buffer) {
+    REQUIRE(std::isfinite(s));
+    REQUIRE(std::abs(s) <= 1.0f);
+    peak_cue = std::max(peak_cue, std::abs(s));
+  }
+  REQUIRE(peak_cue > 0.02f);
 }
