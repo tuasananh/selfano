@@ -2,6 +2,7 @@
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_event.hpp"
 #include "midi/midi_scheduler.hpp"
+#include "midi/qwerty_mapper.hpp"
 #include "midi/spsc_queue.hpp"
 
 #include <algorithm>
@@ -242,4 +243,49 @@ TEST_CASE("AudioSynth DSP renders bounded finite audio for notes, metronome, and
     peak_cue = std::max(peak_cue, std::abs(s));
   }
   REQUIRE(peak_cue > 0.02f);
+}
+
+TEST_CASE("QwertyMapper maps keys to MIDI notes, suppresses repeats, and avoids stuck notes",
+          "[midi][qwerty]") {
+  QwertyMapper mapper;
+  REQUIRE(mapper.base_octave() == 4);
+
+  // 'A' maps to C4 (60), 'W' maps to C#4 (61), 'K' maps to C5 (72)
+  const auto c4_down = mapper.on_key_down(QwertyKey::A, 100.0);
+  REQUIRE(c4_down.has_value());
+  REQUIRE(c4_down->note == 60);
+  REQUIRE(c4_down->is_note_on);
+  REQUIRE_FALSE(c4_down->from_hardware);
+
+  // Key repeat must be ignored
+  REQUIRE_FALSE(mapper.on_key_down(QwertyKey::A, 120.0).has_value());
+
+  // Shift octave up while 'A' is still held -> releasing 'A' must still release 60 (no stuck note!)
+  mapper.shift_octave(+1);
+  REQUIRE(mapper.base_octave() == 5);
+  const auto c4_up = mapper.on_key_up(QwertyKey::A, 150.0);
+  REQUIRE(c4_up.has_value());
+  REQUIRE(c4_up->note == 60);
+  REQUIRE_FALSE(c4_up->is_note_on);
+
+  // Next press of 'A' uses new octave (C5 = 72)
+  const auto c5_down = mapper.on_key_down(QwertyKey::A, 180.0);
+  REQUIRE(c5_down.has_value());
+  REQUIRE(c5_down->note == 72);
+
+  // Clamp octave bounds [1..6]
+  for (int i = 0; i < 10; ++i) {
+    mapper.shift_octave(-1);
+  }
+  REQUIRE(mapper.base_octave() == 1);
+  for (int i = 0; i < 10; ++i) {
+    mapper.shift_octave(+1);
+  }
+  REQUIRE(mapper.base_octave() == 6);
+
+  // release_all frees held keys
+  const auto released = mapper.release_all(250.0);
+  REQUIRE(released.size() == 1);
+  REQUIRE(released[0].note == 72);
+  REQUIRE_FALSE(released[0].is_note_on);
 }

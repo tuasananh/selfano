@@ -327,7 +327,11 @@ void StaffShowcase::draw(ImFont* smufl_font, ImFont* ui_font, const char* smufl_
   ImGui::TextDisabled("| %.1f FPS | Font: %s", static_cast<double>(ImGui::GetIO().Framerate),
                       font_filename.c_str());
   ImGui::Separator();
+  draw_contents(smufl_font, ui_font);
+  ImGui::End();
+}
 
+void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
   bool changed = false;
 
   // Quick-access key signature buttons requested in Phase 1 packet
@@ -430,8 +434,6 @@ void StaffShowcase::draw(ImFont* smufl_font, ImFont* ui_font, const char* smufl_
   ImGui::TextDisabled(
       "Legend: Black/White = Pending Target | Green = Matched MIDI | Red = Wrong Note "
       "(Target -> Played)");
-
-  ImGui::End();
 }
 
 } // namespace selfano::ui

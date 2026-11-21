@@ -110,11 +110,11 @@ target_link_libraries(piano_core PRIVATE selfano_warnings)
 
 # 2. MIDI & audio bridge
 add_library(piano_midi STATIC
-  src/midi/midi_engine_stub.cpp
   src/midi/chord_grouper.cpp
   src/midi/midi_scheduler.cpp
   src/midi/audio_synth.cpp
   src/midi/midi_engine.cpp
+  src/midi/qwerty_mapper.cpp
 )
 target_include_directories(piano_midi PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -133,6 +133,9 @@ add_library(piano_ui STATIC
   src/ui/font_loader.cpp
   src/ui/staff_renderer.cpp
   src/ui/staff_showcase.cpp
+  src/ui/virtual_piano.cpp
+  src/ui/midi_device_bar.cpp
+  src/ui/phase2_sandbox.cpp
 )
 target_include_directories(piano_ui PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -143,6 +146,7 @@ target_compile_definitions(piano_ui PRIVATE
 target_link_libraries(piano_ui
   PUBLIC
     piano_core
+    piano_midi
     imgui
     SDL3::SDL3
   PRIVATE

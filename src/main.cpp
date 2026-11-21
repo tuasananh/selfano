@@ -1,6 +1,12 @@
-#include "midi/midi_engine_stub.hpp"
+#include "midi/audio_synth.hpp"
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_engine.hpp"
+#include "midi/midi_scheduler.hpp"
+#include "midi/qwerty_mapper.hpp"
 
 #include "ui/font_loader.hpp"
+#include "ui/midi_device_bar.hpp"
+#include "ui/phase2_sandbox.hpp"
 #include "ui/staff_showcase.hpp"
 
 #include "imgui.h"
@@ -8,17 +14,39 @@
 #include "imgui_impl_sdlrenderer3.h"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
 struct CliOptions {
   int smoke_frames{0};
   std::string screenshot_path;
+  std::vector<std::uint8_t> inject_notes;
 };
+
+[[nodiscard]] std::vector<std::uint8_t> parse_note_csv(std::string_view csv) {
+  std::vector<std::uint8_t> notes;
+  std::stringstream ss{std::string(csv)};
+  std::string token;
+  while (std::getline(ss, token, ',')) {
+    if (token.empty()) {
+      continue;
+    }
+    const int val = std::atoi(token.c_str());
+    if (val >= 0 && val <= 127) {
+      notes.push_back(static_cast<std::uint8_t>(val));
+    }
+  }
+  return notes;
+}
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]) {
   CliOptions opts{};
@@ -28,18 +56,81 @@ struct CliOptions {
       opts.smoke_frames = std::max(1, std::atoi(argv[++i]));
     } else if (arg == "--screenshot" && i + 1 < argc) {
       opts.screenshot_path = argv[++i];
+    } else if (arg == "--inject-notes" && i + 1 < argc) {
+      opts.inject_notes = parse_note_csv(argv[++i]);
     }
   }
   return opts;
+}
+
+[[nodiscard]] std::optional<selfano::midi::QwertyKey> sdl_key_to_qwerty(SDL_Keycode key) noexcept {
+  using K = selfano::midi::QwertyKey;
+  switch (key) {
+  case SDLK_A:
+    return K::A;
+  case SDLK_W:
+    return K::W;
+  case SDLK_S:
+    return K::S;
+  case SDLK_E:
+    return K::E;
+  case SDLK_D:
+    return K::D;
+  case SDLK_F:
+    return K::F;
+  case SDLK_T:
+    return K::T;
+  case SDLK_G:
+    return K::G;
+  case SDLK_Y:
+    return K::Y;
+  case SDLK_H:
+    return K::H;
+  case SDLK_U:
+    return K::U;
+  case SDLK_J:
+    return K::J;
+  case SDLK_K:
+    return K::K;
+  case SDLK_O:
+    return K::O;
+  case SDLK_L:
+    return K::L;
+  case SDLK_P:
+    return K::P;
+  case SDLK_SEMICOLON:
+    return K::Semicolon;
+  case SDLK_APOSTROPHE:
+    return K::Apostrophe;
+  default:
+    return std::nullopt;
+  }
+}
+
+void dispatch_outbound_note(selfano::midi::MidiEngine& midi_engine,
+                            selfano::midi::AudioSynth& synth, std::uint8_t note,
+                            std::uint8_t velocity, std::uint8_t channel, bool is_note_on) {
+  if (midi_engine.is_output_open()) {
+    if (is_note_on) {
+      (void)midi_engine.send_note_on(note, velocity, channel);
+    } else {
+      (void)midi_engine.send_note_off(note, channel);
+    }
+  } else {
+    if (is_note_on) {
+      synth.note_on(note, velocity);
+    } else {
+      synth.note_off(note);
+    }
+  }
 }
 
 } // namespace
 
 int main(int argc, char* argv[]) {
   const CliOptions cli = parse_cli(argc, argv);
-  (void)selfano::midi::midi_subsystem_ready();
 
-  if (!SDL_Init(SDL_INIT_VIDEO)) {
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
     std::cerr << "Error: SDL_Init(): " << SDL_GetError() << '\n';
     return 1;
   }
@@ -52,8 +143,8 @@ int main(int argc, char* argv[]) {
   const SDL_WindowFlags window_flags =
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
   SDL_Window* window =
-      SDL_CreateWindow("Selfano — C++23 Piano Trainer", static_cast<int>(1360 * main_scale),
-                       static_cast<int>(820 * main_scale), window_flags);
+      SDL_CreateWindow("Selfano - C++23 Piano Trainer", static_cast<int>(1360 * main_scale),
+                       static_cast<int>(860 * main_scale), window_flags);
   if (window == nullptr) {
     std::cerr << "Error: SDL_CreateWindow(): " << SDL_GetError() << '\n';
     SDL_Quit();
@@ -75,6 +166,7 @@ int main(int argc, char* argv[]) {
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.IniFilename = nullptr; // Never pollute working directory with imgui.ini
 
   ImGuiStyle& style = ImGui::GetStyle();
   ImGui::StyleColorsDark();
@@ -98,14 +190,45 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  selfano::ui::StaffShowcase showcase;
+  selfano::midi::MidiEngine midi_engine;
+  selfano::midi::AudioSynth audio_synth;
+  selfano::midi::MidiPlaybackScheduler playback_scheduler;
+  selfano::midi::PolyphonicChordGrouper chord_grouper{100.0};
+  selfano::midi::QwertyMapper qwerty_mapper;
+  selfano::ui::MidiDeviceBarState midi_bar_state;
+  selfano::ui::Phase2Sandbox phase2_sandbox;
+  selfano::ui::StaffShowcase staff_showcase;
+
+  if (const auto audio_res = audio_synth.init(); !audio_res.has_value()) {
+    midi_bar_state.status_banner = audio_res.error();
+  }
+  if (const auto midi_err = midi_engine.last_error(); !midi_err.empty()) {
+    midi_bar_state.status_banner = midi_err;
+  }
+
+  const std::string font_filename =
+      std::filesystem::path(fonts->loaded_smufl_path).filename().string();
   const ImVec4 clear_color(0.08f, 0.09f, 0.12f, 1.0f);
 
   bool done = false;
   int rendered_frames = 0;
   bool screenshot_saved = false;
+  bool injected_cli_notes = false;
+
+  std::vector<selfano::midi::MidiNoteEvent> frame_events;
+  std::vector<selfano::midi::MidiNoteEvent> virtual_events;
+  std::vector<selfano::midi::ScheduledMidiNote> pending_playback;
 
   while (!done) {
+    const double now_ms = selfano::midi::MidiEngine::now_ms();
+    frame_events.clear();
+    virtual_events.clear();
+    pending_playback.clear();
+
+    if (midi_engine.poll_hotplug()) {
+      midi_bar_state.status_banner = "MIDI devices updated";
+    }
+
     SDL_Event event{};
     while (SDL_PollEvent(&event)) {
       ImGui_ImplSDL3_ProcessEvent(&event);
@@ -114,14 +237,158 @@ int main(int argc, char* argv[]) {
       } else if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
                  event.window.windowID == SDL_GetWindowID(window)) {
         done = true;
+      } else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+        const auto rel = qwerty_mapper.release_all(now_ms);
+        frame_events.insert(frame_events.end(), rel.begin(), rel.end());
+      } else if ((event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) &&
+                 !io.WantTextInput) {
+        audio_synth.resume();
+        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+          if (event.key.key == SDLK_Z) {
+            qwerty_mapper.shift_octave(-1);
+          } else if (event.key.key == SDLK_X) {
+            qwerty_mapper.shift_octave(+1);
+          }
+        }
+        if (const auto qk = sdl_key_to_qwerty(event.key.key); qk.has_value()) {
+          const auto ev = (event.type == SDL_EVENT_KEY_DOWN)
+                              ? qwerty_mapper.on_key_down(*qk, now_ms)
+                              : qwerty_mapper.on_key_up(*qk, now_ms);
+          if (ev.has_value()) {
+            frame_events.push_back(*ev);
+          }
+        }
+      } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        audio_synth.resume();
       }
+    }
+
+    // Drain hardware MIDI IN events from the lock-free SPSC queue
+    midi_engine.drain_input_events(frame_events);
+
+    // Optional CLI note injection for deterministic automated screenshot verification
+    if (!injected_cli_notes && !cli.inject_notes.empty() && rendered_frames == 1) {
+      injected_cli_notes = true;
+      double offset = 0.0;
+      for (const std::uint8_t n : cli.inject_notes) {
+        frame_events.push_back(selfano::midi::MidiNoteEvent{
+            .note = n,
+            .velocity = 96,
+            .is_note_on = true,
+            .is_soft_pedal = false,
+            .from_hardware = false,
+            .timestamp_ms = now_ms + offset,
+        });
+        offset += 10.0;
+      }
+    }
+
+    auto process_note_events = [&](const std::vector<selfano::midi::MidiNoteEvent>& events) {
+      for (const auto& ev : events) {
+        if (ev.is_soft_pedal) {
+          midi_bar_state.last_soft_pedal_ms = now_ms;
+          phase2_sandbox.on_soft_pedal(now_ms);
+          const auto preview = phase2_sandbox.build_prompt_preview(now_ms);
+          playback_scheduler.schedule_batch(preview);
+          continue;
+        }
+        chord_grouper.push_event(ev);
+        const bool should_sound = !ev.from_hardware || midi_bar_state.monitor_midi_in;
+        if (should_sound) {
+          dispatch_outbound_note(midi_engine, audio_synth, ev.note, ev.velocity, 0, ev.is_note_on);
+        }
+      }
+    };
+
+    process_note_events(frame_events);
+
+    // Flush chord grouper (immediately if expected target cardinality is met, else by window)
+    (void)chord_grouper.flush_if_cardinality(phase2_sandbox.expected_chord_cardinality(), now_ms);
+    chord_grouper.update(now_ms);
+    for (const auto& chord : chord_grouper.take_completed_chords()) {
+      phase2_sandbox.on_played_chord(chord, now_ms);
+    }
+
+    // Dispatch timed outbound MIDI / synth playback actions
+    for (const auto& act : playback_scheduler.update(now_ms)) {
+      dispatch_outbound_note(midi_engine, audio_synth, act.note, act.velocity, act.channel,
+                             act.is_note_on);
     }
 
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
-    showcase.draw(fonts->smufl_font, fonts->ui_font, fonts->loaded_smufl_path.c_str());
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    constexpr ImGuiWindowFlags kRootFlags =
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    if (ImGui::Begin("SelfanoRoot", nullptr, kRootFlags)) {
+      ImGui::TextUnformatted("Selfano - Offline C++23 Piano Trainer");
+      ImGui::SameLine();
+      ImGui::TextDisabled("| %.1f FPS | Font: %s", static_cast<double>(io.Framerate),
+                          font_filename.c_str());
+      ImGui::Separator();
+
+      const auto bar_actions =
+          selfano::ui::draw_midi_device_bar(midi_engine, audio_synth, chord_grouper, midi_bar_state,
+                                            qwerty_mapper.base_octave(), now_ms);
+
+      if (bar_actions.test_chord_triggered) {
+        const std::array<selfano::midi::ScheduledMidiNote, 4> test_notes{{
+            {60, 96, now_ms + 0.0, 650.0, 0},
+            {64, 96, now_ms + 70.0, 580.0, 0},
+            {67, 96, now_ms + 140.0, 510.0, 0},
+            {72, 100, now_ms + 210.0, 440.0, 0},
+        }};
+        playback_scheduler.schedule_batch(test_notes);
+      }
+
+      if (bar_actions.panic_triggered) {
+        for (const auto& act : playback_scheduler.panic_all_notes_off()) {
+          dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+        }
+        midi_engine.send_all_notes_off();
+        audio_synth.all_notes_off();
+        const auto qrel = qwerty_mapper.release_all(now_ms);
+        virtual_events.insert(virtual_events.end(), qrel.begin(), qrel.end());
+        phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
+        chord_grouper.clear();
+        phase2_sandbox.reset_feedback();
+      }
+
+      ImGui::Separator();
+
+      if (ImGui::BeginTabBar("##main_tabs")) {
+        if (ImGui::BeginTabItem("Live MIDI & Virtual Piano Sandbox")) {
+          phase2_sandbox.draw(fonts->smufl_font, fonts->ui_font, chord_grouper.held_notes(),
+                              midi_bar_state.piano_mode, now_ms, virtual_events, pending_playback);
+          ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Grand Staff Theory Showcase")) {
+          staff_showcase.draw_contents(fonts->smufl_font, fonts->ui_font);
+          ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+      }
+    }
+    ImGui::End();
+
+    // Process mouse Virtual Piano events & scheduled previews produced during UI draw immediately
+    if (!virtual_events.empty()) {
+      process_note_events(virtual_events);
+      (void)chord_grouper.flush_if_cardinality(phase2_sandbox.expected_chord_cardinality(), now_ms);
+      chord_grouper.update(now_ms);
+      for (const auto& chord : chord_grouper.take_completed_chords()) {
+        phase2_sandbox.on_played_chord(chord, now_ms);
+      }
+    }
+    if (!pending_playback.empty()) {
+      playback_scheduler.schedule_batch(pending_playback);
+    }
 
     ImGui::Render();
     SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
@@ -153,6 +420,9 @@ int main(int argc, char* argv[]) {
       done = true;
     }
   }
+
+  midi_engine.send_all_notes_off();
+  audio_synth.shutdown();
 
   ImGui_ImplSDLRenderer3_Shutdown();
   ImGui_ImplSDL3_Shutdown();
