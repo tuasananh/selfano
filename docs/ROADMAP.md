@@ -21,7 +21,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | Phase | Name | Context Packet | Status |
 | :--- | :--- | :--- | :--- |
 | **Phase 0** | Agent Workflows, Skills, `AGENTS.md`, Git & Docs | *(Completed here)* | `[x] Complete` |
-| **Phase 1** | Build System (`FetchContent`), Core Theory & Static Grand Staff | [phase-1-build-and-staff.md](./phases/phase-1-build-and-staff.md) | `[ ] Not Started` |
+| **Phase 1** | Build System (`FetchContent`), Core Theory & Static Grand Staff | [phase-1-build-and-staff.md](./phases/phase-1-build-and-staff.md) | `[x] Complete` |
 | **Phase 2** | Bidirectional MIDI, SPSC Bridge, Audio Fallback & Virtual Piano | [phase-2-midi-audio-virtual-piano.md](./phases/phase-2-midi-audio-virtual-piano.md) | `[ ] Not Started` |
 | **Phase 3** | Stage 1 (Key Warm-Up) & Stage 2 (Flashcards + Continuous Etudes) | [phase-3-warmup-and-sight-reading.md](./phases/phase-3-warmup-and-sight-reading.md) | `[ ] Not Started` |
 | **Phase 4** | Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer) | [phase-4-companion-srs-ear-training.md](./phases/phase-4-companion-srs-ear-training.md) | `[ ] Not Started` |

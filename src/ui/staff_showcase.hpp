@@ -1,0 +1,30 @@
+#pragma once
+
+#include "ui/staff_renderer.hpp"
+
+#include <vector>
+
+namespace selfano::ui {
+
+enum class ShowcasePreset : int {
+  Phase1Overview = 0,
+  ScaleAndCadence = 1,
+  LedgerExtremes = 2,
+  SecondAndAccidentalStress = 3,
+};
+
+class StaffShowcase {
+public:
+  StaffShowcase();
+
+  void draw(ImFont* smufl_font, ImFont* ui_font, const char* smufl_path_label);
+
+private:
+  void rebuild_measures();
+
+  StaffRenderOptions options_{};
+  ShowcasePreset preset_{ShowcasePreset::Phase1Overview};
+  std::vector<StaffMeasure> measures_;
+};
+
+} // namespace selfano::ui
