@@ -33,6 +33,7 @@ struct UserPreferences {
   bool light_paper_staff{true};
   bool dark_ui_theme{false};
   double ui_zoom{1.0};
+  bool piano_remote_enabled{true};
 
   bool operator==(const UserPreferences&) const = default;
 };

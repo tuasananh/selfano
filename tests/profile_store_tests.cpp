@@ -85,6 +85,7 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   profile.preferences.light_paper_staff = false;
   profile.preferences.dark_ui_theme = true;
   profile.preferences.ui_zoom = 1.25;
+  profile.preferences.piano_remote_enabled = false;
 
   const std::string json_text = to_json_string(profile);
   const auto parsed = from_json_string(json_text);
@@ -105,6 +106,7 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res->preferences.default_bpm == 72.0);
     REQUIRE_FALSE(res->preferences.dark_ui_theme);
     REQUIRE(res->preferences.ui_zoom == 1.0);
+    REQUIRE(res->preferences.piano_remote_enabled);
   }
 
   SECTION("Corrupt JSON, wrong root type, bad field type, and bad schema_version fail safely") {
