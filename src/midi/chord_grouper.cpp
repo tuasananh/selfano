@@ -1,6 +1,7 @@
 #include "midi/chord_grouper.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace selfano::midi {
 
@@ -9,6 +10,10 @@ PolyphonicChordGrouper::PolyphonicChordGrouper(double window_ms) noexcept {
 }
 
 void PolyphonicChordGrouper::set_window_ms(double window_ms) noexcept {
+  if (!std::isfinite(window_ms)) {
+    window_ms_ = kDefaultWindowMs;
+    return;
+  }
   window_ms_ = std::clamp(window_ms, kMinWindowMs, kMaxWindowMs);
 }
 

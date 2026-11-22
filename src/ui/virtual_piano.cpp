@@ -57,7 +57,6 @@ void VirtualPiano::draw(const char* id, VirtualPianoMode mode,
 
   const ImVec2 origin = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton(id, ImVec2(avail_w, height), ImGuiButtonFlags_MouseButtonLeft);
-  const bool hovered = ImGui::IsItemHovered();
   const bool active = ImGui::IsItemActive();
 
   const float white_w = avail_w / static_cast<float>(white_count);
@@ -121,9 +120,7 @@ void VirtualPiano::draw(const char* id, VirtualPianoMode mode,
         });
       }
     }
-  } else if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) && mouse_held_note_.has_value()) {
-    release_mouse_key(now_ms, out_events);
-  } else if (!hovered && !active && mouse_held_note_.has_value()) {
+  } else if (mouse_held_note_.has_value()) {
     release_mouse_key(now_ms, out_events);
   }
 
@@ -172,14 +169,16 @@ void VirtualPiano::draw(const char* id, VirtualPianoMode mode,
     }
 
     // Octave C labels & Middle C marker
-    if ((k.midi % 12) == 0 && white_w >= 14.0f) {
+    if ((k.midi % 12) == 0) {
       const int octave = static_cast<int>(k.midi) / 12 - 1;
       const std::string label = std::format("C{}", octave);
       const ImVec2 sz = ImGui::CalcTextSize(label.c_str());
-      const float cx = 0.5f * (k.min.x + k.max.x) - sz.x * 0.5f;
-      const ImU32 txt_col =
-          (k.midi == 60) ? IM_COL32(34, 108, 212, 255) : IM_COL32(95, 100, 110, 255);
-      dl->AddText(ImVec2(cx, k.max.y - sz.y - 4.0f), txt_col, label.c_str());
+      if (sz.x + 2.0f <= white_w) {
+        const float cx = 0.5f * (k.min.x + k.max.x) - sz.x * 0.5f;
+        const ImU32 txt_col =
+            (k.midi == 60) ? IM_COL32(34, 108, 212, 255) : IM_COL32(95, 100, 110, 255);
+        dl->AddText(ImVec2(cx, k.max.y - sz.y - 4.0f), txt_col, label.c_str());
+      }
     }
   }
 

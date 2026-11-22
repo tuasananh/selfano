@@ -41,11 +41,15 @@ struct MidiEngine::Impl {
   std::vector<libremidi::output_port> raw_outputs;
   std::string active_input_port_name;
   std::string active_output_port_name;
+  std::string desired_input_port_name;
+  std::string desired_output_port_name;
   std::string last_error;
 
   Impl() {
     try {
       libremidi::observer_configuration obs_cfg{};
+      obs_cfg.track_virtual = true;
+      obs_cfg.notify_in_constructor = false;
       obs_cfg.input_added = [this](const libremidi::input_port&) noexcept {
         ports_dirty.store(true, std::memory_order_release);
       };
@@ -77,6 +81,7 @@ struct MidiEngine::Impl {
 
       midi_out = std::make_unique<libremidi::midi_out>();
       refresh_ports();
+      ports_dirty.store(false, std::memory_order_release);
     } catch (const std::exception& ex) {
       last_error = std::string("MIDI backend unavailable: ") + ex.what();
     } catch (...) {
@@ -89,6 +94,9 @@ struct MidiEngine::Impl {
       (void)midi_in->close_port();
     }
     if (midi_out != nullptr && midi_out->is_port_open()) {
+      for (std::uint8_t ch = 0; ch < 16U; ++ch) {
+        (void)midi_out->send_message(static_cast<unsigned char>(0xB0U | ch), 123U, 0U);
+      }
       (void)midi_out->close_port();
     }
     observer.reset();
@@ -104,23 +112,47 @@ struct MidiEngine::Impl {
       raw_inputs = observer->get_input_ports();
       raw_outputs = observer->get_output_ports();
 
-      // If an open device was unplugged, close cleanly without crashing.
-      if (midi_in != nullptr && midi_in->is_port_open() && !active_input_port_name.empty()) {
-        const bool still_present =
-            std::any_of(raw_inputs.begin(), raw_inputs.end(),
-                        [this](const auto& p) { return p.port_name == active_input_port_name; });
-        if (!still_present) {
-          (void)midi_in->close_port();
-          active_input_port_name.clear();
+      // Handle hotplug unplug AND automatic hot-reconnect when the desired port reappears.
+      if (midi_in != nullptr) {
+        if (midi_in->is_port_open() && !active_input_port_name.empty()) {
+          const bool still_present =
+              std::any_of(raw_inputs.begin(), raw_inputs.end(),
+                          [this](const auto& p) { return p.port_name == active_input_port_name; });
+          if (!still_present) {
+            (void)midi_in->close_port();
+            active_input_port_name.clear();
+          }
+        } else if (!midi_in->is_port_open() && !desired_input_port_name.empty()) {
+          const auto it = std::find_if(raw_inputs.begin(), raw_inputs.end(), [this](const auto& p) {
+            return p.port_name == desired_input_port_name;
+          });
+          if (it != raw_inputs.end() &&
+              midi_in->open_port(*it, "Selfano MIDI In") == stdx::error{}) {
+            active_input_port_name = it->port_name;
+            last_error.clear();
+          }
         }
       }
-      if (midi_out != nullptr && midi_out->is_port_open() && !active_output_port_name.empty()) {
-        const bool still_present =
-            std::any_of(raw_outputs.begin(), raw_outputs.end(),
-                        [this](const auto& p) { return p.port_name == active_output_port_name; });
-        if (!still_present) {
-          (void)midi_out->close_port();
-          active_output_port_name.clear();
+
+      if (midi_out != nullptr) {
+        if (midi_out->is_port_open() && !active_output_port_name.empty()) {
+          const bool still_present =
+              std::any_of(raw_outputs.begin(), raw_outputs.end(),
+                          [this](const auto& p) { return p.port_name == active_output_port_name; });
+          if (!still_present) {
+            (void)midi_out->close_port();
+            active_output_port_name.clear();
+          }
+        } else if (!midi_out->is_port_open() && !desired_output_port_name.empty()) {
+          const auto it =
+              std::find_if(raw_outputs.begin(), raw_outputs.end(), [this](const auto& p) {
+                return p.port_name == desired_output_port_name;
+              });
+          if (it != raw_outputs.end() &&
+              midi_out->open_port(*it, "Selfano MIDI Out") == stdx::error{}) {
+            active_output_port_name = it->port_name;
+            last_error.clear();
+          }
         }
       }
     } catch (const std::exception& ex) {
@@ -180,6 +212,7 @@ std::expected<void, std::string> MidiEngine::open_input_port(std::size_t index) 
     return std::unexpected(impl_->last_error);
   }
   impl_->active_input_port_name = target.port_name;
+  impl_->desired_input_port_name = target.port_name;
   impl_->last_error.clear();
   return {};
 }
@@ -200,6 +233,7 @@ std::expected<void, std::string> MidiEngine::open_output_port(std::size_t index)
     return std::unexpected(impl_->last_error);
   }
   impl_->active_output_port_name = target.port_name;
+  impl_->desired_output_port_name = target.port_name;
   impl_->last_error.clear();
   return {};
 }
@@ -209,6 +243,7 @@ void MidiEngine::close_input_port() {
     (void)impl_->midi_in->close_port();
   }
   impl_->active_input_port_name.clear();
+  impl_->desired_input_port_name.clear();
 }
 
 void MidiEngine::close_output_port() {
@@ -217,6 +252,7 @@ void MidiEngine::close_output_port() {
     (void)impl_->midi_out->close_port();
   }
   impl_->active_output_port_name.clear();
+  impl_->desired_output_port_name.clear();
 }
 
 bool MidiEngine::is_input_open() const noexcept {

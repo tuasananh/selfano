@@ -96,6 +96,11 @@ void Phase2Sandbox::on_played_chord(const midi::PlayedChord& chord, double now_m
   if (prompts_.empty() || chord.notes.empty()) {
     return;
   }
+  // Ignore stray trailing notes during the short post-match auto-advance grace period.
+  if (auto_advance_ && last_feedback_ == NoteFeedback::Correct && matched_at_ms_ >= 0.0 &&
+      (now_ms - matched_at_ms_) < 900.0) {
+    return;
+  }
   const auto& prompt = prompts_[prompt_index_];
   last_played_notes_ = chord.notes;
 
@@ -138,14 +143,12 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     select_prompt(prompt_index_ + 1);
   }
 
-  const auto& prompt = prompts_[prompt_index_];
-
   // Control strip
   ImGui::AlignTextToFramePadding();
   ImGui::Text("Prompt (%zu/%zu):", prompt_index_ + 1, prompts_.size());
   ImGui::SameLine();
   ImGui::SetNextItemWidth(300.0f);
-  if (ImGui::BeginCombo("##prompt_sel", prompt.title.c_str())) {
+  if (ImGui::BeginCombo("##prompt_sel", prompts_[prompt_index_].title.c_str())) {
     for (std::size_t i = 0; i < prompts_.size(); ++i) {
       if (ImGui::Selectable(prompts_[i].title.c_str(), i == prompt_index_)) {
         select_prompt(i);
@@ -172,6 +175,9 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
   ImGui::SameLine();
   ImGui::Checkbox("Paper Staff", &light_paper_theme_);
 
+  // Bind active prompt AFTER selection controls so switching never lags by 1 frame.
+  const auto& prompt = prompts_[prompt_index_];
+
   // Feedback status banner
   ImVec4 banner_col(0.75f, 0.80f, 0.88f, 1.0f);
   if (last_feedback_ == NoteFeedback::Correct) {
@@ -185,6 +191,26 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.34f, 1.0f), " | CC 67 Replay Triggers: %d",
                        soft_pedal_count_);
   }
+
+  // Compute unexpected played notes and missed targets for accurate, concise mismatch badges
+  std::vector<std::uint8_t> unexpected_played;
+  std::vector<std::uint8_t> missed_targets;
+  if (last_feedback_ == NoteFeedback::Incorrect) {
+    for (const std::uint8_t m : last_played_notes_) {
+      if (std::find(prompt.target_midi.begin(), prompt.target_midi.end(), m) ==
+          prompt.target_midi.end()) {
+        unexpected_played.push_back(m);
+      }
+    }
+    for (const std::uint8_t m : prompt.target_midi) {
+      if (std::find(last_played_notes_.begin(), last_played_notes_.end(), m) ==
+          last_played_notes_.end()) {
+        missed_targets.push_back(m);
+      }
+    }
+  }
+  const bool superset_mismatch = (last_feedback_ == NoteFeedback::Incorrect) &&
+                                 missed_targets.empty() && !unexpected_played.empty();
 
   // Build Grand Staff representation: Bar 1 = Target chord (with live feedback), Bar 2 = Live Held
   StaffChord target_chord{};
@@ -201,10 +227,20 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     if (last_feedback_ == NoteFeedback::Incorrect) {
       const bool hit = std::find(last_played_notes_.begin(), last_played_notes_.end(), midi_n) !=
                        last_played_notes_.end();
-      fb = hit ? NoteFeedback::Correct : NoteFeedback::Incorrect;
-      if (!hit && !attached_mismatch_label && !last_played_notes_.empty()) {
-        played_lbl = format_midi_set(last_played_notes_, prompt.key);
-        attached_mismatch_label = true;
+      if (superset_mismatch) {
+        // Every target note was played PLUS extra wrong notes: mark chord Red with Extra badge.
+        fb = NoteFeedback::Incorrect;
+        if (!attached_mismatch_label) {
+          played_lbl = "Extra: " + format_midi_set(unexpected_played, prompt.key);
+          attached_mismatch_label = true;
+        }
+      } else {
+        fb = hit ? NoteFeedback::Correct : NoteFeedback::Incorrect;
+        if (!hit && !attached_mismatch_label) {
+          played_lbl = unexpected_played.empty() ? std::string("Missing")
+                                                 : format_midi_set(unexpected_played, prompt.key);
+          attached_mismatch_label = true;
+        }
       }
     }
     target_chord.notes.push_back(StaffNote{
@@ -300,8 +336,12 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     }
   }
 
+  const float piano_avail_w = std::max(320.0f, ImGui::GetContentRegionAvail().x);
+  const bool piano_88 =
+      (piano_mode == VirtualPianoMode::Full88) ||
+      (piano_mode == VirtualPianoMode::Auto && piano_avail_w >= VirtualPiano::kAutoFull88MinWidth);
   ImGui::TextDisabled("Interactive Virtual Piano (%s) - Click/drag keys or use QWERTY A-L / W-P",
-                      virtual_piano_.is_showing_88_keys() ? "88-Key A0..C8" : "4-Octave C2..C6");
+                      piano_88 ? "88-Key A0..C8" : "4-Octave C2..C6");
   virtual_piano_.draw("##phase2_virtual_piano", piano_mode, highlights, now_ms, out_virtual_events,
                       118.0f);
 }

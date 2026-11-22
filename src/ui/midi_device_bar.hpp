@@ -3,7 +3,6 @@
 #include "midi/audio_synth.hpp"
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_engine.hpp"
-#include "midi/midi_scheduler.hpp"
 
 #include "ui/virtual_piano.hpp"
 

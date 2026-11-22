@@ -5,7 +5,7 @@
 namespace selfano::midi {
 
 void MidiPlaybackScheduler::schedule(ScheduledMidiNote note) {
-  if (note.note > 127U) {
+  if (note.note > 127U || note.velocity == 0U) {
     return;
   }
   note.velocity = std::min<std::uint8_t>(note.velocity, 127U);
@@ -44,6 +44,22 @@ std::vector<OutboundMidiAction> MidiPlaybackScheduler::update(double now_ms) {
     if (pending_it->start_ms <= now_ms) {
       const ScheduledMidiNote due = *pending_it;
       pending_it = pending_.erase(pending_it);
+
+      // If this exact (note, channel) is already active, release it cleanly before re-triggering
+      // so the older deadline cannot prematurely cut off the new note.
+      for (auto it = active_.begin(); it != active_.end();) {
+        if (it->note == due.note && it->channel == due.channel) {
+          actions.push_back(OutboundMidiAction{
+              .note = it->note,
+              .velocity = 0,
+              .channel = it->channel,
+              .is_note_on = false,
+          });
+          it = active_.erase(it);
+        } else {
+          ++it;
+        }
+      }
 
       actions.push_back(OutboundMidiAction{
           .note = due.note,

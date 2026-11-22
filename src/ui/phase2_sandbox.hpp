@@ -6,7 +6,6 @@
 #include "midi/midi_event.hpp"
 #include "midi/midi_scheduler.hpp"
 
-#include "ui/midi_device_bar.hpp"
 #include "ui/staff_renderer.hpp"
 #include "ui/virtual_piano.hpp"
 

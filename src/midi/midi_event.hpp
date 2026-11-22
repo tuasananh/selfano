@@ -16,8 +16,9 @@ struct MidiNoteEvent {
 };
 
 // Pure, allocation-free, lock-free MIDI 1.0 channel message parser safe for RT callbacks.
-[[nodiscard]] constexpr std::optional<MidiNoteEvent> parse_midi1_bytes(
-    std::span<const std::uint8_t> bytes, double timestamp_ms, bool from_hardware) noexcept {
+[[nodiscard]] constexpr std::optional<MidiNoteEvent>
+parse_midi1_bytes(std::span<const std::uint8_t> bytes, double timestamp_ms,
+                  bool from_hardware) noexcept {
   if (bytes.size() < 3) {
     return std::nullopt;
   }
@@ -49,11 +50,11 @@ struct MidiNoteEvent {
         .timestamp_ms = timestamp_ms,
     };
   }
-  if (status == 0xB0U && data1 == 67U && data2 >= 64U) {
+  if (status == 0xB0U && data1 == 67U) {
     return MidiNoteEvent{
         .note = 0,
         .velocity = data2,
-        .is_note_on = false,
+        .is_note_on = (data2 >= 64U),
         .is_soft_pedal = true,
         .from_hardware = from_hardware,
         .timestamp_ms = timestamp_ms,

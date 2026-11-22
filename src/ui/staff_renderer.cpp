@@ -7,6 +7,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <format>
 #include <vector>
@@ -104,7 +105,7 @@ void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_a
     return;
   }
   const float text_size_px = 13.0f;
-  const ImVec2 txt_sz = ui_font->CalcTextSizeA(text_size_px, 240.0f, 0.0f, text.c_str());
+  const ImVec2 txt_sz = ui_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
   const float pad_x = 5.0f;
   const float pad_y = 2.0f;
   const ImVec2 box_min(std::round(center_anchor.x - txt_sz.x * 0.5f - pad_x),
@@ -378,7 +379,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
         if (ui_font != nullptr && !chord.annotation.empty()) {
           const float ann_size_px = 13.0f;
           const ImVec2 ann_sz =
-              ui_font->CalcTextSizeA(ann_size_px, 200.0f, 0.0f, chord.annotation.c_str());
+              ui_font->CalcTextSizeA(ann_size_px, FLT_MAX, 0.0f, chord.annotation.c_str());
           const float ann_x =
               chord_x + notehead_width_spaces(chord.duration) * 0.5f * s - ann_sz.x * 0.5f;
           const float ann_y = system_top_y - 4.4f * s;

@@ -30,6 +30,8 @@ MidiDeviceBarActions draw_midi_device_bar(midi::MidiEngine& midi_engine, midi::A
     const bool none_sel = !midi_engine.is_input_open();
     if (ImGui::Selectable("Virtual / QWERTY Only", none_sel)) {
       midi_engine.close_input_port();
+      grouper.clear();
+      synth.all_notes_off();
       state.status_banner = "MIDI IN disconnected (using Virtual Piano / QWERTY)";
     }
     const auto active_in = midi_engine.active_input_index();
@@ -68,6 +70,7 @@ MidiDeviceBarActions draw_midi_device_bar(midi::MidiEngine& midi_engine, midi::A
       if (ImGui::Selectable(label.c_str(), selected)) {
         const auto res = midi_engine.open_output_port(i);
         if (res.has_value()) {
+          synth.all_notes_off();
           state.status_banner = "Connected MIDI OUT: " + outputs[i].display_name;
         } else {
           state.status_banner = res.error();
@@ -112,7 +115,11 @@ MidiDeviceBarActions draw_midi_device_bar(midi::MidiEngine& midi_engine, midi::A
   }
 
   ImGui::SameLine();
-  ImGui::Checkbox("Monitor MIDI IN", &state.monitor_midi_in);
+  if (ImGui::Checkbox("Monitor MIDI IN", &state.monitor_midi_in)) {
+    if (!state.monitor_midi_in) {
+      synth.all_notes_off();
+    }
+  }
   if (ImGui::IsItemHovered()) {
     ImGui::SetTooltip(
         "Play hardware MIDI IN through SDL3 synth (keep OFF on Korg LP-380 speakers)");

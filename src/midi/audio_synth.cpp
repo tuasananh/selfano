@@ -15,9 +15,29 @@ constexpr float kDecayRate = 1.0f / (0.16f * static_cast<float>(AudioSynth::kSam
 constexpr float kSustainLevel = 0.42f;
 constexpr float kReleaseRate = 1.0f / (0.18f * static_cast<float>(AudioSynth::kSampleRate));
 
-[[nodiscard]] float midi_note_to_freq(std::uint8_t midi_note) noexcept {
-  const float semitones_from_a4 = static_cast<float>(midi_note) - 69.0f;
-  return 440.0f * std::pow(2.0f, semitones_from_a4 / 12.0f);
+// Compile-time 128-entry equal-temperament frequency table (A4 = 440 Hz, 2^(1/12) steps)
+// so RT audio synthesis performs zero std::pow calls.
+consteval std::array<float, 128> make_midi_freq_table() {
+  std::array<float, 128> table{};
+  constexpr double kSemitoneRatio = 1.0594630943592952645618252949463; // 2^(1/12)
+  table[69] = 440.0f;
+  double f = 440.0;
+  for (int i = 70; i < 128; ++i) {
+    f *= kSemitoneRatio;
+    table[static_cast<std::size_t>(i)] = static_cast<float>(f);
+  }
+  f = 440.0;
+  for (int i = 68; i >= 0; --i) {
+    f /= kSemitoneRatio;
+    table[static_cast<std::size_t>(i)] = static_cast<float>(f);
+  }
+  return table;
+}
+
+constexpr std::array<float, 128> kMidiFreqTable = make_midi_freq_table();
+
+[[nodiscard]] constexpr float midi_note_to_freq(std::uint8_t midi_note) noexcept {
+  return kMidiFreqTable[midi_note & 0x7FU];
 }
 
 [[nodiscard]] float wrap_phase(float phase) noexcept {

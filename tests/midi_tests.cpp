@@ -81,16 +81,26 @@ TEST_CASE("parse_midi1_bytes normalizes NoteOn vel=0 and parses NoteOff and CC 6
     REQUIRE_FALSE(ev->is_note_on);
   }
 
-  SECTION("Soft Pedal CC 67 press and release") {
+  SECTION("Soft Pedal CC 67 press and release preserve edge state") {
     const std::array<std::uint8_t, 3> press{0xB0, 67, 127};
     const auto ev_press = parse_midi1_bytes(press, 30.0, true);
     REQUIRE(ev_press.has_value());
     REQUIRE(ev_press->is_soft_pedal);
+    REQUIRE(ev_press->is_note_on);
     REQUIRE(ev_press->velocity == 127);
 
-    const std::array<std::uint8_t, 3> release{0xB0, 67, 0};
+    const std::array<std::uint8_t, 3> threshold_on{0xB0, 67, 64};
+    const auto ev_on64 = parse_midi1_bytes(threshold_on, 32.0, true);
+    REQUIRE(ev_on64.has_value());
+    REQUIRE(ev_on64->is_soft_pedal);
+    REQUIRE(ev_on64->is_note_on);
+
+    const std::array<std::uint8_t, 3> release{0xB0, 67, 63};
     const auto ev_rel = parse_midi1_bytes(release, 35.0, true);
-    REQUIRE_FALSE(ev_rel.has_value());
+    REQUIRE(ev_rel.has_value());
+    REQUIRE(ev_rel->is_soft_pedal);
+    REQUIRE_FALSE(ev_rel->is_note_on);
+    REQUIRE(ev_rel->velocity == 63);
   }
 
   SECTION("Ignores malformed/short messages and unrelated CCs") {
@@ -162,6 +172,25 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
     REQUIRE(chords.size() == 1);
     REQUIRE(chords[0].notes == std::vector<std::uint8_t>{60, 64, 67});
   }
+
+  SECTION("Window clamping, NaN safety, deduplication, and clear") {
+    grouper.set_window_ms(10.0);
+    REQUIRE(grouper.window_ms() == PolyphonicChordGrouper::kMinWindowMs);
+    grouper.set_window_ms(500.0);
+    REQUIRE(grouper.window_ms() == PolyphonicChordGrouper::kMaxWindowMs);
+    grouper.set_window_ms(std::nan(""));
+    REQUIRE(grouper.window_ms() == PolyphonicChordGrouper::kDefaultWindowMs);
+
+    grouper.push_event(MidiNoteEvent{60, 90, true, false, true, 4000.0});
+    grouper.push_event(MidiNoteEvent{60, 95, true, false, true, 4020.0});
+    grouper.update(4150.0);
+    const auto chords = grouper.take_completed_chords();
+    REQUIRE(chords.size() == 1);
+    REQUIRE(chords[0].notes == std::vector<std::uint8_t>{60});
+
+    grouper.clear();
+    REQUIRE_FALSE(grouper.held_notes()[60]);
+  }
 }
 
 TEST_CASE("MidiPlaybackScheduler dispatches timed NoteOn, NoteOff, and panic cleanup",
@@ -194,6 +223,27 @@ TEST_CASE("MidiPlaybackScheduler dispatches timed NoteOn, NoteOff, and panic cle
   REQUIRE(panic[0].note == 67);
   REQUIRE_FALSE(panic[0].is_note_on);
   REQUIRE_FALSE(scheduler.has_pending_or_active());
+
+  // Overlapping same-pitch retrigger emits clean NoteOff before new NoteOn and drops stale deadline
+  scheduler.schedule(ScheduledMidiNote{60, 0, 500.0, 200.0, 0}); // vel=0 rejected
+  REQUIRE_FALSE(scheduler.has_pending_or_active());
+
+  scheduler.schedule(ScheduledMidiNote{60, 96, 500.0, 300.0, 0});
+  scheduler.schedule(ScheduledMidiNote{60, 100, 650.0, 400.0, 0});
+  const auto first_on = scheduler.update(500.0);
+  REQUIRE(first_on.size() == 1);
+  REQUIRE(first_on[0].is_note_on);
+
+  const auto retrigger = scheduler.update(650.0);
+  REQUIRE(retrigger.size() == 2);
+  REQUIRE_FALSE(retrigger[0].is_note_on);
+  REQUIRE(retrigger[1].is_note_on);
+
+  // Old deadline (800 ms) must NOT prematurely cut off the retriggered note (ends at 1050 ms)
+  REQUIRE(scheduler.update(850.0).empty());
+  const auto final_off = scheduler.update(1060.0);
+  REQUIRE(final_off.size() == 1);
+  REQUIRE_FALSE(final_off[0].is_note_on);
 }
 
 TEST_CASE("AudioSynth DSP renders bounded finite audio for notes, metronome, and chimes",
@@ -243,6 +293,34 @@ TEST_CASE("AudioSynth DSP renders bounded finite audio for notes, metronome, and
     peak_cue = std::max(peak_cue, std::abs(s));
   }
   REQUIRE(peak_cue > 0.02f);
+
+  // Mute silences output completely, voice stealing stays bounded/finite across >24 voices
+  synth.set_muted(true);
+  REQUIRE(synth.is_muted());
+  for (std::uint8_t n = 40; n < 72; ++n) {
+    synth.note_on(n, 110);
+  }
+  synth.render_stereo_frames(buffer);
+  for (const float s : buffer) {
+    REQUIRE(s == 0.0f);
+  }
+
+  synth.set_muted(false);
+  synth.render_stereo_frames(buffer);
+  for (const float s : buffer) {
+    REQUIRE(std::isfinite(s));
+    REQUIRE(std::abs(s) <= 1.0f);
+  }
+
+  synth.all_notes_off();
+  for (int i = 0; i < 25; ++i) {
+    synth.render_stereo_frames(buffer);
+  }
+  float peak_silenced = 0.0f;
+  for (const float s : buffer) {
+    peak_silenced = std::max(peak_silenced, std::abs(s));
+  }
+  REQUIRE(peak_silenced < 0.01f);
 }
 
 TEST_CASE("QwertyMapper maps keys to MIDI notes, suppresses repeats, and avoids stuck notes",
