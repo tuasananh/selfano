@@ -75,6 +75,7 @@ struct DesignSystemContext {
   AppFonts fonts{};
   float dpi_scale{1.0f};
   float ui_zoom{1.0f};
+  bool show_piano_key_hints{false};
 };
 
 void init_design_system(const AppFonts& fonts, AppTheme theme, float dpi_scale,
@@ -83,6 +84,7 @@ void set_app_theme(AppTheme theme);
 void set_ui_zoom(float zoom);
 void adjust_ui_zoom(float delta);
 void reset_ui_zoom();
+void set_show_piano_key_hints(bool show) noexcept;
 
 [[nodiscard]] const DesignSystemContext& ds() noexcept;
 [[nodiscard]] const ThemeColors& colors() noexcept;
@@ -90,6 +92,7 @@ void reset_ui_zoom();
 [[nodiscard]] bool is_dark_theme() noexcept;
 [[nodiscard]] float ui_zoom() noexcept;
 [[nodiscard]] float effective_ui_scale() noexcept;
+[[nodiscard]] bool show_piano_key_hints() noexcept;
 
 [[nodiscard]] ImU32 to_u32(ImVec4 c) noexcept;
 [[nodiscard]] ImU32 with_alpha(ImVec4 c, float alpha) noexcept;

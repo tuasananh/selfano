@@ -74,6 +74,7 @@ struct CliOptions {
   int initial_dev_subtab{0};
   std::optional<selfano::ui::AppTheme> theme_override{};
   bool open_keymap{false};
+  bool force_key_hints{false};
 };
 
 struct SessionBaselines {
@@ -195,6 +196,8 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
       }
     } else if (arg == "--keymap") {
       opts.open_keymap = true;
+    } else if (arg == "--show-key-hints") {
+      opts.force_key_hints = true;
     }
   }
   return opts;
@@ -1150,10 +1153,12 @@ struct AppContext {
         ImGui::TextUnformatted("Selfano");
       }
 
-      ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 30.0f * scale);
+      const float collapse_w = selfano::ui::show_piano_key_hints() ? 66.0f : 30.0f;
+      ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - collapse_w * scale);
       ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 3.0f * scale);
       if (selfano::ui::icon_button("##sb_collapse", selfano::ui::IconId::SidebarToggle,
-                                   "Hide Sidebar (Focus Mode)", false, 28.0f)) {
+                                   "Hide Sidebar (Focus Mode)", false, 28.0f,
+                                   selfano::ui::ButtonTone::Ghost, "G#7")) {
         sidebar_collapsed = true;
       }
 
@@ -1161,7 +1166,7 @@ struct AppContext {
 
       // Primary Navigation
       if (selfano::ui::sidebar_nav_item("##nav_today", "Today", selfano::ui::IconId::Home,
-                                        app_mode == AppMode::Home)) {
+                                        app_mode == AppMode::Home, nullptr, false, "A0")) {
         cleanup_stage_transitions(now_ms);
         app_mode = AppMode::Home;
       }
@@ -1174,10 +1179,10 @@ struct AppContext {
             0.0, selfano::core::kTotalAutopilotDurationSec - autopilot.total_elapsed_sec())));
         ap_badge = std::format("{:02d}:{:02d}", tot_rem / 60, tot_rem % 60);
       }
-      if (selfano::ui::sidebar_nav_item("##nav_autopilot", "30-Min Session",
-                                        selfano::ui::IconId::PlayCircle,
-                                        app_mode == AppMode::Autopilot,
-                                        ap_badge.empty() ? nullptr : ap_badge.c_str(), ap_active)) {
+      if (selfano::ui::sidebar_nav_item(
+              "##nav_autopilot", "30-Min Session", selfano::ui::IconId::PlayCircle,
+              app_mode == AppMode::Autopilot, ap_badge.empty() ? nullptr : ap_badge.c_str(),
+              ap_active, "B0")) {
         if (autopilot.state() == selfano::core::AutopilotState::Idle ||
             autopilot.state() == selfano::core::AutopilotState::Completed) {
           start_autopilot_session(now_ms);
@@ -1189,6 +1194,11 @@ struct AppContext {
       ImGui::Dummy(ImVec2(0.0f, 12.0f * scale));
       ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f * scale);
       selfano::ui::section_kicker("PRACTICE");
+      if (selfano::ui::show_piano_key_hints()) {
+        ImGui::SameLine(0.0f, 8.0f * scale);
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f * scale);
+        selfano::ui::piano_key_hint_badge("C7 / D7");
+      }
       ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
 
       const std::size_t due_srs = srs_view.deck().due_cards(today_epoch_day).size();
@@ -1723,6 +1733,10 @@ struct AppContext {
       send_outbound_note_logged(act.note, act.velocity, act.channel, act.is_note_on, now_ms);
     }
 
+    selfano::ui::set_show_piano_key_hints((midi_engine.is_input_open() || cli.force_key_hints) &&
+                                          midi_bar_state.piano_remote_enabled &&
+                                          (app_mode != AppMode::MidiMonitor));
+
     ImGui_ImplSDLRenderer3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -1757,7 +1771,7 @@ struct AppContext {
         if (sidebar_collapsed && app_mode != AppMode::Autopilot) {
           if (selfano::ui::icon_button("##ws_expand_sb", selfano::ui::IconId::SidebarToggle,
                                        "Show Sidebar", false, 30.0f,
-                                       selfano::ui::ButtonTone::Secondary)) {
+                                       selfano::ui::ButtonTone::Secondary, "G#7")) {
             sidebar_collapsed = false;
           }
           ImGui::SameLine(0.0f, 8.0f * scale);

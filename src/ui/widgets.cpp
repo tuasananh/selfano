@@ -35,6 +35,52 @@ struct CardFrameState {
 CardFrameState g_card_stack[8]{};
 int g_card_depth = 0;
 
+struct KeyCapMetrics {
+  float width{0.0f};
+  float height{0.0f};
+  ImVec2 text_size{};
+};
+
+[[nodiscard]] KeyCapMetrics measure_keycap(std::string_view key_text, float scale) {
+  if (key_text.empty()) {
+    return {};
+  }
+  ScopedFont cap_f(TypeStyle::Caption);
+  const ImVec2 tsz = ImGui::CalcTextSize(key_text.data(), key_text.data() + key_text.size());
+  const float pad_x = 5.5f * scale;
+  const float h = std::max(17.0f * scale, tsz.y + 4.0f * scale);
+  const float w = std::max(21.0f * scale, tsz.x + pad_x * 2.0f);
+  return KeyCapMetrics{.width = w, .height = h, .text_size = tsz};
+}
+
+void draw_keycap_box(ImDrawList* dl, ImVec2 pos, const KeyCapMetrics& m, std::string_view key_text,
+                     bool on_solid_accent, float scale) {
+  if (dl == nullptr || key_text.empty()) {
+    return;
+  }
+  const auto& c = colors();
+  const ImVec2 pmax(pos.x + m.width, pos.y + m.height);
+  const float rad = 5.0f * scale;
+
+  const ImU32 bg = on_solid_accent
+                       ? IM_COL32(255, 255, 255, 42)
+                       : (is_dark_theme() ? IM_COL32(255, 255, 255, 18) : IM_COL32(0, 0, 0, 14));
+  const ImU32 border =
+      on_solid_accent ? IM_COL32(255, 255, 255, 70)
+                      : (is_dark_theme() ? IM_COL32(255, 255, 255, 32) : IM_COL32(0, 0, 0, 26));
+  const ImU32 fg =
+      on_solid_accent ? IM_COL32(255, 255, 255, 210) : with_alpha(c.text_secondary, 0.85f);
+
+  dl->AddRectFilled(pos, pmax, bg, rad);
+  dl->AddRect(pos, pmax, border, rad, 0, 1.0f);
+
+  ScopedFont cap_f(TypeStyle::Caption);
+  const float tx = pos.x + (m.width - m.text_size.x) * 0.5f;
+  const float ty = pos.y + (m.height - m.text_size.y) * 0.5f;
+  dl->AddText(ImVec2(std::round(tx), std::round(ty)), fg, key_text.data(),
+              key_text.data() + key_text.size());
+}
+
 } // namespace
 
 bool begin_card(const char* id, ImVec2 size, float padding, float rounding, bool auto_resize_y,
@@ -85,11 +131,14 @@ void end_card() {
 }
 
 bool pill_button(const char* id_and_label, ButtonTone tone, IconId icon, float height,
-                 float min_width, bool full_pill) {
+                 float min_width, bool full_pill, const char* key_hint) {
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const float h = height * scale;
   const std::string_view text = visible_label(id_and_label);
+  const std::string_view hint_sv = (key_hint != nullptr && show_piano_key_hints())
+                                       ? std::string_view(key_hint)
+                                       : std::string_view{};
 
   ScopedFont font_guard(tone == ButtonTone::Primary || tone == ButtonTone::Success
                             ? TypeStyle::Headline
@@ -98,8 +147,11 @@ bool pill_button(const char* id_and_label, ButtonTone tone, IconId icon, float h
                                      : ImGui::CalcTextSize(text.data(), text.data() + text.size());
   const float icon_sz = (icon != IconId::None) ? (14.5f * scale) : 0.0f;
   const float icon_gap = (icon != IconId::None && !text.empty()) ? (7.0f * scale) : 0.0f;
-  const float pad_x = (full_pill ? 16.0f : 13.0f) * scale;
-  const float content_w = icon_sz + icon_gap + txt_sz.x;
+  const KeyCapMetrics kc = measure_keycap(hint_sv, scale);
+  const float hint_gap =
+      (!hint_sv.empty() && (!text.empty() || icon != IconId::None)) ? (7.0f * scale) : 0.0f;
+  const float pad_x = (full_pill ? 15.0f : 12.0f) * scale;
+  const float content_w = icon_sz + icon_gap + txt_sz.x + hint_gap + kc.width;
   const float w = std::max(min_width * scale, content_w + pad_x * 2.0f);
 
   const ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -113,6 +165,7 @@ bool pill_button(const char* id_and_label, ButtonTone tone, IconId icon, float h
   ImVec4 bg_hover{};
   ImVec4 fg{};
   ImU32 border = 0;
+  const bool on_solid = (tone == ButtonTone::Primary || tone == ButtonTone::Success);
 
   switch (tone) {
   case ButtonTone::Primary:
@@ -177,18 +230,28 @@ bool pill_button(const char* id_and_label, ButtonTone tone, IconId icon, float h
     dl->AddText(ImVec2(std::round(tx), std::round(ty)), fg_u32, text.data(),
                 text.data() + text.size());
   }
+  if (!hint_sv.empty()) {
+    const float kx = start_x + icon_sz + icon_gap + txt_sz.x + hint_gap;
+    const float ky = mid_y - kc.height * 0.5f;
+    draw_keycap_box(dl, ImVec2(std::round(kx), std::round(ky)), kc, hint_sv, on_solid, scale);
+  }
 
   return clicked;
 }
 
 bool icon_button(const char* id, IconId icon, const char* tooltip, bool active, float size,
-                 ButtonTone tone) {
+                 ButtonTone tone, const char* key_hint) {
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const float sz = size * scale;
+  const std::string_view hint_sv = (key_hint != nullptr && show_piano_key_hints())
+                                       ? std::string_view(key_hint)
+                                       : std::string_view{};
+  const KeyCapMetrics kc = measure_keycap(hint_sv, scale);
+  const float w = hint_sv.empty() ? sz : (sz * 0.82f + kc.width + sz * 0.20f);
   const ImVec2 pos = ImGui::GetCursorScreenPos();
 
-  const bool clicked = ImGui::InvisibleButton(id, ImVec2(sz, sz));
+  const bool clicked = ImGui::InvisibleButton(id, ImVec2(w, sz));
   const bool hovered = ImGui::IsItemHovered();
   const bool held = ImGui::IsItemActive();
   const float hover_t =
@@ -207,13 +270,26 @@ bool icon_button(const char* id, IconId icon, const char* tooltip, bool active, 
   ImDrawList* dl = ImGui::GetWindowDrawList();
   const ImVec4 fill = lerp_color(bg_idle, bg_hover, hover_t);
   if (fill.w > 0.005f) {
-    dl->AddRectFilled(pos, ImVec2(pos.x + sz, pos.y + sz), to_u32(fill), rad);
+    dl->AddRectFilled(pos, ImVec2(pos.x + w, pos.y + sz), to_u32(fill), rad);
   }
 
-  draw_icon(dl, icon, ImVec2(pos.x + sz * 0.5f, pos.y + sz * 0.5f), sz * 0.50f, to_u32(fg), 1.65f);
+  const float mid_y = pos.y + sz * 0.5f;
+  if (hint_sv.empty()) {
+    draw_icon(dl, icon, ImVec2(pos.x + sz * 0.5f, mid_y), sz * 0.50f, to_u32(fg), 1.65f);
+  } else {
+    const float icon_cx = pos.x + sz * 0.44f;
+    draw_icon(dl, icon, ImVec2(icon_cx, mid_y), sz * 0.48f, to_u32(fg), 1.65f);
+    const float kx = pos.x + sz * 0.82f;
+    const float ky = mid_y - kc.height * 0.5f;
+    draw_keycap_box(dl, ImVec2(std::round(kx), std::round(ky)), kc, hint_sv, false, scale);
+  }
 
   if (tooltip != nullptr && hovered) {
-    ImGui::SetTooltip("%s", tooltip);
+    if (key_hint != nullptr && show_piano_key_hints()) {
+      ImGui::SetTooltip("%s  (Piano: %s)", tooltip, key_hint);
+    } else {
+      ImGui::SetTooltip("%s", tooltip);
+    }
   }
   return clicked;
 }
@@ -254,7 +330,8 @@ bool toggle_switch(const char* id, bool* value) {
   return clicked;
 }
 
-bool settings_toggle_row(const char* label, const char* id, bool* value, const char* tooltip) {
+bool settings_toggle_row(const char* label, const char* id, bool* value, const char* tooltip,
+                         const char* key_hint) {
   const float avail_w = ImGui::GetContentRegionAvail().x;
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const float switch_w = 38.0f * scale;
@@ -265,6 +342,11 @@ bool settings_toggle_row(const char* label, const char* id, bool* value, const c
   ImGui::TextUnformatted(label);
   if (tooltip != nullptr && ImGui::IsItemHovered()) {
     ImGui::SetTooltip("%s", tooltip);
+  }
+  if (key_hint != nullptr && show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 6.0f * scale);
+    ImGui::SetCursorPosY(y_start + 2.0f * scale);
+    piano_key_hint_badge(key_hint);
   }
   ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_w - switch_w));
   ImGui::SetCursorPosY(y_start);
@@ -411,6 +493,17 @@ void status_pill(std::string_view text, StatusTone tone, IconId icon, bool show_
   }
 }
 
+void piano_key_hint_badge(std::string_view key_text, bool force_show) {
+  if (key_text.empty() || (!force_show && !show_piano_key_hints())) {
+    return;
+  }
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const KeyCapMetrics kc = measure_keycap(key_text, scale);
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  ImGui::Dummy(ImVec2(kc.width, kc.height));
+  draw_keycap_box(ImGui::GetWindowDrawList(), pos, kc, key_text, false, scale);
+}
+
 void progress_bar_capsule(float fraction, ImVec2 size, ImVec4 fill_color) {
   const auto& c = colors();
   const float f = std::clamp(fraction, 0.0f, 1.0f);
@@ -453,7 +546,7 @@ void progress_ring(ImDrawList* dl, ImVec2 center, float radius, float thickness,
 }
 
 bool sidebar_nav_item(const char* id, const char* label, IconId icon, bool selected,
-                      const char* badge_text, bool pulse_dot) {
+                      const char* badge_text, bool pulse_dot, const char* key_hint) {
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const float w = ImGui::GetContentRegionAvail().x;
@@ -480,26 +573,43 @@ bool sidebar_nav_item(const char* id, const char* label, IconId icon, bool selec
 
   draw_icon(dl, icon, ImVec2(pos.x + 17.0f * scale, mid_y), 15.0f * scale, icon_col, 1.65f);
 
-  {
-    ScopedFont font_guard(selected ? TypeStyle::Headline : TypeStyle::Body);
-    const ImVec2 sz = ImGui::CalcTextSize(label);
-    dl->AddText(ImVec2(std::round(pos.x + 34.0f * scale), std::round(mid_y - sz.y * 0.5f)), txt_col,
-                label);
-  }
-
+  float right_cursor_x = pos.x + w - 8.0f * scale;
   if (badge_text != nullptr && badge_text[0] != '\0') {
     ScopedFont cap_guard(TypeStyle::Caption);
     const ImVec2 bsz = ImGui::CalcTextSize(badge_text);
     const float bh = 18.0f * scale;
     const float bw = std::max(bh, bsz.x + 11.0f * scale);
-    const ImVec2 bmin(pos.x + w - bw - 8.0f * scale, mid_y - bh * 0.5f);
+    const ImVec2 bmin(right_cursor_x - bw, mid_y - bh * 0.5f);
     const ImVec2 bmax(bmin.x + bw, bmin.y + bh);
     dl->AddRectFilled(bmin, bmax, to_u32(selected ? c.accent : c.control_bg), bh * 0.5f);
     dl->AddText(ImVec2(std::round(bmin.x + (bw - bsz.x) * 0.5f), std::round(mid_y - bsz.y * 0.5f)),
                 to_u32(selected ? c.text_on_accent : c.text_secondary), badge_text);
+    right_cursor_x = bmin.x - 6.0f * scale;
   } else if (pulse_dot) {
     dl->AddCircleFilled(ImVec2(pos.x + w - 14.0f * scale, mid_y), 4.0f * scale, to_u32(c.success),
                         12);
+    right_cursor_x = pos.x + w - 24.0f * scale;
+  }
+
+  const std::string_view hint_sv = (key_hint != nullptr && show_piano_key_hints())
+                                       ? std::string_view(key_hint)
+                                       : std::string_view{};
+  if (!hint_sv.empty()) {
+    const KeyCapMetrics kc = measure_keycap(hint_sv, scale);
+    const float kx = right_cursor_x - kc.width;
+    const float ky = mid_y - kc.height * 0.5f;
+    draw_keycap_box(dl, ImVec2(std::round(kx), std::round(ky)), kc, hint_sv, false, scale);
+    right_cursor_x = kx - 6.0f * scale;
+  }
+
+  {
+    const float label_x = pos.x + 34.0f * scale;
+    dl->PushClipRect(ImVec2(label_x, pos.y), ImVec2(std::max(label_x, right_cursor_x), pos.y + h),
+                     true);
+    ScopedFont font_guard(selected ? TypeStyle::Headline : TypeStyle::Body);
+    const ImVec2 sz = ImGui::CalcTextSize(label);
+    dl->AddText(ImVec2(std::round(label_x), std::round(mid_y - sz.y * 0.5f)), txt_col, label);
+    dl->PopClipRect();
   }
 
   return clicked;

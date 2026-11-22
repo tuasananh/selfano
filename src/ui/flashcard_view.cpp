@@ -169,18 +169,20 @@ void FlashcardView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   ImGui::SameLine(0.0f, 8.0f * scale);
   status_pill(core::format_key_name(engine_.key()), StatusTone::Neutral);
 
-  const float right_w = 278.0f * scale;
+  const float right_w = (show_piano_key_hints() ? 320.0f : 278.0f) * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
   if (avail_end > right_w + 220.0f * scale) {
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
   }
 
-  if (pill_button("Hear##fc_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f)) {
+  if (pill_button("Hear##fc_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f, false,
+                  "E7")) {
     const auto preview = build_current_prompt_preview(now_ms);
     out_playback_notes.insert(out_playback_notes.end(), preview.begin(), preview.end());
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
-  if (pill_button("Skip##fc_skip", ButtonTone::Secondary, IconId::SkipForward, 32.0f)) {
+  if (pill_button("Skip##fc_skip", ButtonTone::Secondary, IconId::SkipForward, 32.0f, 0.0f, false,
+                  "A7")) {
     engine_.next_card(now_ms);
     last_feedback_ = NoteFeedback::Neutral;
     status_banner_ = "Play the displayed shape";

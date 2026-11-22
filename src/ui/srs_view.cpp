@@ -148,7 +148,7 @@ void SrsView::draw(std::int64_t today_epoch_day) {
       ImGui::Spacing();
       if (pill_button(peek_chord_hint_ ? "Hide Chord Roadmap##srs_peek"
                                        : "Reveal Chord Roadmap##srs_peek",
-                      ButtonTone::Ghost, IconId::Eye, 28.0f)) {
+                      ButtonTone::Ghost, IconId::Eye, 28.0f, 0.0f, false, "B7")) {
         peek_chord_hint_ = !peek_chord_hint_;
       }
       if (peek_chord_hint_) {
@@ -170,22 +170,27 @@ void SrsView::draw(std::int64_t today_epoch_day) {
     const std::string hard_lbl = std::format("Hard  ({}d)##srs_hard", hard_d);
     const std::string good_lbl = std::format("Good  ({}d)##srs_good", good_d);
 
-    if (pill_button(again_lbl.c_str(), ButtonTone::Destructive, IconId::None, 38.0f, 128.0f,
-                    true)) {
+    const float rate_min_w = show_piano_key_hints() ? 150.0f : 128.0f;
+    const float good_min_w = show_piano_key_hints() ? 166.0f : 140.0f;
+
+    if (pill_button(again_lbl.c_str(), ButtonTone::Destructive, IconId::None, 38.0f, rate_min_w,
+                    true, "F#7")) {
       (void)deck_.review_card_by_id(card.id, core::SrsRating::Again, today_epoch_day);
       peek_chord_hint_ = false;
       status_banner_ =
           std::format("Rated '{}' Again \xC2\xB7 scheduled in {}d", card.section_name, again_d);
     }
     ImGui::SameLine(0.0f, 10.0f * scale);
-    if (pill_button(hard_lbl.c_str(), ButtonTone::Warning, IconId::None, 38.0f, 128.0f, true)) {
+    if (pill_button(hard_lbl.c_str(), ButtonTone::Warning, IconId::None, 38.0f, rate_min_w, true,
+                    "G#7")) {
       (void)deck_.review_card_by_id(card.id, core::SrsRating::Hard, today_epoch_day);
       peek_chord_hint_ = false;
       status_banner_ =
           std::format("Rated '{}' Hard \xC2\xB7 scheduled in {}d", card.section_name, hard_d);
     }
     ImGui::SameLine(0.0f, 10.0f * scale);
-    if (pill_button(good_lbl.c_str(), ButtonTone::Success, IconId::Check, 38.0f, 140.0f, true)) {
+    if (pill_button(good_lbl.c_str(), ButtonTone::Success, IconId::Check, 38.0f, good_min_w, true,
+                    "A#7")) {
       (void)deck_.review_card_by_id(card.id, core::SrsRating::Good, today_epoch_day);
       peek_chord_hint_ = false;
       status_banner_ =

@@ -285,17 +285,27 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
   }
   ImGui::SameLine(0.0f, 12.0f * scale);
   status_pill(std::format("{:.0f} BPM", cfg.bpm), StatusTone::Accent, IconId::Metronome);
+  if (show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 5.0f * scale);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.5f * scale);
+    piano_key_hint_badge("C#7/D#7");
+  }
 
   ImGui::SameLine(0.0f, 10.0f * scale);
   static constexpr std::array<std::string_view, 2> kTimings{"Steady-Pulse", "Wait-for-Note"};
   int timing_idx = static_cast<int>(cfg.timing_mode);
-  if (segmented_control("##etude_timing_seg", &timing_idx, kTimings, 224.0f, 30.0f)) {
+  if (segmented_control("##etude_timing_seg", &timing_idx, kTimings, 214.0f, 30.0f)) {
     engine_.set_timing_mode(static_cast<core::EtudeTimingMode>(timing_idx));
     cfg = engine_.config();
   }
+  if (show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 5.0f * scale);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6.5f * scale);
+    piano_key_hint_badge("B7");
+  }
 
   // Right-aligned Transport + Options Popover
-  const float right_w = 276.0f * scale;
+  const float right_w = (show_piano_key_hints() ? 360.0f : 276.0f) * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
   if (avail_end > right_w + 320.0f * scale) {
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
@@ -308,17 +318,18 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
       running ? "Pause##et_play"
               : (st == core::EtudePlaybackState::Paused ? "Resume##et_play" : "Start##et_play");
   if (pill_button(play_lbl, running ? ButtonTone::Warning : ButtonTone::Primary,
-                  running ? IconId::Pause : IconId::Play, 32.0f, 96.0f, true)) {
+                  running ? IconId::Pause : IconId::Play, 32.0f,
+                  show_piano_key_hints() ? 116.0f : 96.0f, true, "F7")) {
     toggle_play_pause(out_click, out_accent);
   }
   ImGui::SameLine(0.0f, 6.0f * scale);
-  if (icon_button("##et_stop", IconId::Stop, "Stop Playback", false, 32.0f,
-                  ButtonTone::Secondary)) {
+  if (icon_button("##et_stop", IconId::Stop, "Stop Playback", false, 32.0f, ButtonTone::Secondary,
+                  "G7")) {
     engine_.stop();
   }
   ImGui::SameLine(0.0f, 6.0f * scale);
   if (icon_button("##et_regen", IconId::Refresh, "Generate New Passage", false, 32.0f,
-                  ButtonTone::Secondary)) {
+                  ButtonTone::Secondary, "A7")) {
     engine_.regenerate(cfg.seed + 1U);
     cfg = engine_.config();
   }
@@ -388,7 +399,7 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
     }
 
     hairline_separator(8.0f);
-    settings_toggle_row("Metronome Click", "##et_metro_sw", &metronome_enabled_);
+    settings_toggle_row("Metronome Click", "##et_metro_sw", &metronome_enabled_, nullptr, "F#7");
     settings_toggle_row("Warm Ivory Paper Staff", "##et_paper_sw", &light_paper_theme_);
     ImGui::EndPopup();
   }

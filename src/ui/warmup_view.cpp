@@ -197,21 +197,27 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   }
   ImGui::SameLine(0.0f, 12.0f * scale);
   status_pill(cur_key_name, StatusTone::Accent);
+  if (show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 6.0f * scale);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.5f * scale);
+    piano_key_hint_badge("C#7 / D#7");
+  }
 
   // Right-aligned Primary Actions + Options Popover
-  const float right_w = 276.0f * scale;
+  const float right_w = (show_piano_key_hints() ? 302.0f : 276.0f) * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
   if (avail_end > right_w + 180.0f * scale) {
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
   }
 
-  if (pill_button("Hear Step##wu_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f)) {
+  if (pill_button("Hear Step##wu_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f,
+                  false, "E7")) {
     const auto preview = build_current_step_preview(now_ms);
     out_playback_notes.insert(out_playback_notes.end(), preview.begin(), preview.end());
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
   if (icon_button("##wu_reset", IconId::Refresh, "Reset / Repeat Pass", false, 32.0f,
-                  ButtonTone::Secondary)) {
+                  ButtonTone::Secondary, "G7")) {
     engine_.reset();
     last_feedback_ = NoteFeedback::Neutral;
     status_banner_ = "Warm-up reset \xC2\xB7 Play step 1";
@@ -265,6 +271,10 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     {
       ScopedFont sub(TypeStyle::Subheadline);
       ImGui::TextColored(c.text_secondary, "Range");
+    }
+    if (show_piano_key_hints()) {
+      ImGui::SameLine(0.0f, 6.0f * scale);
+      piano_key_hint_badge("B7");
     }
     static constexpr std::array<std::string_view, 2> kOcts{"1 Octave", "2 Octaves"};
     int oct_idx = (cfg.octaves == 2) ? 1 : 0;

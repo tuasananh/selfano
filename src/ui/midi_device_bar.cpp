@@ -45,9 +45,13 @@ bool draw_midi_status_pill(const midi::MidiEngine& midi_engine, const MidiDevice
   dl->AddCircleFilled(ImVec2(pos.x + 14.0f * scale, mid_y), 4.0f * scale, dot_col, 12);
 
   const std::string title = hw_connected ? midi_engine.active_input_name() : "Audio & MIDI";
-  const std::string sub = soft_pedal_recent
-                              ? "CC 67 Soft Pedal"
-                              : (hw_connected ? "MIDI Connected" : "Virtual Piano · Synth");
+  const std::string sub =
+      soft_pedal_recent
+          ? "CC 67 Soft Pedal"
+          : (hw_connected
+                 ? (show_piano_key_hints() ? "MIDI Connected \xC2\xB7 A#0 Map" : "MIDI Connected")
+                 : (show_piano_key_hints() ? "Virtual Piano \xC2\xB7 A#0 Map"
+                                           : "Virtual Piano \xC2\xB7 Synth"));
 
   const float text_x = pos.x + 26.0f * scale;
   const float text_max_x = pos.x + w - 24.0f * scale;
@@ -199,8 +203,8 @@ MidiDeviceBarActions draw_midi_audio_popover(midi::MidiEngine& midi_engine, midi
                                                        : "Played C Major test chord";
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
-  if (pill_button("All Notes Off##midi_panic", ButtonTone::Destructive, IconId::Stop, 32.0f,
-                  half_w)) {
+  if (pill_button("All Notes Off##midi_panic", ButtonTone::Destructive, IconId::Stop, 32.0f, half_w,
+                  false, "A#7")) {
     actions.panic_triggered = true;
     state.status_banner = "Sent All Notes Off (CC 123)";
   }
@@ -220,7 +224,8 @@ MidiDeviceBarActions draw_midi_audio_popover(midi::MidiEngine& midi_engine, midi
     ImGui::CloseCurrentPopup();
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
-  if (pill_button("Key Map (A#0)##pop_km", ButtonTone::SoftAccent, IconId::Piano, 30.0f, half_w)) {
+  if (pill_button("Key Map##pop_km", ButtonTone::SoftAccent, IconId::Piano, 30.0f, half_w, false,
+                  "A#0")) {
     actions.open_key_map = true;
     ImGui::CloseCurrentPopup();
   }

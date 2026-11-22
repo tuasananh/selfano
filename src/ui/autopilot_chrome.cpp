@@ -53,7 +53,8 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
 
   // Row 1: Optional focus toggle + Active Stage + Timers + Transport pills
   if (sidebar_collapsed) {
-    if (icon_button("##ap_expand_sb", IconId::SidebarToggle, "Show Sidebar", false, 30.0f)) {
+    if (icon_button("##ap_expand_sb", IconId::SidebarToggle, "Show Sidebar", false, 30.0f,
+                    ButtonTone::Ghost, "G#7")) {
       actions.toggle_sidebar = true;
     }
     ImGui::SameLine(0.0f, 10.0f * scale);
@@ -86,7 +87,7 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
   const std::string block_time = std::format("{:02d}:{:02d}", blk_rem / 60, blk_rem % 60);
   const std::string total_time = std::format("{:02d}:{:02d} left", tot_rem / 60, tot_rem % 60);
 
-  const float controls_w = 270.0f * scale;
+  const float controls_w = (show_piano_key_hints() ? 360.0f : 270.0f) * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
   if (avail_end > controls_w + 180.0f * scale) {
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - controls_w));
@@ -107,17 +108,17 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
 
   if (icon_button("##ap_pause", is_paused ? IconId::Play : IconId::Pause,
                   is_paused ? "Resume Session" : "Pause Session", is_paused, 30.0f,
-                  ButtonTone::Secondary)) {
+                  ButtonTone::Secondary, "F7")) {
     actions.toggle_pause = true;
   }
   ImGui::SameLine(0.0f, 6.0f * scale);
   if (icon_button("##ap_repeat", IconId::Repeat, "Repeat Current Block", false, 30.0f,
-                  ButtonTone::Secondary)) {
+                  ButtonTone::Secondary, "G7")) {
     actions.repeat_block = true;
   }
   ImGui::SameLine(0.0f, 6.0f * scale);
   if (icon_button("##ap_skip", IconId::SkipForward, "Skip to Next Block", false, 30.0f,
-                  ButtonTone::Secondary)) {
+                  ButtonTone::Secondary, "D7")) {
     actions.skip_block = true;
   }
   ImGui::SameLine(0.0f, 6.0f * scale);
@@ -224,9 +225,10 @@ bool draw_autopilot_transition(const core::AutopilotSession& autopilot) {
   }
 
   ImGui::Dummy(ImVec2(0.0f, 14.0f * scale));
-  const float btn_w = 180.0f;
+  const float btn_w = show_piano_key_hints() ? 204.0f : 180.0f;
   ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, (inner_w - btn_w * scale) * 0.5f));
-  if (pill_button("Continue Now##ap_cont", ButtonTone::Primary, IconId::Play, 38.0f, btn_w, true)) {
+  if (pill_button("Continue Now##ap_cont", ButtonTone::Primary, IconId::Play, 38.0f, btn_w, true,
+                  "C8")) {
     continue_now = true;
   }
 
@@ -306,12 +308,13 @@ AutopilotRecapActions draw_autopilot_recap(const core::SessionSummary& sum) {
     }
 
     ImGui::Dummy(ImVec2(0.0f, 14.0f * scale));
-    if (pill_button("Done##recap_done", ButtonTone::Primary, IconId::Check, 40.0f, 160.0f, true)) {
+    if (pill_button("Done##recap_done", ButtonTone::Primary, IconId::Check, 40.0f, 160.0f, true,
+                    "A0")) {
       actions.return_home = true;
     }
     ImGui::SameLine(0.0f, 12.0f * scale);
     if (pill_button("Practice Again##recap_again", ButtonTone::Secondary, IconId::Repeat, 40.0f,
-                    160.0f, true)) {
+                    160.0f, true, "B0")) {
       actions.start_another = true;
     }
     (void)inner_w;

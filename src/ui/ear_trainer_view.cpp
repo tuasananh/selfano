@@ -137,18 +137,19 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   ImGui::SameLine(0.0f, 8.0f * scale);
   status_pill(std::format("Tonic {}", prompt.tonic_chord_symbol), StatusTone::Neutral);
 
-  const float right_w = 376.0f * scale;
+  const float right_w = (show_piano_key_hints() ? 412.0f : 376.0f) * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
   if (avail_end > right_w + 220.0f * scale) {
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
   }
 
-  if (pill_button("Play / Replay##ear_play", ButtonTone::Primary, IconId::VolumeOn, 32.0f, 132.0f,
-                  true)) {
+  if (pill_button("Play / Replay##ear_play", ButtonTone::Primary, IconId::VolumeOn, 32.0f,
+                  show_piano_key_hints() ? 158.0f : 132.0f, true, "E7")) {
     trigger_replay(now_ms, out_playback);
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
-  if (pill_button("New Melody##ear_new", ButtonTone::Secondary, IconId::Refresh, 32.0f)) {
+  if (pill_button("New Melody##ear_new", ButtonTone::Secondary, IconId::Refresh, 32.0f, 0.0f, false,
+                  "A7")) {
     engine_.next_prompt();
     last_guess_midi_.reset();
     append_playback(engine_.build_playback_events(), now_ms, out_playback);

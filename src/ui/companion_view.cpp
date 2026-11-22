@@ -209,11 +209,16 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
     }
     ImGui::EndCombo();
   }
+  if (show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 5.0f * scale);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5.5f * scale);
+    piano_key_hint_badge("A7");
+  }
 
   // Right-aligned Chunk Timer + Edit + Options
   const int mins = static_cast<int>(chunk_remaining_sec_) / 60;
   const int secs = static_cast<int>(chunk_remaining_sec_) % 60;
-  const float right_w = 340.0f * scale;
+  const float right_w = (show_piano_key_hints() ? 376.0f : 340.0f) * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
   if (avail_end > right_w + 350.0f * scale) {
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
@@ -224,12 +229,12 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
   ImGui::SameLine(0.0f, 6.0f * scale);
   if (icon_button("##comp_timer_play", timer_running_ ? IconId::Pause : IconId::Play,
                   timer_running_ ? "Pause 10:00 Chunk Timer" : "Start 10:00 Chunk Timer",
-                  timer_running_, 32.0f, ButtonTone::Secondary)) {
+                  timer_running_, 32.0f, ButtonTone::Secondary, "F7")) {
     timer_running_ = !timer_running_;
   }
   ImGui::SameLine(0.0f, 6.0f * scale);
   if (icon_button("##comp_timer_rst", IconId::Refresh, "Reset 10:00 Timer & Bar", false, 32.0f,
-                  ButtonTone::Secondary)) {
+                  ButtonTone::Secondary, "G7")) {
     timer_running_ = false;
     chunk_remaining_sec_ = 600.0;
     reset_phrase(now_ms);
@@ -344,7 +349,8 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
     }
 
     hairline_separator(8.0f);
-    settings_toggle_row("Phrase Completion Chime", "##comp_chime_sw", &chime_enabled_);
+    settings_toggle_row("Phrase Completion Chime", "##comp_chime_sw", &chime_enabled_, nullptr,
+                        "F#7");
     ImGui::EndPopup();
   }
 
@@ -358,8 +364,13 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
   ImGui::SameLine(0.0f, 10.0f * scale);
   status_pill(status_banner_, recently_completed ? StatusTone::Success : StatusTone::Neutral);
   ImGui::SameLine(0.0f, 10.0f * scale);
-  if (pill_button("Reset Bar##comp_rst_bar", ButtonTone::Ghost, IconId::Refresh, 26.0f)) {
+  if (pill_button("Reset Bar##comp_rst_bar", ButtonTone::Ghost, IconId::Refresh, 26.0f, 0.0f, false,
+                  "G7")) {
     reset_phrase(now_ms);
+  }
+  if (show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    status_pill("Hold Soft Pedal + Key", StatusTone::Neutral);
   }
 
   ImGui::Dummy(ImVec2(0.0f, 10.0f * scale));

@@ -143,14 +143,14 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
     section_kicker("DAILY PRACTICE");
     ImGui::Spacing();
 
-    const float cta_w = 186.0f;
+    const float cta_w = show_piano_key_hints() ? 216.0f : 186.0f;
     {
       ScopedFont tf(TypeStyle::Title);
       ImGui::TextUnformatted("30-Minute Guided Session");
     }
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, hero_inner_w - cta_w * scale));
     if (pill_button("Start Session##home_start", ButtonTone::Primary, IconId::Play, 38.0f, cta_w,
-                    true)) {
+                    true, "B0")) {
       actions.start_autopilot = true;
     }
 
@@ -215,7 +215,7 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f * scale));
     if (pill_button("Change Key##home_key_btn", ButtonTone::SoftAccent, IconId::Sliders, 30.0f,
-                    0.0f)) {
+                    0.0f, false, "C#7/D#7")) {
       ImGui::OpenPopup("##home_key_popover");
     }
 
@@ -393,6 +393,11 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
 
   // 4. Quick Practice 2x3 Tactile Tile Grid
   section_kicker("PRACTICE STAGES");
+  if (show_piano_key_hints()) {
+    ImGui::SameLine(0.0f, 8.0f * scale);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f * scale);
+    piano_key_hint_badge("C7 / D7");
+  }
   ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
 
   struct StageCardInfo {

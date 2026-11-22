@@ -246,6 +246,10 @@ void reset_ui_zoom() {
   set_ui_zoom(1.0f);
 }
 
+void set_show_piano_key_hints(bool show) noexcept {
+  g_ds.show_piano_key_hints = show;
+}
+
 const DesignSystemContext& ds() noexcept {
   return g_ds;
 }
@@ -268,6 +272,10 @@ float ui_zoom() noexcept {
 
 float effective_ui_scale() noexcept {
   return g_ds.dpi_scale * g_ds.ui_zoom;
+}
+
+bool show_piano_key_hints() noexcept {
+  return g_ds.show_piano_key_hints;
 }
 
 ImU32 to_u32(ImVec4 c) noexcept {
