@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-22
-- **Active Phase:** Phase 3 — Stage 1 (Key & Harmony Warm-Up) & Stage 2 (Flashcards + Continuous Etudes) *(ready to start)*
-- **Last Completed Phase:** Phase 2 — Bidirectional MIDI, SPSC Bridge, Audio Fallback & Virtual Piano
+- **Active Phase:** Phase 4 — Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer) *(ready to start)*
+- **Last Completed Phase:** Phase 3 — Stage 1 (Key & Harmony Warm-Up) & Stage 2 (Adaptive Flashcards + Procedural Continuous Etudes)
 
 ---
 
@@ -48,6 +48,19 @@
   - `SDL_AUDIODRIVER=dummy ./build/native-debug/selfano --smoke-frames 5 --inject-notes 60,64,67` exited cleanly (`0`).
   - *Note for user hardware check:* Physical Korg LP-380 MIDI DIN/USB cable hotplug and acoustic speaker monitoring remain to be manually spot-checked on hardware.
 
+### Phase 3 — Stage 1 (Key Warm-Up) & Stage 2 (Adaptive Flashcards + Continuous Etudes)
+- **Status:** Complete
+- **Artifacts Created:**
+  - Pure C++23 core (`src/core/`): `weekly_key.hpp/.cpp` (24-key classical/anime weekly cycle + deterministic `sync_weekly_key`), `warmup_engine.hpp/.cpp` (1–2 octave scales + `I-IV-V-I` / Harmonic & Natural minor `i-iv-V-i` / `i-iv-v-i` cadences + auto-advancing evaluator), `flashcard_engine.hpp/.cpp` (40-shape bank covering landmarks, melodic/harmonic intervals, and triad inversions with `< 85%` / `> 1500 ms` EMA RT adaptive sampler), `etude_engine.hpp/.cpp` (seedable 4/4 continuous etude generator with Quarter/Half/Whole notes + Quarter/Half rests, RH/LH/Easy Hands-Together, 2-system rolling lookahead, 4-beat count-in `Steady-Pulse` `±40%` beat window + `Wait-for-Note` toggle)
+  - Catch2 unit tests (`tests/`): `warmup_tests.cpp`, `flashcard_tests.cpp`, `etude_tests.cpp`
+  - UI & engraving (`src/ui/`, `src/main.cpp`): `smufl_glyphs.hpp` + `staff_renderer.hpp/.cpp` (SMuFL whole/half/quarter rests, 4/4 time signature, beat-aligned moving playhead, active step cursor, per-clef mixed durations, dimmed preview), `warmup_view.hpp/.cpp`, `flashcard_view.hpp/.cpp`, `etude_view.hpp/.cpp`, shared bottom `VirtualPiano` dock, and `--tab` CLI smoke routing
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with zero warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed 33/33 test cases in 0.11s.
+  - `src/core/` purity checks (`#include` boundary and `steady_clock::now`/`random_device`) returned 0 matches.
+  - `clang-format --dry-run --Werror` clean on all Phase 3 C++ files.
+  - Headless smoke runs (`--tab warmup --inject-notes 48,60`, `--tab flashcards --inject-notes 60`, `--tab etude`) exited cleanly (`0`) and rendered crisp SMuFL notation, rests, badges, and 2-system lookahead.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -64,10 +77,10 @@
 
 ## Next Concrete Action
 
-Start **Phase 3** by reading [`docs/phases/phase-3-warmup-and-sight-reading.md`](./phases/phase-3-warmup-and-sight-reading.md) and `.agents/skills/cpp23-tdd/SKILL.md`, then implement Slice 3.1 (Weekly Key Rotation & Stage 1 Warm-Up Engine in `src/core/` via TDD).
+Start **Phase 4** by reading [`docs/phases/phase-4-companion-srs-ear-training.md`](./phases/phase-4-companion-srs-ear-training.md) and implementing Slice 4.1 (`chord_symbol.*` and `companion_matcher.*` in `src/core/` via TDD).
 
 ---
 
 ## Active Handoff / Open Blockers
 
-- None. Phase 2 complete and cleanly committed on `phase-2/midi-audio-virtual-piano`.
+- None. Phase 3 complete and cleanly committed on `main`.
