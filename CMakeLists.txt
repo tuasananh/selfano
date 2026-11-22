@@ -39,16 +39,20 @@ FetchContent_Declare(
   GIT_SHALLOW TRUE
 )
 
-set(LIBREMIDI_NO_EXPORTS ON CACHE BOOL "" FORCE)
-set(LIBREMIDI_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(LIBREMIDI_TESTS OFF CACHE BOOL "" FORCE)
-set(LIBREMIDI_NO_BOOST ON CACHE BOOL "" FORCE)
-FetchContent_Declare(
-  libremidi
-  GIT_REPOSITORY https://github.com/celtera/libremidi.git
-  GIT_TAG v5.4.3
-  GIT_SHALLOW TRUE
-)
+if(NOT EMSCRIPTEN)
+  # Note: libremidi v5.4.3's Emscripten backend emits periodic TypeError exceptions when WebMIDI
+  # permissions are pending/denied; on Emscripten Selfano uses a dedicated safe WebMIDI EM_JS bridge.
+  set(LIBREMIDI_NO_EXPORTS ON CACHE BOOL "" FORCE)
+  set(LIBREMIDI_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(LIBREMIDI_TESTS OFF CACHE BOOL "" FORCE)
+  set(LIBREMIDI_NO_BOOST ON CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    libremidi
+    GIT_REPOSITORY https://github.com/celtera/libremidi.git
+    GIT_TAG v5.4.3
+    GIT_SHALLOW TRUE
+  )
+endif()
 
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 set(JSON_Install OFF CACHE BOOL "" FORCE)
@@ -58,7 +62,10 @@ FetchContent_Declare(
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
-FetchContent_MakeAvailable(SDL3 imgui libremidi nlohmann_json)
+FetchContent_MakeAvailable(SDL3 imgui nlohmann_json)
+if(NOT EMSCRIPTEN)
+  FetchContent_MakeAvailable(libremidi)
+endif()
 
 if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
   FetchContent_Declare(
@@ -137,7 +144,7 @@ target_link_libraries(piano_midi
   PUBLIC
     piano_core
   PRIVATE
-    libremidi
+    $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:libremidi>
     SDL3::SDL3
     selfano_warnings
 )
@@ -186,16 +193,23 @@ target_link_libraries(selfano
     selfano_warnings
 )
 
-add_custom_command(TARGET selfano POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/assets
-    $<TARGET_FILE_DIR:selfano>/assets
-  COMMENT "Copying assets to runtime directory"
-)
-
-if(EMSCRIPTEN)
+if(NOT EMSCRIPTEN)
+  add_custom_command(TARGET selfano POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${CMAKE_CURRENT_SOURCE_DIR}/assets
+      $<TARGET_FILE_DIR:selfano>/assets
+    COMMENT "Copying assets to runtime directory"
+  )
+else()
+  set_target_properties(selfano PROPERTIES SUFFIX ".html")
   target_link_options(selfano PRIVATE
+    "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
     "--preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+    "-lidbfs.js"
+    "-sFORCE_FILESYSTEM=1"
+    "-sALLOW_MEMORY_GROWTH=1"
+    "-sMAXIMUM_MEMORY=1gb"
+    "-sEXPORTED_RUNTIME_METHODS=FS,IDBFS,UTF8ToString,stringToUTF8,lengthBytesUTF8,HEAPU8"
   )
 endif()
 

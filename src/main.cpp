@@ -28,8 +28,10 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -39,6 +41,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace {
 
@@ -237,70 +243,90 @@ void dispatch_outbound_note(selfano::midi::MidiEngine& midi_engine,
   }
 }
 
-} // namespace
+#ifdef __EMSCRIPTEN__
 
-int main(int argc, char* argv[]) {
-  const CliOptions cli = parse_cli(argc, argv);
+std::atomic<bool> g_idbfs_load_done{false};
+std::atomic<bool> g_idbfs_ok{false};
 
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-    std::cerr << "Error: SDL_Init(): " << SDL_GetError() << '\n';
-    return 1;
+// clang-format off
+// Keep clang-format off so JS !== / === operators and strings stay intact for C++23 preprocessing.
+EM_JS(int, selfano_browser_viewport_width, (), {
+  const w = typeof window !== "undefined" ? (window.innerWidth | 0) : 1360;
+  return w > 640 ? w : 640;
+});
+
+EM_JS(int, selfano_browser_viewport_height, (), {
+  const h = typeof window !== "undefined" ? (window.innerHeight | 0) : 860;
+  return h > 480 ? h : 480;
+});
+
+EM_JS(void, selfano_idbfs_mount_and_load, (), {
+  globalThis.__selfanoIdbfsMounted = false;
+  globalThis.__selfanoSyncInFlight = false;
+  globalThis.__selfanoSyncQueued = false;
+  try {
+    try {
+      FS.mkdir("/persist");
+    } catch (mkdirErr) {
+    }
+    FS.mount(IDBFS, {}, "/persist");
+    globalThis.__selfanoIdbfsMounted = true;
+    FS.syncfs(true, function(err) {
+      if (err) {
+        console.warn("Selfano IDBFS initial load warning:", err);
+      }
+      if (Module._selfano_on_idbfs_loaded) {
+        Module._selfano_on_idbfs_loaded(err ? 0 : 1);
+      }
+    });
+  } catch (e) {
+    console.warn("Selfano IDBFS mount fallback:", e);
+    if (Module._selfano_on_idbfs_loaded) {
+      Module._selfano_on_idbfs_loaded(0);
+    }
   }
+});
 
-  float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-  if (main_scale <= 0.0f) {
-    main_scale = 1.0f;
+EM_JS(void, selfano_idbfs_sync_to_disk, (), {
+  if (!globalThis.__selfanoIdbfsMounted) {
+    return;
   }
-
-  const SDL_WindowFlags window_flags =
-      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-  SDL_Window* window =
-      SDL_CreateWindow("Selfano - C++23 Piano Trainer", static_cast<int>(1360 * main_scale),
-                       static_cast<int>(860 * main_scale), window_flags);
-  if (window == nullptr) {
-    std::cerr << "Error: SDL_CreateWindow(): " << SDL_GetError() << '\n';
-    SDL_Quit();
-    return 1;
+  if (globalThis.__selfanoSyncInFlight) {
+    globalThis.__selfanoSyncQueued = true;
+    return;
   }
+  globalThis.__selfanoSyncInFlight = true;
+  const runSync = function() {
+    FS.syncfs(false, function(err) {
+      if (err) {
+        console.warn("Selfano IDBFS save warning:", err);
+      }
+      if (globalThis.__selfanoSyncQueued) {
+        globalThis.__selfanoSyncQueued = false;
+        runSync();
+      } else {
+        globalThis.__selfanoSyncInFlight = false;
+      }
+    });
+  };
+  runSync();
+});
+// clang-format on
 
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
-  if (renderer == nullptr) {
-    std::cerr << "Error: SDL_CreateRenderer(): " << SDL_GetError() << '\n';
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
-  SDL_SetRenderVSync(renderer, 1);
-  SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-  SDL_ShowWindow(window);
+extern "C" EMSCRIPTEN_KEEPALIVE void selfano_on_idbfs_loaded(int ok) {
+  g_idbfs_ok.store(ok != 0, std::memory_order_release);
+  g_idbfs_load_done.store(true, std::memory_order_release);
+}
 
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.IniFilename = nullptr; // Never pollute working directory with imgui.ini
+#endif // __EMSCRIPTEN__
 
-  ImGuiStyle& style = ImGui::GetStyle();
-  ImGui::StyleColorsDark();
-  style.FrameRounding = 4.0f;
-  style.WindowRounding = 0.0f;
-  style.ScaleAllSizes(main_scale);
-  style.FontScaleDpi = main_scale;
+struct AppContext {
+  CliOptions cli{};
 
-  ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
-  ImGui_ImplSDLRenderer3_Init(renderer);
-
-  const auto fonts = selfano::ui::load_app_fonts(io, 16.0f);
-  if (!fonts.has_value()) {
-    std::cerr << "Error loading fonts: " << fonts.error() << '\n';
-    ImGui_ImplSDLRenderer3_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
+  SDL_Window* window{nullptr};
+  SDL_Renderer* renderer{nullptr};
+  selfano::ui::AppFonts fonts{};
+  std::string font_filename;
 
   selfano::midi::MidiEngine midi_engine;
   selfano::midi::AudioSynth audio_synth;
@@ -319,115 +345,94 @@ int main(int argc, char* argv[]) {
   selfano::ui::StaffShowcase staff_showcase;
   selfano::ui::VirtualPiano shared_piano_dock;
 
-  if (const auto audio_res = audio_synth.init(); !audio_res.has_value()) {
-    midi_bar_state.status_banner = audio_res.error();
-  }
-  if (const auto midi_err = midi_engine.last_error(); !midi_err.empty()) {
-    midi_bar_state.status_banner = midi_err;
-  }
+  std::filesystem::path profile_path;
+  std::string profile_path_str;
+  selfano::core::UserProfile profile{};
+  std::string last_saved_json;
+  double last_autosave_check_ms{0.0};
 
-  // Load or initialize versioned UserProfile
-  const std::filesystem::path profile_path = resolve_profile_path(cli.profile_path);
-  const std::string profile_path_str = profile_path.string();
-  const std::int64_t boot_epoch_day = current_epoch_day();
+  double prev_now_ms{0.0};
+  const ImVec4 clear_color{0.08f, 0.09f, 0.12f, 1.0f};
 
-  selfano::core::UserProfile profile = selfano::core::make_default_profile(boot_epoch_day);
-  bool profile_loaded_cleanly = false;
-  if (std::filesystem::exists(profile_path)) {
-    const auto loaded = selfano::core::load_profile_file(profile_path);
-    if (loaded.has_value()) {
-      profile = *loaded;
-      profile_loaded_cleanly = true;
-    } else {
-      std::cerr << "Warning: failed to parse profile (" << loaded.error()
-                << "); using default profile\n";
-    }
-  }
-  profile.weekly_key = selfano::core::sync_weekly_key(profile.weekly_key, boot_epoch_day);
+  bool initialized{false};
+  bool done{false};
+  int rendered_frames{0};
+  bool screenshot_saved{false};
+  bool injected_cli_notes{false};
+  bool audio_unlocked_by_gesture{false};
+  bool prev_want_text_input{false};
+  bool prev_midi_in_open{false};
+  bool soft_pedal_down{false};
+  bool show_piano_dock{true};
+#ifdef __EMSCRIPTEN__
+  bool idbfs_hydrated{false};
+  int last_css_w{0};
+  int last_css_h{0};
+#endif
 
-  // Try opening preferred MIDI IN/OUT ports if saved in profile preferences
-  if (!profile.preferences.preferred_midi_in.empty()) {
-    const auto in_ports = midi_engine.input_ports();
-    for (std::size_t i = 0; i < in_ports.size(); ++i) {
-      if (in_ports[i].port_name == profile.preferences.preferred_midi_in ||
-          in_ports[i].display_name == profile.preferences.preferred_midi_in) {
-        (void)midi_engine.open_input_port(i);
-        break;
-      }
-    }
-  }
-  if (!profile.preferences.preferred_midi_out.empty()) {
-    const auto out_ports = midi_engine.output_ports();
-    for (std::size_t i = 0; i < out_ports.size(); ++i) {
-      if (out_ports[i].port_name == profile.preferences.preferred_midi_out ||
-          out_ports[i].display_name == profile.preferences.preferred_midi_out) {
-        (void)midi_engine.open_output_port(i);
-        break;
-      }
-    }
-  }
+  AppMode app_mode{AppMode::Home};
+  selfano::core::AutopilotStage free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
+  std::optional<int> pending_dev_subtab;
 
-  double prev_now_ms = selfano::midi::MidiEngine::now_ms();
-  auto apply_weekly_key_to_views = [&](double now_ms) {
+  selfano::core::AutopilotSession autopilot{3.0};
+  SessionBaselines session_baselines{};
+  bool session_recap_persisted{false};
+
+  std::vector<selfano::midi::MidiNoteEvent> frame_events;
+  std::vector<selfano::midi::MidiNoteEvent> virtual_events;
+  std::vector<selfano::midi::ScheduledMidiNote> pending_playback;
+
+  void apply_weekly_key_to_views(double now_ms) {
     const auto k = selfano::core::weekly_key_at(profile.weekly_key.key_index);
     const auto mm = profile.preferences.minor_scale_mode;
     warmup_view.set_weekly_key(k, mm);
     flashcard_view.set_key(k, mm, now_ms);
     etude_view.set_key(k, mm);
     ear_trainer_view.set_key(k);
-  };
-
-  // Hydrate all views from UserProfile
-  chord_grouper.set_window_ms(profile.preferences.chord_window_ms);
-  midi_bar_state.chord_window_ms = static_cast<float>(profile.preferences.chord_window_ms);
-  apply_weekly_key_to_views(prev_now_ms);
-  warmup_view.set_light_paper_theme(profile.preferences.light_paper_staff);
-  flashcard_view.set_light_paper_theme(profile.preferences.light_paper_staff);
-  flashcard_view.mutable_engine().load_telemetry(profile.flashcard_telemetry);
-  etude_view.apply_preferences(profile.preferences.metronome_enabled,
-                               profile.preferences.light_paper_staff,
-                               profile.preferences.default_bpm, profile.preferences.hand_mode);
-  companion_view.set_phrases(profile.repertoire_phrases, prev_now_ms);
-  companion_view.apply_preferences(profile.preferences.companion_dwell_ms,
-                                   profile.preferences.companion_chime_enabled);
-  srs_view.mutable_deck().set_cards(profile.srs_cards);
-  ear_trainer_view.load_progress(profile.ear_progress);
-  ear_trainer_view.set_light_paper_theme(profile.preferences.light_paper_staff);
-
-  if (!profile_loaded_cleanly && !std::filesystem::exists(profile_path)) {
-    (void)selfano::core::save_profile_file(profile_path, profile);
   }
 
-  std::string last_saved_json = selfano::core::to_json_string(profile);
-  double last_autosave_check_ms = prev_now_ms;
+  void apply_profile_to_views(double now_ms) {
+    chord_grouper.set_window_ms(profile.preferences.chord_window_ms);
+    midi_bar_state.chord_window_ms = static_cast<float>(profile.preferences.chord_window_ms);
+    apply_weekly_key_to_views(now_ms);
+    warmup_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+    flashcard_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+    flashcard_view.mutable_engine().load_telemetry(profile.flashcard_telemetry);
+    etude_view.apply_preferences(profile.preferences.metronome_enabled,
+                                 profile.preferences.light_paper_staff,
+                                 profile.preferences.default_bpm, profile.preferences.hand_mode);
+    companion_view.set_phrases(profile.repertoire_phrases, now_ms);
+    companion_view.apply_preferences(profile.preferences.companion_dwell_ms,
+                                     profile.preferences.companion_chime_enabled);
+    srs_view.mutable_deck().set_cards(profile.srs_cards);
+    ear_trainer_view.load_progress(profile.ear_progress);
+    ear_trainer_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+  }
 
-  const std::string font_filename =
-      std::filesystem::path(fonts->loaded_smufl_path).filename().string();
-  const ImVec4 clear_color(0.08f, 0.09f, 0.12f, 1.0f);
+  void try_open_preferred_midi_ports() {
+    if (!profile.preferences.preferred_midi_in.empty()) {
+      const auto in_ports = midi_engine.input_ports();
+      for (std::size_t i = 0; i < in_ports.size(); ++i) {
+        if (in_ports[i].port_name == profile.preferences.preferred_midi_in ||
+            in_ports[i].display_name == profile.preferences.preferred_midi_in) {
+          (void)midi_engine.open_input_port(i);
+          break;
+        }
+      }
+    }
+    if (!profile.preferences.preferred_midi_out.empty()) {
+      const auto out_ports = midi_engine.output_ports();
+      for (std::size_t i = 0; i < out_ports.size(); ++i) {
+        if (out_ports[i].port_name == profile.preferences.preferred_midi_out ||
+            out_ports[i].display_name == profile.preferences.preferred_midi_out) {
+          (void)midi_engine.open_output_port(i);
+          break;
+        }
+      }
+    }
+  }
 
-  bool done = false;
-  int rendered_frames = 0;
-  bool screenshot_saved = false;
-  bool injected_cli_notes = false;
-  bool audio_unlocked_by_gesture = false;
-  bool prev_want_text_input = false;
-  bool prev_midi_in_open = midi_engine.is_input_open();
-  bool soft_pedal_down = false;
-  bool show_piano_dock = !midi_engine.is_input_open();
-
-  AppMode app_mode = cli.initial_mode;
-  selfano::core::AutopilotStage free_stage = cli.initial_free_stage;
-  std::optional<int> pending_dev_subtab = cli.initial_dev_subtab;
-
-  selfano::core::AutopilotSession autopilot{3.0};
-  SessionBaselines session_baselines{};
-  bool session_recap_persisted = false;
-
-  std::vector<selfano::midi::MidiNoteEvent> frame_events;
-  std::vector<selfano::midi::MidiNoteEvent> virtual_events;
-  std::vector<selfano::midi::ScheduledMidiNote> pending_playback;
-
-  auto sync_profile_from_views = [&]() {
+  void sync_profile_from_views() {
     profile.flashcard_telemetry = flashcard_view.engine().telemetry();
     profile.ear_progress = ear_trainer_view.progress();
     profile.repertoire_phrases = companion_view.phrases();
@@ -446,16 +451,25 @@ int main(int argc, char* argv[]) {
     if (midi_engine.is_output_open()) {
       profile.preferences.preferred_midi_out = midi_engine.active_output_name();
     }
-  };
+  }
 
-  auto persist_profile_now = [&]() {
+  void persist_profile_now() {
+#ifdef __EMSCRIPTEN__
+    if (!idbfs_hydrated) {
+      return;
+    }
+#endif
     sync_profile_from_views();
     if (const auto res = selfano::core::save_profile_file(profile_path, profile); res.has_value()) {
       last_saved_json = selfano::core::to_json_string(profile);
+#ifdef __EMSCRIPTEN__
+      selfano_idbfs_sync_to_disk();
+#endif
     }
-  };
+  }
 
-  auto active_practice_stage = [&]() -> std::optional<selfano::core::AutopilotStage> {
+  [[nodiscard]] std::optional<selfano::core::AutopilotStage>
+  active_practice_stage() const noexcept {
     if (app_mode == AppMode::Autopilot) {
       if (autopilot.state() == selfano::core::AutopilotState::Running ||
           autopilot.state() == selfano::core::AutopilotState::Paused) {
@@ -467,9 +481,9 @@ int main(int argc, char* argv[]) {
       return free_stage;
     }
     return std::nullopt;
-  };
+  }
 
-  auto cleanup_stage_transitions = [&](double now_ms) {
+  void cleanup_stage_transitions(double now_ms) {
     etude_view.stop();
     shared_piano_dock.release_mouse_key(now_ms, frame_events);
     phase2_sandbox.release_virtual_piano(now_ms, frame_events);
@@ -477,9 +491,9 @@ int main(int argc, char* argv[]) {
     for (const auto& act : playback_scheduler.panic_all_notes_off()) {
       dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
     }
-  };
+  }
 
-  auto compute_session_summary = [&]() -> selfano::core::SessionSummary {
+  [[nodiscard]] selfano::core::SessionSummary compute_session_summary() const {
     selfano::core::SessionSummary s{};
     s.weekly_key_name =
         selfano::core::format_key_name(selfano::core::weekly_key_at(profile.weekly_key.key_index));
@@ -499,9 +513,9 @@ int main(int argc, char* argv[]) {
     s.ear_melodies_solved =
         ear_trainer_view.engine().melodies_solved() - session_baselines.ear_solved;
     return s;
-  };
+  }
 
-  auto finalize_autopilot_recap = [&](std::int64_t today_day) {
+  void finalize_autopilot_recap(std::int64_t today_day) {
     if (session_recap_persisted) {
       return;
     }
@@ -521,9 +535,9 @@ int main(int argc, char* argv[]) {
         .ear_melodies_solved = sum.ear_melodies_solved,
     });
     persist_profile_now();
-  };
+  }
 
-  auto start_autopilot_session = [&](double now_ms) {
+  void start_autopilot_session(double now_ms) {
     cleanup_stage_transitions(now_ms);
     session_baselines = SessionBaselines{
         .warmup_runs = warmup_view.engine().completed_runs(),
@@ -539,13 +553,9 @@ int main(int argc, char* argv[]) {
     app_mode = AppMode::Autopilot;
     autopilot.start(
         selfano::core::format_key_name(selfano::core::weekly_key_at(profile.weekly_key.key_index)));
-  };
-
-  if (cli.initial_mode == AppMode::Autopilot) {
-    start_autopilot_session(prev_now_ms);
   }
 
-  auto current_expected_cardinality = [&]() -> std::size_t {
+  [[nodiscard]] std::size_t current_expected_cardinality() const noexcept {
     if (app_mode == AppMode::DevTools) {
       return phase2_sandbox.expected_chord_cardinality();
     }
@@ -567,9 +577,9 @@ int main(int argc, char* argv[]) {
       return 1;
     }
     return 1;
-  };
+  }
 
-  auto route_played_chord = [&](const selfano::midi::PlayedChord& chord, double now_ms) {
+  void route_played_chord(const selfano::midi::PlayedChord& chord, double now_ms) {
     if (app_mode == AppMode::DevTools) {
       phase2_sandbox.on_played_chord(chord, now_ms);
       return;
@@ -595,9 +605,9 @@ int main(int argc, char* argv[]) {
     case selfano::core::AutopilotStage::Stage4ASrs:
       break;
     }
-  };
+  }
 
-  auto trigger_replay_for_active_view = [&](double now_ms) {
+  void trigger_replay_for_active_view(double now_ms) {
     std::vector<selfano::midi::ScheduledMidiNote> preview;
     if (app_mode == AppMode::DevTools) {
       phase2_sandbox.on_soft_pedal(now_ms);
@@ -627,13 +637,265 @@ int main(int argc, char* argv[]) {
       }
       playback_scheduler.schedule_batch(preview);
     }
-  };
+  }
 
-  while (!done) {
+  void process_note_events(const std::vector<selfano::midi::MidiNoteEvent>& events, double now_ms) {
+    const auto stage = active_practice_stage();
+    for (const auto& ev : events) {
+      if (ev.is_soft_pedal) {
+        const bool rising_edge = !soft_pedal_down && ev.is_note_on;
+        soft_pedal_down = ev.is_note_on;
+        if (rising_edge && (now_ms - midi_bar_state.last_soft_pedal_ms) >= 200.0) {
+          midi_bar_state.last_soft_pedal_ms = now_ms;
+          trigger_replay_for_active_view(now_ms);
+        }
+        continue;
+      }
+
+      if (stage == selfano::core::AutopilotStage::Stage3Companion && ev.is_note_on) {
+        bool chime = false;
+        companion_view.on_note_on(ev.note, now_ms, chime);
+        if (chime) {
+          audio_synth.play_confirmation_chime();
+        }
+      }
+
+      chord_grouper.push_event(ev);
+
+      if (ev.from_hardware) {
+        if (ev.is_note_on) {
+          if (midi_bar_state.monitor_midi_in) {
+            audio_synth.note_on(ev.note, ev.velocity);
+          }
+        } else {
+          audio_synth.note_off(ev.note);
+        }
+      } else {
+        dispatch_outbound_note(midi_engine, audio_synth, ev.note, ev.velocity, 0, ev.is_note_on);
+      }
+    }
+  }
+
+  void draw_stage_body(selfano::core::AutopilotStage stage, double now_ms,
+                       std::int64_t today_epoch_day) {
+    switch (stage) {
+    case selfano::core::AutopilotStage::Stage1WarmUp:
+      if (warmup_view.draw(fonts.smufl_font, fonts.ui_font, now_ms, pending_playback)) {
+        if (const auto idx = selfano::core::find_weekly_key_index(warmup_view.key());
+            idx.has_value()) {
+          profile.weekly_key.key_index = *idx;
+          profile.weekly_key.manual_override = true;
+        }
+        profile.preferences.minor_scale_mode = warmup_view.minor_mode();
+        apply_weekly_key_to_views(now_ms);
+        persist_profile_now();
+      }
+      break;
+    case selfano::core::AutopilotStage::Stage2AFlashcards:
+      flashcard_view.draw(fonts.smufl_font, fonts.ui_font, now_ms, pending_playback);
+      break;
+    case selfano::core::AutopilotStage::Stage2BEtudes: {
+      bool click = false;
+      bool accent = false;
+      etude_view.draw(fonts.smufl_font, fonts.ui_font, click, accent);
+      if (click) {
+        audio_synth.play_metronome_click(accent);
+      }
+      break;
+    }
+    case selfano::core::AutopilotStage::Stage3Companion: {
+      bool chime = false;
+      companion_view.draw(fonts.ui_font, now_ms, chime);
+      if (chime) {
+        audio_synth.play_confirmation_chime();
+      }
+      break;
+    }
+    case selfano::core::AutopilotStage::Stage4ASrs:
+      srs_view.draw(today_epoch_day);
+      break;
+    case selfano::core::AutopilotStage::Stage4BEarTrainer:
+      ear_trainer_view.draw(fonts.smufl_font, fonts.ui_font, now_ms, pending_playback);
+      break;
+    }
+  }
+
+  bool init(const CliOptions& cli_opts) {
+    cli = cli_opts;
+
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
+      std::cerr << "Error: SDL_Init(): " << SDL_GetError() << '\n';
+      return false;
+    }
+
+#ifdef __EMSCRIPTEN__
+    float main_scale = 1.0f;
+    last_css_w = selfano_browser_viewport_width();
+    last_css_h = selfano_browser_viewport_height();
+    const int init_w = last_css_w;
+    const int init_h = last_css_h;
+    const SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#else
+    float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+    if (main_scale <= 0.0f) {
+      main_scale = 1.0f;
+    }
+    const int init_w = static_cast<int>(1360 * main_scale);
+    const int init_h = static_cast<int>(860 * main_scale);
+    const SDL_WindowFlags window_flags =
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#endif
+
+    window = SDL_CreateWindow("Selfano - C++23 Piano Trainer", init_w, init_h, window_flags);
+    if (window == nullptr) {
+      std::cerr << "Error: SDL_CreateWindow(): " << SDL_GetError() << '\n';
+      SDL_Quit();
+      return false;
+    }
+
+    renderer = SDL_CreateRenderer(window, nullptr);
+    if (renderer == nullptr) {
+      std::cerr << "Error: SDL_CreateRenderer(): " << SDL_GetError() << '\n';
+      SDL_DestroyWindow(window);
+      window = nullptr;
+      SDL_Quit();
+      return false;
+    }
+    SDL_SetRenderVSync(renderer, 1);
+#ifndef __EMSCRIPTEN__
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    SDL_ShowWindow(window);
+#endif
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr; // Never pollute working directory or MEMFS with imgui.ini
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImGui::StyleColorsDark();
+    style.FrameRounding = 4.0f;
+    style.WindowRounding = 0.0f;
+    style.ScaleAllSizes(main_scale);
+    style.FontScaleDpi = main_scale;
+
+    ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer3_Init(renderer);
+
+    const auto loaded_fonts = selfano::ui::load_app_fonts(io, 16.0f);
+    if (!loaded_fonts.has_value()) {
+      std::cerr << "Error loading fonts: " << loaded_fonts.error() << '\n';
+      ImGui_ImplSDLRenderer3_Shutdown();
+      ImGui_ImplSDL3_Shutdown();
+      ImGui::DestroyContext();
+      SDL_DestroyRenderer(renderer);
+      renderer = nullptr;
+      SDL_DestroyWindow(window);
+      window = nullptr;
+      SDL_Quit();
+      return false;
+    }
+    fonts = *loaded_fonts;
+    font_filename = std::filesystem::path(fonts.loaded_smufl_path).filename().string();
+
+    if (const auto audio_res = audio_synth.init(); !audio_res.has_value()) {
+      midi_bar_state.status_banner = audio_res.error();
+    }
+    if (const auto midi_err = midi_engine.last_error(); !midi_err.empty()) {
+      midi_bar_state.status_banner = midi_err;
+    }
+
+    profile_path = resolve_profile_path(cli.profile_path);
+    profile_path_str = profile_path.string();
+    const std::int64_t boot_epoch_day = current_epoch_day();
+
+    profile = selfano::core::make_default_profile(boot_epoch_day);
+    prev_now_ms = selfano::midi::MidiEngine::now_ms();
+
+#ifdef __EMSCRIPTEN__
+    idbfs_hydrated = false;
+    selfano_idbfs_mount_and_load();
+#else
+    bool profile_loaded_cleanly = false;
+    if (std::filesystem::exists(profile_path)) {
+      const auto loaded = selfano::core::load_profile_file(profile_path);
+      if (loaded.has_value()) {
+        profile = *loaded;
+        profile_loaded_cleanly = true;
+      } else {
+        std::cerr << "Warning: failed to parse profile (" << loaded.error()
+                  << "); using default profile\n";
+      }
+    }
+    profile.weekly_key = selfano::core::sync_weekly_key(profile.weekly_key, boot_epoch_day);
+    try_open_preferred_midi_ports();
+#endif
+
+    apply_profile_to_views(prev_now_ms);
+
+#ifndef __EMSCRIPTEN__
+    if (!profile_loaded_cleanly && !std::filesystem::exists(profile_path)) {
+      (void)selfano::core::save_profile_file(profile_path, profile);
+    }
+#endif
+
+    last_saved_json = selfano::core::to_json_string(profile);
+    last_autosave_check_ms = prev_now_ms;
+
+    prev_midi_in_open = midi_engine.is_input_open();
+    show_piano_dock = !midi_engine.is_input_open();
+    app_mode = cli.initial_mode;
+    free_stage = cli.initial_free_stage;
+    pending_dev_subtab = cli.initial_dev_subtab;
+
+    if (cli.initial_mode == AppMode::Autopilot) {
+      start_autopilot_session(prev_now_ms);
+    }
+
+    initialized = true;
+    return true;
+  }
+
+  void tick() {
+    if (done) {
+      return;
+    }
+
     const double now_ms = selfano::midi::MidiEngine::now_ms();
     const double dt_ms = std::clamp(now_ms - prev_now_ms, 0.0, 100.0);
     prev_now_ms = now_ms;
     const std::int64_t today_epoch_day = current_epoch_day();
+
+#ifdef __EMSCRIPTEN__
+    const int css_w = selfano_browser_viewport_width();
+    const int css_h = selfano_browser_viewport_height();
+    if (css_w != last_css_w || css_h != last_css_h) {
+      last_css_w = css_w;
+      last_css_h = css_h;
+      SDL_SetWindowSize(window, css_w, css_h);
+    }
+
+    if (!idbfs_hydrated && g_idbfs_load_done.load(std::memory_order_acquire)) {
+      idbfs_hydrated = true;
+      std::error_code ec;
+      const bool exists = std::filesystem::exists(profile_path, ec) && !ec;
+      if (exists) {
+        const auto loaded = selfano::core::load_profile_file(profile_path);
+        if (loaded.has_value()) {
+          profile = *loaded;
+          profile.weekly_key = selfano::core::sync_weekly_key(profile.weekly_key, today_epoch_day);
+          apply_profile_to_views(now_ms);
+          try_open_preferred_midi_ports();
+          last_saved_json = selfano::core::to_json_string(profile);
+        } else {
+          persist_profile_now();
+        }
+      } else {
+        persist_profile_now();
+      }
+    }
+#endif
 
     frame_events.clear();
     virtual_events.clear();
@@ -656,6 +918,7 @@ int main(int argc, char* argv[]) {
     }
     prev_midi_in_open = midi_engine.is_input_open();
 
+    ImGuiIO& io = ImGui::GetIO();
     if (io.WantTextInput && !prev_want_text_input) {
       const auto rel = qwerty_mapper.release_all(now_ms);
       frame_events.insert(frame_events.end(), rel.begin(), rel.end());
@@ -739,44 +1002,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    auto process_note_events = [&](const std::vector<selfano::midi::MidiNoteEvent>& events) {
-      const auto stage = active_practice_stage();
-      for (const auto& ev : events) {
-        if (ev.is_soft_pedal) {
-          const bool rising_edge = !soft_pedal_down && ev.is_note_on;
-          soft_pedal_down = ev.is_note_on;
-          if (rising_edge && (now_ms - midi_bar_state.last_soft_pedal_ms) >= 200.0) {
-            midi_bar_state.last_soft_pedal_ms = now_ms;
-            trigger_replay_for_active_view(now_ms);
-          }
-          continue;
-        }
-
-        if (stage == selfano::core::AutopilotStage::Stage3Companion && ev.is_note_on) {
-          bool chime = false;
-          companion_view.on_note_on(ev.note, now_ms, chime);
-          if (chime) {
-            audio_synth.play_confirmation_chime();
-          }
-        }
-
-        chord_grouper.push_event(ev);
-
-        if (ev.from_hardware) {
-          if (ev.is_note_on) {
-            if (midi_bar_state.monitor_midi_in) {
-              audio_synth.note_on(ev.note, ev.velocity);
-            }
-          } else {
-            audio_synth.note_off(ev.note);
-          }
-        } else {
-          dispatch_outbound_note(midi_engine, audio_synth, ev.note, ev.velocity, 0, ev.is_note_on);
-        }
-      }
-    };
-
-    process_note_events(frame_events);
+    process_note_events(frame_events, now_ms);
 
     (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
     chord_grouper.update(now_ms);
@@ -784,7 +1010,6 @@ int main(int argc, char* argv[]) {
       route_played_chord(chord, now_ms);
     }
 
-    // Update active stage engines + Autopilot state machine
     if (app_mode == AppMode::Autopilot) {
       bool safe_boundary = true;
       if (autopilot.state() == selfano::core::AutopilotState::Running) {
@@ -795,17 +1020,17 @@ int main(int argc, char* argv[]) {
           safe_boundary = !companion_view.is_mid_phrase();
         }
       }
-      const auto tick = autopilot.update(dt_ms / 1000.0, safe_boundary);
-      if (tick.entered_transition) {
+      const auto tick_ev = autopilot.update(dt_ms / 1000.0, safe_boundary);
+      if (tick_ev.entered_transition) {
         cleanup_stage_transitions(now_ms);
       }
-      if (tick.stage_changed) {
+      if (tick_ev.stage_changed) {
         cleanup_stage_transitions(now_ms);
         if (autopilot.current_block().stage == selfano::core::AutopilotStage::Stage4BEarTrainer) {
           ear_trainer_view.trigger_replay(now_ms, pending_playback);
         }
       }
-      if (tick.session_completed) {
+      if (tick_ev.session_completed) {
         cleanup_stage_transitions(now_ms);
         finalize_autopilot_recap(today_epoch_day);
       }
@@ -847,7 +1072,6 @@ int main(int argc, char* argv[]) {
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
     if (ImGui::Begin("SelfanoRoot", nullptr, kRootFlags)) {
-      // Top Navigation Bar
       auto nav_btn = [&](const char* label, AppMode mode) {
         const bool active = (app_mode == mode);
         if (active) {
@@ -934,49 +1158,6 @@ int main(int argc, char* argv[]) {
       const bool dock_visible = show_piano_dock && active_practice_stage().has_value();
       const float dock_reserve_h = dock_visible ? 132.0f : 0.0f;
 
-      auto draw_stage_body = [&](selfano::core::AutopilotStage stage) {
-        switch (stage) {
-        case selfano::core::AutopilotStage::Stage1WarmUp:
-          if (warmup_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback)) {
-            if (const auto idx = selfano::core::find_weekly_key_index(warmup_view.key());
-                idx.has_value()) {
-              profile.weekly_key.key_index = *idx;
-              profile.weekly_key.manual_override = true;
-            }
-            profile.preferences.minor_scale_mode = warmup_view.minor_mode();
-            apply_weekly_key_to_views(now_ms);
-            persist_profile_now();
-          }
-          break;
-        case selfano::core::AutopilotStage::Stage2AFlashcards:
-          flashcard_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback);
-          break;
-        case selfano::core::AutopilotStage::Stage2BEtudes: {
-          bool click = false;
-          bool accent = false;
-          etude_view.draw(fonts->smufl_font, fonts->ui_font, click, accent);
-          if (click) {
-            audio_synth.play_metronome_click(accent);
-          }
-          break;
-        }
-        case selfano::core::AutopilotStage::Stage3Companion: {
-          bool chime = false;
-          companion_view.draw(fonts->ui_font, now_ms, chime);
-          if (chime) {
-            audio_synth.play_confirmation_chime();
-          }
-          break;
-        }
-        case selfano::core::AutopilotStage::Stage4ASrs:
-          srs_view.draw(today_epoch_day);
-          break;
-        case selfano::core::AutopilotStage::Stage4BEarTrainer:
-          ear_trainer_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback);
-          break;
-        }
-      };
-
       if (app_mode == AppMode::Home) {
         if (ImGui::BeginChild("##home_scroll", ImVec2(0.0f, 0.0f))) {
           sync_profile_from_views();
@@ -1029,7 +1210,6 @@ int main(int argc, char* argv[]) {
           }
           ImGui::EndChild();
         } else {
-          // Persistent Autopilot Runner Bar
           const auto& blk = autopilot.current_block();
           const int rem_s = static_cast<int>(std::ceil(autopilot.block_remaining_sec()));
           const int tot_rem_s = static_cast<int>(std::ceil(std::max(
@@ -1101,13 +1281,12 @@ int main(int argc, char* argv[]) {
             ImGui::EndChild();
           } else if (autopilot.state() != selfano::core::AutopilotState::Completed) {
             if (ImGui::BeginChild("##autopilot_stage_body", ImVec2(0.0f, -dock_reserve_h))) {
-              draw_stage_body(autopilot.current_block().stage);
+              draw_stage_body(autopilot.current_block().stage, now_ms, today_epoch_day);
             }
             ImGui::EndChild();
           }
         }
       } else if (app_mode == AppMode::FreePractice) {
-        // Free-Practice stage switcher strip
         for (std::size_t i = 0; i < selfano::core::kAutopilotBlocks.size(); ++i) {
           if (i > 0) {
             ImGui::SameLine();
@@ -1131,18 +1310,17 @@ int main(int argc, char* argv[]) {
         ImGui::Separator();
 
         if (ImGui::BeginChild("##free_stage_body", ImVec2(0.0f, -dock_reserve_h))) {
-          draw_stage_body(free_stage);
+          draw_stage_body(free_stage, now_ms, today_epoch_day);
         }
         ImGui::EndChild();
       } else {
-        // Dev Tools (secondary view: Phase 2 Live MIDI Sandbox + Phase 1 Grand Staff Showcase)
         if (ImGui::BeginTabBar("##dev_tools_tabs")) {
           const ImGuiTabItemFlags sb_flags =
               (pending_dev_subtab.has_value() && *pending_dev_subtab == 0)
                   ? ImGuiTabItemFlags_SetSelected
                   : ImGuiTabItemFlags_None;
           if (ImGui::BeginTabItem("Phase 2: Live MIDI Sandbox", nullptr, sb_flags)) {
-            phase2_sandbox.draw(fonts->smufl_font, fonts->ui_font, chord_grouper.held_notes(),
+            phase2_sandbox.draw(fonts.smufl_font, fonts.ui_font, chord_grouper.held_notes(),
                                 midi_bar_state.piano_mode, now_ms, virtual_events,
                                 pending_playback);
             ImGui::EndTabItem();
@@ -1153,7 +1331,7 @@ int main(int argc, char* argv[]) {
                   ? ImGuiTabItemFlags_SetSelected
                   : ImGuiTabItemFlags_None;
           if (ImGui::BeginTabItem("Phase 1: Grand Staff Showcase", nullptr, sc_flags)) {
-            staff_showcase.draw_contents(fonts->smufl_font, fonts->ui_font);
+            staff_showcase.draw_contents(fonts.smufl_font, fonts.ui_font);
             ImGui::EndTabItem();
           }
           ImGui::EndTabBar();
@@ -1194,7 +1372,7 @@ int main(int argc, char* argv[]) {
     ImGui::End();
 
     if (!virtual_events.empty()) {
-      process_note_events(virtual_events);
+      process_note_events(virtual_events, now_ms);
       (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
       chord_grouper.update(now_ms);
       for (const auto& chord : chord_grouper.take_completed_chords()) {
@@ -1208,9 +1386,23 @@ int main(int argc, char* argv[]) {
       playback_scheduler.schedule_batch(pending_playback);
     }
 
-    // Periodic dirty-check auto-save every 3 seconds so SRS / Companion / Telemetry persist safely
-    if ((now_ms - last_autosave_check_ms) >= 3000.0) {
+    // Periodic dirty-check auto-save (~750 ms) so SRS / Companion / Telemetry persist quickly
+    // across desktop exits and browser reloads via IDBFS.
+    if ((now_ms - last_autosave_check_ms) >= 750.0) {
       last_autosave_check_ms = now_ms;
+#ifdef __EMSCRIPTEN__
+      if (idbfs_hydrated) {
+        sync_profile_from_views();
+        const std::string cur_json = selfano::core::to_json_string(profile);
+        if (cur_json != last_saved_json) {
+          if (const auto res = selfano::core::save_profile_file(profile_path, profile);
+              res.has_value()) {
+            last_saved_json = cur_json;
+            selfano_idbfs_sync_to_disk();
+          }
+        }
+      }
+#else
       sync_profile_from_views();
       const std::string cur_json = selfano::core::to_json_string(profile);
       if (cur_json != last_saved_json) {
@@ -1219,6 +1411,7 @@ int main(int argc, char* argv[]) {
           last_saved_json = cur_json;
         }
       }
+#endif
     }
 
     ImGui::Render();
@@ -1229,6 +1422,7 @@ int main(int argc, char* argv[]) {
     ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
 
     ++rendered_frames;
+#ifndef __EMSCRIPTEN__
     const bool should_capture = !cli.screenshot_path.empty() && !screenshot_saved &&
                                 ((cli.smoke_frames > 0 && rendered_frames >= cli.smoke_frames) ||
                                  (cli.smoke_frames == 0 && rendered_frames >= 3));
@@ -1244,26 +1438,77 @@ int main(int argc, char* argv[]) {
       }
       screenshot_saved = true;
     }
+#endif
 
     SDL_RenderPresent(renderer);
 
     if (cli.smoke_frames > 0 && rendered_frames >= cli.smoke_frames) {
       done = true;
+#ifdef __EMSCRIPTEN__
+      emscripten_cancel_main_loop();
+#endif
     }
   }
 
-  persist_profile_now();
+  void shutdown() {
+    if (!initialized) {
+      return;
+    }
+    persist_profile_now();
 
-  midi_engine.send_all_notes_off();
-  audio_synth.shutdown();
+    midi_engine.send_all_notes_off();
+    audio_synth.shutdown();
 
-  ImGui_ImplSDLRenderer3_Shutdown();
-  ImGui_ImplSDL3_Shutdown();
-  ImGui::DestroyContext();
+    ImGui_ImplSDLRenderer3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
 
-  SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+    if (renderer != nullptr) {
+      SDL_DestroyRenderer(renderer);
+      renderer = nullptr;
+    }
+    if (window != nullptr) {
+      SDL_DestroyWindow(window);
+      window = nullptr;
+    }
+    SDL_Quit();
+    initialized = false;
+  }
+};
 
+#ifdef __EMSCRIPTEN__
+std::unique_ptr<AppContext> g_web_app;
+
+void emscripten_tick_trampoline(void* arg) {
+  auto* app = static_cast<AppContext*>(arg);
+  if (app != nullptr) {
+    app->tick();
+  }
+}
+#endif
+
+} // namespace
+
+int main(int argc, char* argv[]) {
+  const CliOptions cli = parse_cli(argc, argv);
+
+#ifdef __EMSCRIPTEN__
+  g_web_app = std::make_unique<AppContext>();
+  if (!g_web_app->init(cli)) {
+    g_web_app.reset();
+    return 1;
+  }
+  emscripten_set_main_loop_arg(&emscripten_tick_trampoline, g_web_app.get(), 0, false);
   return 0;
+#else
+  auto app = std::make_unique<AppContext>();
+  if (!app->init(cli)) {
+    return 1;
+  }
+  while (!app->done) {
+    app->tick();
+  }
+  app->shutdown();
+  return 0;
+#endif
 }

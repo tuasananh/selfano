@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Selfano - C++23 Piano Trainer</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #14171f;
+      color: #e6ebf5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* SDL3 Emscripten requires strictly zero border and zero padding on the canvas. */
+    #canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      outline: none;
+      background-color: #14171f;
+    }
+
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background-color: rgba(20, 23, 31, 0.94);
+      z-index: 10;
+      pointer-events: none;
+      transition: opacity 0.18s ease-out;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    #loading-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      color: #7cc4ff;
+    }
+
+    #loading-status {
+      font-size: 14px;
+      color: #b8c2d4;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-overlay">
+    <div id="loading-title">Selfano Piano Trainer</div>
+    <div id="loading-status">Loading WebAssembly runtime...</div>
+  </div>
+
+  <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+  <script>
+    (function () {
+      var overlay = document.getElementById('loading-overlay');
+      var statusEl = document.getElementById('loading-status');
+      var canvasEl = document.getElementById('canvas');
+
+      canvasEl.addEventListener('webglcontextlost', function (e) {
+        e.preventDefault();
+        if (overlay && statusEl) {
+          overlay.classList.remove('hidden');
+          statusEl.textContent = 'WebGL context lost. Reload page to restore.';
+        }
+      }, false);
+
+      window.Module = {
+        canvas: canvasEl,
+        setStatus: function (text) {
+          if (!statusEl || !overlay) {
+            return;
+          }
+          if (!text) {
+            overlay.classList.add('hidden');
+          } else {
+            statusEl.textContent = text;
+          }
+        },
+        onRuntimeInitialized: function () {
+          if (overlay) {
+            overlay.classList.add('hidden');
+          }
+          if (canvasEl) {
+            canvasEl.focus();
+          }
+        }
+      };
+    })();
+  </script>
+
+  {{{ SCRIPT }}}
+</body>
+</html>
