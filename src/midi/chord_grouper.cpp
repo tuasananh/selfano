@@ -18,7 +18,7 @@ void PolyphonicChordGrouper::set_window_ms(double window_ms) noexcept {
 }
 
 void PolyphonicChordGrouper::push_event(const MidiNoteEvent& event) {
-  if (event.is_soft_pedal || event.note > 127U) {
+  if (!event.is_note_message() || event.note > 127U) {
     return;
   }
 

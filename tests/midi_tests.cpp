@@ -103,12 +103,34 @@ TEST_CASE("parse_midi1_bytes normalizes NoteOn vel=0 and parses NoteOff and CC 6
     REQUIRE(ev_rel->velocity == 63);
   }
 
-  SECTION("Ignores malformed/short messages and unrelated CCs") {
-    const std::array<std::uint8_t, 2> short_msg{0x90, 60};
-    REQUIRE_FALSE(parse_midi1_bytes(short_msg, 0.0, true).has_value());
+  SECTION(
+      "Parses Sustain (CC 64), Sostenuto (CC 66), general CC, Pitch Bend, and rejects bad data") {
+    const std::array<std::uint8_t, 3> sustain_on{0xB0, 64, 127};
+    const auto ev_sus = parse_midi1_bytes(sustain_on, 40.0, true);
+    REQUIRE(ev_sus.has_value());
+    REQUIRE(ev_sus->is_control_change());
+    REQUIRE_FALSE(ev_sus->is_note_message());
+    REQUIRE(ev_sus->data1 == 64);
+    REQUIRE(ev_sus->velocity == 127);
+    REQUIRE(ev_sus->is_note_on);
+
+    const std::array<std::uint8_t, 3> sost_off{0xB1, 66, 0};
+    const auto ev_sost = parse_midi1_bytes(sost_off, 42.0, true);
+    REQUIRE(ev_sost.has_value());
+    REQUIRE(ev_sost->is_control_change());
+    REQUIRE(ev_sost->channel == 1);
+    REQUIRE(ev_sost->data1 == 66);
+    REQUIRE_FALSE(ev_sost->is_note_on);
 
     const std::array<std::uint8_t, 3> mod_wheel{0xB0, 1, 64};
-    REQUIRE_FALSE(parse_midi1_bytes(mod_wheel, 0.0, true).has_value());
+    const auto ev_mod = parse_midi1_bytes(mod_wheel, 45.0, true);
+    REQUIRE(ev_mod.has_value());
+    REQUIRE(ev_mod->is_control_change());
+    REQUIRE(ev_mod->data1 == 1);
+    REQUIRE(ev_mod->velocity == 64);
+
+    const std::array<std::uint8_t, 2> short_msg{0x90, 60};
+    REQUIRE_FALSE(parse_midi1_bytes(short_msg, 0.0, true).has_value());
 
     const std::array<std::uint8_t, 3> invalid_note{0x90, 200, 100};
     REQUIRE_FALSE(parse_midi1_bytes(invalid_note, 0.0, true).has_value());

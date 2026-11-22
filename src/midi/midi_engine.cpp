@@ -482,6 +482,16 @@ bool MidiEngine::send_note_off(std::uint8_t note, std::uint8_t channel) {
   return webmidi_send_3_js(impl_->active_output_id.c_str(), status, note, 0) != 0;
 }
 
+bool MidiEngine::send_control_change(std::uint8_t controller, std::uint8_t value,
+                                     std::uint8_t channel) {
+  if (!is_output_open() || controller > 127U) {
+    return false;
+  }
+  const int status = static_cast<int>(0xB0U | (channel & 0x0FU));
+  const int val = static_cast<int>(std::min<std::uint8_t>(value, 127U));
+  return webmidi_send_3_js(impl_->active_output_id.c_str(), status, controller, val) != 0;
+}
+
 void MidiEngine::send_all_notes_off() {
   if (!is_output_open()) {
     return;
@@ -813,6 +823,16 @@ bool MidiEngine::send_note_off(std::uint8_t note, std::uint8_t channel) {
   }
   const auto status = static_cast<unsigned char>(0x80U | (channel & 0x0FU));
   return impl_->midi_out->send_message(status, note, 0U) == stdx::error{};
+}
+
+bool MidiEngine::send_control_change(std::uint8_t controller, std::uint8_t value,
+                                     std::uint8_t channel) {
+  if (!is_output_open() || controller > 127U) {
+    return false;
+  }
+  const auto status = static_cast<unsigned char>(0xB0U | (channel & 0x0FU));
+  const auto val = static_cast<unsigned char>(std::min<std::uint8_t>(value, 127U));
+  return impl_->midi_out->send_message(status, controller, val) == stdx::error{};
 }
 
 void MidiEngine::send_all_notes_off() {

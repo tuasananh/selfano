@@ -55,6 +55,8 @@ public:
   [[nodiscard]] bool send_note_on(std::uint8_t note, std::uint8_t velocity,
                                   std::uint8_t channel = 0);
   [[nodiscard]] bool send_note_off(std::uint8_t note, std::uint8_t channel = 0);
+  [[nodiscard]] bool send_control_change(std::uint8_t controller, std::uint8_t value,
+                                         std::uint8_t channel = 0);
   void send_all_notes_off();
 
   [[nodiscard]] static double now_ms() noexcept;
