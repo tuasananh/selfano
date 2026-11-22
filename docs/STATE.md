@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-22
-- **Active Phase:** Phase 4 — Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer) *(ready to start)*
-- **Last Completed Phase:** Phase 3 — Stage 1 (Key & Harmony Warm-Up) & Stage 2 (Adaptive Flashcards + Procedural Continuous Etudes)
+- **Active Phase:** Phase 5 — Unified 30-Min Autopilot Session, App Shell & `profile.json` Persistence *(ready to start)*
+- **Last Completed Phase:** Phase 4 — Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer)
 
 ---
 
@@ -61,6 +61,19 @@
   - `clang-format --dry-run --Werror` clean on all Phase 3 C++ files.
   - Headless smoke runs (`--tab warmup --inject-notes 48,60`, `--tab flashcards --inject-notes 60`, `--tab etude`) exited cleanly (`0`) and rendered crisp SMuFL notation, rests, badges, and 2-system lookahead.
 
+### Phase 4 — Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer)
+- **Status:** Complete
+- **Artifacts Created:**
+  - Pure C++23 core (`src/core/`): `chord_symbol.hpp/.cpp` (`std::expected` chord parser supporting triads, 7ths, sus/dim/aug/ext, slash chords & progressions), `companion_matcher.hpp/.cpp` (rolling-window pitch-class verifier ignoring octaves/inversions, tolerating passing tones, enforcing configurable `~500 ms` dwell guard, and emitting phrase completion chimes), `srs_deck.hpp/.cpp` (3-button SM-2 `Again`/`Hard`/`Good` scheduler with `1.3` ease floor & CRUD deck), `ear_trainer.hpp/.cpp` (in-key tonic anchor + Tier 1/2/3 procedural melodies, scheduled playback events, exact pitch matching with `std::format` directional half-step hints, 3-streak auto-tier promotion & manual override)
+  - Catch2 unit tests (`tests/`): `companion_tests.cpp`, `srs_tests.cpp`, `ear_trainer_tests.cpp`
+  - UI & wiring (`src/ui/`, `src/main.cpp`): `companion_view.hpp/.cpp`, `srs_view.hpp/.cpp`, `ear_trainer_view.hpp/.cpp`, raw `NoteOn` routing for Companion Mode, confirmation chime audio, `Spacebar`/`CC 67` replay & bar reset, injected `epoch_day`, and `--tab` smoke flags
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with zero warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed 40/40 test cases in 0.13s.
+  - `src/core/` purity checks (`#include` boundary and `steady_clock::now`/`random_device`/`system_clock`) returned 0 matches.
+  - `clang-format --dry-run --Werror` clean on all Phase 4 C++ files.
+  - Headless smoke runs (`--tab companion --inject-notes 50,57,62`, `--tab srs`, `--tab ear --inject-notes 60`) exited cleanly (`0`) and rendered expected cards, SRS due queue, and ear-trainer hint/hidden staff state.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -77,10 +90,10 @@
 
 ## Next Concrete Action
 
-Start **Phase 4** by reading [`docs/phases/phase-4-companion-srs-ear-training.md`](./phases/phase-4-companion-srs-ear-training.md) and implementing Slice 4.1 (`chord_symbol.*` and `companion_matcher.*` in `src/core/` via TDD).
+Start **Phase 5** by reading [`docs/phases/phase-5-autopilot-and-persistence.md`](./phases/phase-5-autopilot-and-persistence.md) and implementing Slice 5.1 (`autopilot.hpp/.cpp`) and Slice 5.2 (`profile_store.hpp/.cpp`) via TDD.
 
 ---
 
 ## Active Handoff / Open Blockers
 
-- None. Phase 3 complete and cleanly committed on `main`.
+- None. Phase 4 complete and cleanly committed on `main`.
