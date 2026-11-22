@@ -105,6 +105,7 @@ add_library(piano_core STATIC
   src/core/weekly_key.cpp
   src/core/warmup_engine.cpp
   src/core/flashcard_engine.cpp
+  src/core/etude_engine.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -194,6 +195,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/staff_layout_tests.cpp
     tests/warmup_tests.cpp
     tests/flashcard_tests.cpp
+    tests/etude_tests.cpp
     tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
