@@ -250,6 +250,8 @@ std::string to_json_string(const UserProfile& profile) {
       {"companion_chime_enabled", profile.preferences.companion_chime_enabled},
       {"companion_dwell_ms", profile.preferences.companion_dwell_ms},
       {"light_paper_staff", profile.preferences.light_paper_staff},
+      {"dark_ui_theme", profile.preferences.dark_ui_theme},
+      {"ui_zoom", profile.preferences.ui_zoom},
   };
 
   return j.dump(2);
@@ -411,12 +413,15 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
         !read_bool_field(pref, "companion_chime_enabled", p.preferences.companion_chime_enabled,
                          err) ||
         !read_double_field(pref, "companion_dwell_ms", p.preferences.companion_dwell_ms, err) ||
-        !read_bool_field(pref, "light_paper_staff", p.preferences.light_paper_staff, err)) {
+        !read_bool_field(pref, "light_paper_staff", p.preferences.light_paper_staff, err) ||
+        !read_bool_field(pref, "dark_ui_theme", p.preferences.dark_ui_theme, err) ||
+        !read_double_field(pref, "ui_zoom", p.preferences.ui_zoom, err)) {
       return std::unexpected(err);
     }
     p.preferences.default_bpm = std::clamp(p.preferences.default_bpm, 40.0, 120.0);
     p.preferences.chord_window_ms = std::clamp(p.preferences.chord_window_ms, 80.0, 120.0);
     p.preferences.companion_dwell_ms = std::clamp(p.preferences.companion_dwell_ms, 0.0, 3000.0);
+    p.preferences.ui_zoom = std::clamp(p.preferences.ui_zoom, 0.75, 1.75);
     p.preferences.hand_mode = static_cast<EtudeHandMode>(std::clamp(hm_int, 0, 2));
     p.preferences.minor_scale_mode = static_cast<MinorScaleMode>(std::clamp(mm_int, 0, 1));
   }

@@ -31,6 +31,8 @@ struct UserPreferences {
   bool companion_chime_enabled{true};
   double companion_dwell_ms{500.0};
   bool light_paper_staff{true};
+  bool dark_ui_theme{false};
+  double ui_zoom{1.0};
 
   bool operator==(const UserPreferences&) const = default;
 };
