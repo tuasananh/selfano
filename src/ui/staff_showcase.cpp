@@ -2,6 +2,9 @@
 
 #include "core/theory.hpp"
 
+#include "ui/design_system.hpp"
+#include "ui/widgets.hpp"
+
 #include "imgui.h"
 
 #include <array>
@@ -349,24 +352,23 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
       {"F# Maj", 6, core::Mode::Major},
   }};
 
-  ImGui::TextUnformatted("Key:");
-  for (const auto& qk : kQuickKeys) {
-    ImGui::SameLine();
-    const bool active = (options_.key.fifths == qk.fifths && options_.key.mode == qk.mode);
-    if (active) {
-      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.50f, 0.85f, 1.0f));
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  for (std::size_t idx = 0; idx < kQuickKeys.size(); ++idx) {
+    const auto& qk = kQuickKeys[idx];
+    if (idx > 0) {
+      ImGui::SameLine(0.0f, 6.0f * scale);
     }
-    if (ImGui::Button(qk.label)) {
+    const bool active = (options_.key.fifths == qk.fifths && options_.key.mode == qk.mode);
+    const std::string btn_id = std::format("{}##qk_{}", qk.label, idx);
+    if (pill_button(btn_id.c_str(), active ? ButtonTone::Primary : ButtonTone::Secondary,
+                    IconId::None, 28.0f)) {
       options_.key = core::KeySignature{qk.fifths, qk.mode};
       changed = true;
     }
-    if (active) {
-      ImGui::PopStyleColor();
-    }
   }
 
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(160.0f);
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  ImGui::SetNextItemWidth(155.0f * scale);
   const std::string current_key_name = core::format_key_name(options_.key);
   if (ImGui::BeginCombo("##KeyCombo", current_key_name.c_str())) {
     for (int f = -7; f <= 7; ++f) {
@@ -384,36 +386,42 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
     ImGui::EndCombo();
   }
 
-  ImGui::SameLine();
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  ImGui::AlignTextToFramePadding();
+  ImGui::TextColored(colors().text_secondary, "Minor");
+  ImGui::SameLine(0.0f, 6.0f * scale);
   bool is_minor = (options_.key.mode == core::Mode::Minor);
-  if (ImGui::Checkbox("Minor", &is_minor)) {
+  if (toggle_switch("##sc_minor", &is_minor)) {
     options_.key.mode = is_minor ? core::Mode::Minor : core::Mode::Major;
     changed = true;
   }
 
   // Row 2: View mode, Preset, Staff Zoom, Theme
+  static constexpr std::array<std::string_view, 3> kViews{"Grand", "Treble", "Bass"};
   int view_idx = static_cast<int>(options_.view_mode);
-  ImGui::SetNextItemWidth(140.0f);
-  if (ImGui::Combo("View", &view_idx, "Grand Staff\0Treble Only\0Bass Only\0")) {
+  if (segmented_control("##sc_view_seg", &view_idx, kViews, 210.0f, 28.0f)) {
     options_.view_mode = static_cast<StaffViewMode>(view_idx);
   }
 
-  ImGui::SameLine();
+  ImGui::SameLine(0.0f, 10.0f * scale);
   int preset_idx = static_cast<int>(preset_);
-  ImGui::SetNextItemWidth(240.0f);
-  if (ImGui::Combo("Showcase", &preset_idx,
+  ImGui::SetNextItemWidth(220.0f * scale);
+  if (ImGui::Combo("##sc_preset", &preset_idx,
                    "Phase 1 Overview\0Scale & Cadence\0Ledger Extremes\0"
                    "2nds & Accidentals\0")) {
     preset_ = static_cast<ShowcasePreset>(preset_idx);
     changed = true;
   }
 
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(140.0f);
-  ImGui::SliderFloat("Space (px)", &options_.staff_space, 10.0f, 24.0f, "%.1f");
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  ImGui::SetNextItemWidth(130.0f * scale);
+  ImGui::SliderFloat("##sc_space", &options_.staff_space, 10.0f, 24.0f, "Space %.1fpx");
 
-  ImGui::SameLine();
-  ImGui::Checkbox("Light Paper", &options_.light_paper_theme);
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  ImGui::AlignTextToFramePadding();
+  ImGui::TextColored(colors().text_secondary, "Paper");
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  toggle_switch("##sc_paper", &options_.light_paper_theme);
 
   if (changed) {
     rebuild_measures();

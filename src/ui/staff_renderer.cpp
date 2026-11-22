@@ -2,6 +2,7 @@
 
 #include "core/staff_layout.hpp"
 
+#include "ui/design_system.hpp"
 #include "ui/smufl_glyphs.hpp"
 
 #include "imgui.h"
@@ -16,8 +17,8 @@ namespace selfano::ui {
 
 namespace {
 
-inline constexpr float kTopMarginSpaces = 5.6f;
-inline constexpr float kBottomMarginSpaces = 5.2f;
+inline constexpr float kTopMarginSpaces = 5.4f;
+inline constexpr float kBottomMarginSpaces = 5.0f;
 inline constexpr float kStaffHeightSpaces = 4.0f;
 
 struct ThemePalette {
@@ -28,10 +29,12 @@ struct ThemePalette {
   ImU32 correct;
   ImU32 incorrect;
   ImU32 badge_bg;
+  ImU32 badge_border;
   ImU32 annotation;
   ImU32 cursor_fill;
-  ImU32 cursor_border;
+  ImU32 cursor_accent;
   ImU32 playhead;
+  ImU32 playhead_trail;
 };
 
 [[nodiscard]] ImU32 apply_alpha_scale(ImU32 color, float scale) noexcept {
@@ -44,38 +47,44 @@ struct ThemePalette {
 [[nodiscard]] ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
   ThemePalette pal{};
   if (light_paper) {
+    // Warm Apple Books Ivory Paper with crisp charcoal ink
     pal = ThemePalette{
-        .background = IM_COL32(250, 248, 242, 255),
-        .border = IM_COL32(204, 198, 184, 255),
-        .staff_line = IM_COL32(58, 62, 70, 225),
-        .ink = IM_COL32(24, 26, 32, 255),
-        .correct = IM_COL32(21, 128, 61, 255),
-        .incorrect = IM_COL32(220, 38, 38, 255),
-        .badge_bg = IM_COL32(254, 226, 226, 245),
-        .annotation = IM_COL32(67, 56, 202, 255),
-        .cursor_fill = IM_COL32(37, 99, 235, 38),
-        .cursor_border = IM_COL32(37, 99, 235, 160),
-        .playhead = IM_COL32(14, 116, 144, 230),
+        .background = IM_COL32(252, 251, 247, 255),
+        .border = IM_COL32(224, 220, 210, 255),
+        .staff_line = IM_COL32(72, 74, 82, 198),
+        .ink = IM_COL32(29, 29, 31, 255),
+        .correct = IM_COL32(24, 148, 66, 255),
+        .incorrect = IM_COL32(224, 46, 36, 255),
+        .badge_bg = IM_COL32(255, 236, 235, 248),
+        .badge_border = IM_COL32(255, 59, 48, 120),
+        .annotation = IM_COL32(88, 86, 214, 235),
+        .cursor_fill = IM_COL32(0, 122, 255, 24),
+        .cursor_accent = IM_COL32(0, 122, 255, 190),
+        .playhead = IM_COL32(0, 122, 255, 235),
+        .playhead_trail = IM_COL32(0, 122, 255, 28),
     };
   } else {
+    // Dark Studio Slate (Logic Pro / Apple Dark Mode)
     pal = ThemePalette{
-        .background = IM_COL32(24, 27, 34, 255),
-        .border = IM_COL32(64, 70, 86, 255),
-        .staff_line = IM_COL32(138, 148, 168, 210),
-        .ink = IM_COL32(236, 240, 247, 255),
-        .correct = IM_COL32(52, 211, 153, 255),
-        .incorrect = IM_COL32(248, 113, 113, 255),
-        .badge_bg = IM_COL32(69, 24, 30, 240),
-        .annotation = IM_COL32(165, 180, 252, 255),
-        .cursor_fill = IM_COL32(96, 165, 250, 44),
-        .cursor_border = IM_COL32(96, 165, 250, 175),
-        .playhead = IM_COL32(56, 189, 248, 235),
+        .background = IM_COL32(30, 31, 37, 255),
+        .border = IM_COL32(255, 255, 255, 24),
+        .staff_line = IM_COL32(152, 156, 168, 150),
+        .ink = IM_COL32(245, 245, 247, 255),
+        .correct = IM_COL32(48, 209, 88, 255),
+        .incorrect = IM_COL32(255, 69, 58, 255),
+        .badge_bg = IM_COL32(66, 24, 26, 244),
+        .badge_border = IM_COL32(255, 69, 58, 145),
+        .annotation = IM_COL32(142, 164, 255, 235),
+        .cursor_fill = IM_COL32(10, 132, 255, 34),
+        .cursor_accent = IM_COL32(10, 132, 255, 210),
+        .playhead = IM_COL32(10, 132, 255, 240),
+        .playhead_trail = IM_COL32(10, 132, 255, 38),
     };
   }
   if (dim_preview) {
-    pal.staff_line = apply_alpha_scale(pal.staff_line, 0.58f);
-    pal.ink = apply_alpha_scale(pal.ink, 0.58f);
-    pal.annotation = apply_alpha_scale(pal.annotation, 0.65f);
+    pal.staff_line = apply_alpha_scale(pal.staff_line, 0.56f);
+    pal.ink = apply_alpha_scale(pal.ink, 0.52f);
+    pal.annotation = apply_alpha_scale(pal.annotation, 0.58f);
   }
   return pal;
 }
@@ -148,20 +157,22 @@ void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, 
 
 void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
                          const std::string& text, const ThemePalette& pal) {
-  if (ui_font == nullptr || text.empty()) {
+  ImFont* badge_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
+  if (badge_font == nullptr || text.empty()) {
     return;
   }
-  const float text_size_px = 13.0f;
-  const ImVec2 txt_sz = ui_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
-  const float pad_x = 5.0f;
-  const float pad_y = 2.0f;
+  const float text_size_px = draw_font_size(11.5f);
+  const ImVec2 txt_sz = badge_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
+  const float pad_x = 8.0f;
+  const float pad_y = 3.0f;
   const ImVec2 box_min(std::round(center_anchor.x - txt_sz.x * 0.5f - pad_x),
                        std::round(center_anchor.y - txt_sz.y * 0.5f - pad_y));
   const ImVec2 box_max(box_min.x + txt_sz.x + pad_x * 2.0f, box_min.y + txt_sz.y + pad_y * 2.0f);
+  const float pill_r = (box_max.y - box_min.y) * 0.5f;
 
-  draw_list->AddRectFilled(box_min, box_max, pal.badge_bg, 4.0f);
-  draw_list->AddRect(box_min, box_max, pal.incorrect, 4.0f, 0, 1.0f);
-  draw_list->AddText(ui_font, text_size_px, ImVec2(box_min.x + pad_x, box_min.y + pad_y),
+  draw_list->AddRectFilled(box_min, box_max, pal.badge_bg, pill_r);
+  draw_list->AddRect(box_min, box_max, pal.badge_border, pill_r, 0, 1.0f);
+  draw_list->AddText(badge_font, text_size_px, ImVec2(box_min.x + pad_x, box_min.y + pad_y),
                      pal.incorrect, text.c_str());
 }
 
@@ -272,7 +283,7 @@ void render_clef_chord(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_fon
 
     if (src->feedback == NoteFeedback::Incorrect && !src->played_label.empty()) {
       const std::string badge =
-          std::format("{} -> {}", core::format_note(src->note), src->played_label);
+          std::format("{} \xE2\x86\x92 {}", core::format_note(src->note), src->played_label);
       const float top_y = bottom_y - kStaffHeightSpaces * space;
       const float badge_y = (nh.step <= core::staff_middle_step(clef))
                                 ? std::max(bottom_y + 1.85f * space, ny + 1.85f * space)
@@ -314,10 +325,14 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   const float s = std::max(8.0f, options.staff_space);
   const float total_height = compute_staff_canvas_height(options);
   const ThemePalette pal = palette_for(options.light_paper_theme, options.dim_preview);
+  const float card_rounding = 14.0f;
 
   const ImVec2 canvas_max(origin.x + width, origin.y + total_height);
-  draw_list->AddRectFilled(origin, canvas_max, pal.background, 8.0f);
-  draw_list->AddRect(origin, canvas_max, pal.border, 8.0f, 0, 1.5f);
+  if (!options.dim_preview) {
+    draw_card_shadow(draw_list, origin, canvas_max, card_rounding, 1.0f);
+  }
+  draw_list->AddRectFilled(origin, canvas_max, pal.background, card_rounding);
+  draw_list->AddRect(origin, canvas_max, pal.border, card_rounding, 0, 1.0f);
 
   const bool show_treble = (options.view_mode == StaffViewMode::GrandStaff ||
                             options.view_mode == StaffViewMode::TrebleOnly);
@@ -339,9 +354,9 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   const float thick_bar_thickness = std::max(2.0f, kThickBarlineThicknessSpaces * s);
 
   const float total_system_spaces = (system_bottom_y - system_top_y) / s;
-  const float left_pad = (options.view_mode == StaffViewMode::GrandStaff) ? (2.2f * s) : (1.2f * s);
+  const float left_pad = (options.view_mode == StaffViewMode::GrandStaff) ? (2.5f * s) : (1.5f * s);
   const float system_left_x = origin.x + left_pad;
-  const float system_right_x = origin.x + width - 1.4f * s;
+  const float system_right_x = origin.x + width - 1.6f * s;
 
   // 1. Staff lines
   if (show_treble) {
@@ -437,6 +452,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   const float measure_w = (content_right_x - content_left_x) / static_cast<float>(measures.size());
   core::MeasureAccidentalState acc_treble{options.key};
   core::MeasureAccidentalState acc_bass{options.key};
+  ImFont* ann_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
 
   for (std::size_t m = 0; m < measures.size(); ++m) {
     acc_treble.reset_measure();
@@ -465,22 +481,27 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
         }
 
         if (chord.is_active_cursor) {
-          const ImVec2 cur_min(std::round(chord_x - 0.65f * s),
-                               std::round(system_top_y - 0.85f * s));
-          const ImVec2 cur_max(std::round(chord_x + 1.85f * s),
-                               std::round(system_bottom_y + 0.85f * s));
-          draw_list->AddRectFilled(cur_min, cur_max, pal.cursor_fill, 4.0f);
-          draw_list->AddRect(cur_min, cur_max, pal.cursor_border, 4.0f, 0, 1.25f);
+          const ImVec2 cur_min(std::round(chord_x - 0.72f * s),
+                               std::round(system_top_y - 1.0f * s));
+          const ImVec2 cur_max(std::round(chord_x + 1.92f * s),
+                               std::round(system_bottom_y + 1.0f * s));
+          draw_list->AddRectFilled(cur_min, cur_max, pal.cursor_fill, 8.0f);
+          // Crisp Apple-style top and bottom accent bars
+          draw_list->AddRectFilled(ImVec2(cur_min.x + 4.0f, cur_min.y),
+                                   ImVec2(cur_max.x - 4.0f, cur_min.y + 3.0f), pal.cursor_accent,
+                                   1.5f);
+          draw_list->AddRectFilled(ImVec2(cur_min.x + 4.0f, cur_max.y - 3.0f),
+                                   ImVec2(cur_max.x - 4.0f, cur_max.y), pal.cursor_accent, 1.5f);
         }
 
-        if (ui_font != nullptr && !chord.annotation.empty()) {
-          const float ann_size_px = 13.0f;
+        if (ann_font != nullptr && !chord.annotation.empty()) {
+          const float ann_size_px = draw_font_size(12.0f);
           const ImVec2 ann_sz =
-              ui_font->CalcTextSizeA(ann_size_px, FLT_MAX, 0.0f, chord.annotation.c_str());
+              ann_font->CalcTextSizeA(ann_size_px, FLT_MAX, 0.0f, chord.annotation.c_str());
           const float ann_x =
               chord_x + notehead_width_spaces(chord.duration) * 0.5f * s - ann_sz.x * 0.5f;
-          const float ann_y = system_top_y - 4.4f * s;
-          draw_list->AddText(ui_font, ann_size_px, ImVec2(std::round(ann_x), std::round(ann_y)),
+          const float ann_y = system_top_y - 4.2f * s;
+          draw_list->AddText(ann_font, ann_size_px, ImVec2(std::round(ann_x), std::round(ann_y)),
                              pal.annotation, chord.annotation.c_str());
         }
 
@@ -537,7 +558,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     }
   }
 
-  // 6. Moving playhead cursor (exact beat alignment)
+  // 6. Moving playhead cursor (exact beat alignment with soft translucent trail)
   if (options.playhead_beat.has_value() && *options.playhead_beat >= 0.0f) {
     float acc_beats = 0.0f;
     for (std::size_t m = 0; m < measures.size(); ++m) {
@@ -555,8 +576,12 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
                                     kNoteheadBlackWidthSpaces * 0.5f * s);
         const float py0 = system_top_y - 1.35f * s;
         const float py1 = system_bottom_y + 1.35f * s;
+        const float trail_x0 = std::max(content_left_x, px - 2.2f * s);
+        const ImU32 trail_zero = pal.playhead_trail & 0x00FFFFFFU;
+        draw_list->AddRectFilledMultiColor(ImVec2(trail_x0, py0), ImVec2(px, py1), trail_zero,
+                                           pal.playhead_trail, pal.playhead_trail, trail_zero);
         draw_list->AddLine(ImVec2(px, py0), ImVec2(px, py1), pal.playhead, 2.5f);
-        draw_list->AddCircleFilled(ImVec2(px, py0), 4.0f, pal.playhead);
+        draw_list->AddCircleFilled(ImVec2(px, py0), 4.5f, pal.playhead, 16);
         break;
       }
       acc_beats += mb;

@@ -8,18 +8,22 @@
 #include "midi/midi_scheduler.hpp"
 #include "midi/qwerty_mapper.hpp"
 
+#include "ui/autopilot_chrome.hpp"
 #include "ui/companion_view.hpp"
+#include "ui/design_system.hpp"
 #include "ui/ear_trainer_view.hpp"
 #include "ui/etude_view.hpp"
 #include "ui/flashcard_view.hpp"
 #include "ui/font_loader.hpp"
 #include "ui/home_dashboard.hpp"
+#include "ui/icons.hpp"
 #include "ui/midi_device_bar.hpp"
 #include "ui/phase2_sandbox.hpp"
 #include "ui/srs_view.hpp"
 #include "ui/staff_showcase.hpp"
 #include "ui/virtual_piano.hpp"
 #include "ui/warmup_view.hpp"
+#include "ui/widgets.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -29,6 +33,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cfloat>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -63,6 +68,7 @@ struct CliOptions {
   AppMode initial_mode{AppMode::Home};
   selfano::core::AutopilotStage initial_free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
   int initial_dev_subtab{0};
+  std::optional<selfano::ui::AppTheme> theme_override{};
 };
 
 struct SessionBaselines {
@@ -148,10 +154,7 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
   } else if (arg == "ear") {
     opts.initial_mode = AppMode::FreePractice;
     opts.initial_free_stage = S::Stage4BEarTrainer;
-  } else if (arg == "devtools") {
-    opts.initial_mode = AppMode::DevTools;
-    opts.initial_dev_subtab = 0;
-  } else if (arg == "sandbox") {
+  } else if (arg == "devtools" || arg == "sandbox") {
     opts.initial_mode = AppMode::DevTools;
     opts.initial_dev_subtab = 0;
   } else if (arg == "showcase") {
@@ -176,6 +179,13 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
       opts.profile_path = argv[++i];
     } else if (arg == "--tab" && i + 1 < argc) {
       parse_tab_arg(argv[++i], opts);
+    } else if (arg == "--theme" && i + 1 < argc) {
+      const std::string_view t = argv[++i];
+      if (t == "dark") {
+        opts.theme_override = selfano::ui::AppTheme::Dark;
+      } else if (t == "light") {
+        opts.theme_override = selfano::ui::AppTheme::Light;
+      }
     }
   }
   return opts;
@@ -249,7 +259,6 @@ std::atomic<bool> g_idbfs_load_done{false};
 std::atomic<bool> g_idbfs_ok{false};
 
 // clang-format off
-// Keep clang-format off so JS !== / === operators and strings stay intact for C++23 preprocessing.
 EM_JS(int, selfano_browser_viewport_width, (), {
   const w = typeof window !== "undefined" ? (window.innerWidth | 0) : 1360;
   return w > 640 ? w : 640;
@@ -352,7 +361,6 @@ struct AppContext {
   double last_autosave_check_ms{0.0};
 
   double prev_now_ms{0.0};
-  const ImVec4 clear_color{0.08f, 0.09f, 0.12f, 1.0f};
 
   bool initialized{false};
   bool done{false};
@@ -364,6 +372,9 @@ struct AppContext {
   bool prev_midi_in_open{false};
   bool soft_pedal_down{false};
   bool show_piano_dock{true};
+  bool sidebar_collapsed{false};
+  int dev_subtab{0};
+  double last_zoom_toast_ms{-10000.0};
 #ifdef __EMSCRIPTEN__
   bool idbfs_hydrated{false};
   int last_css_w{0};
@@ -372,7 +383,6 @@ struct AppContext {
 
   AppMode app_mode{AppMode::Home};
   selfano::core::AutopilotStage free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
-  std::optional<int> pending_dev_subtab;
 
   selfano::core::AutopilotSession autopilot{3.0};
   SessionBaselines session_baselines{};
@@ -381,6 +391,14 @@ struct AppContext {
   std::vector<selfano::midi::MidiNoteEvent> frame_events;
   std::vector<selfano::midi::MidiNoteEvent> virtual_events;
   std::vector<selfano::midi::ScheduledMidiNote> pending_playback;
+
+  void apply_theme_from_profile() {
+    const auto theme = cli.theme_override.value_or(profile.preferences.dark_ui_theme
+                                                       ? selfano::ui::AppTheme::Dark
+                                                       : selfano::ui::AppTheme::Light);
+    selfano::ui::set_app_theme(theme);
+    selfano::ui::set_ui_zoom(static_cast<float>(profile.preferences.ui_zoom));
+  }
 
   void apply_weekly_key_to_views(double now_ms) {
     const auto k = selfano::core::weekly_key_at(profile.weekly_key.key_index);
@@ -392,6 +410,7 @@ struct AppContext {
   }
 
   void apply_profile_to_views(double now_ms) {
+    apply_theme_from_profile();
     chord_grouper.set_window_ms(profile.preferences.chord_window_ms);
     midi_bar_state.chord_window_ms = static_cast<float>(profile.preferences.chord_window_ms);
     apply_weekly_key_to_views(now_ms);
@@ -445,6 +464,10 @@ struct AppContext {
     profile.preferences.companion_chime_enabled = companion_view.chime_enabled();
     profile.preferences.companion_dwell_ms = companion_view.matcher().config().min_dwell_ms;
     profile.preferences.light_paper_staff = warmup_view.light_paper_theme();
+    if (!cli.theme_override.has_value()) {
+      profile.preferences.dark_ui_theme = selfano::ui::is_dark_theme();
+    }
+    profile.preferences.ui_zoom = static_cast<double>(selfano::ui::ui_zoom());
     if (midi_engine.is_input_open()) {
       profile.preferences.preferred_midi_in = midi_engine.active_input_name();
     }
@@ -551,8 +574,39 @@ struct AppContext {
     };
     session_recap_persisted = false;
     app_mode = AppMode::Autopilot;
+    sidebar_collapsed = true; // Enter Focus Mode automatically for 30-Min Autopilot
     autopilot.start(
         selfano::core::format_key_name(selfano::core::weekly_key_at(profile.weekly_key.key_index)));
+  }
+
+  void handle_midi_popover_actions(const selfano::ui::MidiDeviceBarActions& bar_actions,
+                                   double now_ms) {
+    if (bar_actions.test_chord_triggered) {
+      for (const auto& act : playback_scheduler.panic_all_notes_off()) {
+        dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+      }
+      const std::array<selfano::midi::ScheduledMidiNote, 4> test_notes{{
+          {60, 96, now_ms + 0.0, 650.0, 0},
+          {64, 96, now_ms + 70.0, 580.0, 0},
+          {67, 96, now_ms + 140.0, 510.0, 0},
+          {72, 100, now_ms + 210.0, 440.0, 0},
+      }};
+      playback_scheduler.schedule_batch(test_notes);
+    }
+
+    if (bar_actions.panic_triggered) {
+      for (const auto& act : playback_scheduler.panic_all_notes_off()) {
+        dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+      }
+      midi_engine.send_all_notes_off();
+      audio_synth.all_notes_off();
+      const auto qrel = qwerty_mapper.release_all(now_ms);
+      virtual_events.insert(virtual_events.end(), qrel.begin(), qrel.end());
+      phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
+      shared_piano_dock.release_mouse_key(now_ms, virtual_events);
+      chord_grouper.clear();
+      phase2_sandbox.reset_feedback();
+    }
   }
 
   [[nodiscard]] std::size_t current_expected_cardinality() const noexcept {
@@ -720,6 +774,229 @@ struct AppContext {
     }
   }
 
+  void draw_sidebar(double now_ms, std::int64_t today_epoch_day, float sidebar_w) {
+    const auto& c = selfano::ui::colors();
+    const float scale = ImGui::GetStyle().FontScaleDpi;
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, c.sidebar_bg);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 14.0f * scale));
+
+    if (ImGui::BeginChild("##selfano_sidebar", ImVec2(sidebar_w, 0.0f),
+                          ImGuiChildFlags_AlwaysUseWindowPadding,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+      // Brand Header + Collapse Focus button
+      const ImVec2 hpos = ImGui::GetCursorScreenPos();
+      const float brand_h = 32.0f * scale;
+      ImDrawList* dl = ImGui::GetWindowDrawList();
+      const float emb = 24.0f * scale;
+      const ImVec2 emin(hpos.x + 2.0f * scale, hpos.y + (brand_h - emb) * 0.5f);
+      dl->AddRectFilled(emin, ImVec2(emin.x + emb, emin.y + emb), selfano::ui::to_u32(c.accent),
+                        6.5f * scale);
+      selfano::ui::draw_icon(dl, selfano::ui::IconId::Piano,
+                             ImVec2(emin.x + emb * 0.5f, emin.y + emb * 0.5f), 14.0f * scale,
+                             selfano::ui::to_u32(c.text_on_accent), 1.5f);
+
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + emb + 10.0f * scale);
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f * scale);
+      {
+        selfano::ui::ScopedFont tf(selfano::ui::TypeStyle::Title2);
+        ImGui::TextUnformatted("Selfano");
+      }
+
+      ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 30.0f * scale);
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 3.0f * scale);
+      if (selfano::ui::icon_button("##sb_collapse", selfano::ui::IconId::SidebarToggle,
+                                   "Hide Sidebar (Focus Mode)", false, 28.0f)) {
+        sidebar_collapsed = true;
+      }
+
+      ImGui::Dummy(ImVec2(0.0f, 10.0f * scale));
+
+      // Primary Navigation
+      if (selfano::ui::sidebar_nav_item("##nav_today", "Today", selfano::ui::IconId::Home,
+                                        app_mode == AppMode::Home)) {
+        cleanup_stage_transitions(now_ms);
+        app_mode = AppMode::Home;
+      }
+
+      const bool ap_active = (autopilot.state() == selfano::core::AutopilotState::Running ||
+                              autopilot.state() == selfano::core::AutopilotState::Paused);
+      std::string ap_badge;
+      if (ap_active) {
+        const int tot_rem = static_cast<int>(std::ceil(std::max(
+            0.0, selfano::core::kTotalAutopilotDurationSec - autopilot.total_elapsed_sec())));
+        ap_badge = std::format("{:02d}:{:02d}", tot_rem / 60, tot_rem % 60);
+      }
+      if (selfano::ui::sidebar_nav_item("##nav_autopilot", "30-Min Session",
+                                        selfano::ui::IconId::PlayCircle,
+                                        app_mode == AppMode::Autopilot,
+                                        ap_badge.empty() ? nullptr : ap_badge.c_str(), ap_active)) {
+        if (autopilot.state() == selfano::core::AutopilotState::Idle ||
+            autopilot.state() == selfano::core::AutopilotState::Completed) {
+          start_autopilot_session(now_ms);
+        } else {
+          app_mode = AppMode::Autopilot;
+        }
+      }
+
+      ImGui::Dummy(ImVec2(0.0f, 12.0f * scale));
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f * scale);
+      selfano::ui::section_kicker("PRACTICE");
+      ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
+
+      const std::size_t due_srs = srs_view.deck().due_cards(today_epoch_day).size();
+      const std::string due_badge = due_srs > 0 ? std::to_string(due_srs) : std::string{};
+
+      struct StageNavEntry {
+        const char* id;
+        const char* label;
+        selfano::ui::IconId icon;
+        selfano::core::AutopilotStage stage;
+        const char* badge;
+      };
+      const std::array<StageNavEntry, 6> stage_nav{{
+          {"##nav_s1", "Key Warm-Up", selfano::ui::IconId::Scale,
+           selfano::core::AutopilotStage::Stage1WarmUp, nullptr},
+          {"##nav_s2a", "Flashcards", selfano::ui::IconId::Bolt,
+           selfano::core::AutopilotStage::Stage2AFlashcards, nullptr},
+          {"##nav_s2b", "Continuous Etudes", selfano::ui::IconId::MusicNote,
+           selfano::core::AutopilotStage::Stage2BEtudes, nullptr},
+          {"##nav_s3", "Companion Mode", selfano::ui::IconId::Chords,
+           selfano::core::AutopilotStage::Stage3Companion, nullptr},
+          {"##nav_s4a", "Retention Deck", selfano::ui::IconId::Layers,
+           selfano::core::AutopilotStage::Stage4ASrs,
+           due_badge.empty() ? nullptr : due_badge.c_str()},
+          {"##nav_s4b", "Ear Trainer", selfano::ui::IconId::Headphones,
+           selfano::core::AutopilotStage::Stage4BEarTrainer, nullptr},
+      }};
+
+      for (const auto& entry : stage_nav) {
+        const bool sel = (app_mode == AppMode::FreePractice && free_stage == entry.stage);
+        if (selfano::ui::sidebar_nav_item(entry.id, entry.label, entry.icon, sel, entry.badge)) {
+          if (app_mode != AppMode::FreePractice || free_stage != entry.stage) {
+            cleanup_stage_transitions(now_ms);
+            free_stage = entry.stage;
+            app_mode = AppMode::FreePractice;
+          }
+        }
+      }
+
+      // Pin Footer to bottom of sidebar
+      const float footer_h = 98.0f * scale;
+      const float remain_y = ImGui::GetContentRegionAvail().y - footer_h;
+      if (remain_y > 4.0f) {
+        ImGui::Dummy(ImVec2(0.0f, remain_y));
+      }
+
+      selfano::ui::hairline_separator(6.0f);
+
+      if (selfano::ui::draw_midi_status_pill(midi_engine, midi_bar_state, now_ms)) {
+        ImGui::OpenPopup("##midi_audio_popover");
+      }
+
+      if (ImGui::BeginPopup("##midi_audio_popover")) {
+        const auto bar_actions = selfano::ui::draw_midi_audio_popover(
+            midi_engine, audio_synth, chord_grouper, midi_bar_state, qwerty_mapper.base_octave(),
+            now_ms);
+        handle_midi_popover_actions(bar_actions, now_ms);
+        ImGui::EndPopup();
+      }
+
+      ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
+
+      // Compact Bottom Utility Row: Virtual Piano Toggle | Light/Dark Toggle | Developer Menu
+      if (selfano::ui::icon_button("##ft_piano", selfano::ui::IconId::Piano,
+                                   show_piano_dock ? "Hide Virtual Piano Dock"
+                                                   : "Show Virtual Piano Dock",
+                                   show_piano_dock, 32.0f, selfano::ui::ButtonTone::Secondary)) {
+        show_piano_dock = !show_piano_dock;
+        if (!show_piano_dock) {
+          shared_piano_dock.release_mouse_key(now_ms, virtual_events);
+        }
+      }
+      ImGui::SameLine(0.0f, 8.0f * scale);
+
+      const bool dark = selfano::ui::is_dark_theme();
+      if (selfano::ui::icon_button(
+              "##ft_theme", dark ? selfano::ui::IconId::Sun : selfano::ui::IconId::Moon,
+              dark ? "Switch to Apple Light Theme" : "Switch to Dark Studio Theme", false, 32.0f,
+              selfano::ui::ButtonTone::Secondary)) {
+        cli.theme_override.reset();
+        const auto next_theme = dark ? selfano::ui::AppTheme::Light : selfano::ui::AppTheme::Dark;
+        selfano::ui::set_app_theme(next_theme);
+        profile.preferences.dark_ui_theme = (next_theme == selfano::ui::AppTheme::Dark);
+        persist_profile_now();
+      }
+      ImGui::SameLine(0.0f, 8.0f * scale);
+
+      if (selfano::ui::icon_button("##ft_dev", selfano::ui::IconId::DotsHorizontal,
+                                   "Developer Tools & Diagnostics", app_mode == AppMode::DevTools,
+                                   32.0f, selfano::ui::ButtonTone::Secondary)) {
+        ImGui::OpenPopup("##developer_menu_pop");
+      }
+
+      if (ImGui::BeginPopup("##developer_menu_pop")) {
+        selfano::ui::section_kicker("DEVELOPER TOOLS");
+        ImGui::Spacing();
+        if (ImGui::MenuItem("Live MIDI Sandbox")) {
+          cleanup_stage_transitions(now_ms);
+          app_mode = AppMode::DevTools;
+          dev_subtab = 0;
+        }
+        if (ImGui::MenuItem("Grand Staff Showcase")) {
+          cleanup_stage_transitions(now_ms);
+          app_mode = AppMode::DevTools;
+          dev_subtab = 1;
+        }
+        selfano::ui::hairline_separator(6.0f);
+        selfano::ui::section_kicker("DISPLAY ZOOM (CTRL +/-/0)");
+        ImGui::Spacing();
+        const int zoom_pct = static_cast<int>(std::round(selfano::ui::ui_zoom() * 100.0f));
+        if (selfano::ui::pill_button("-##zoom_dec", selfano::ui::ButtonTone::Secondary,
+                                     selfano::ui::IconId::None, 28.0f, 34.0f)) {
+          selfano::ui::adjust_ui_zoom(-selfano::ui::kUiZoomStep);
+          last_zoom_toast_ms = now_ms;
+          persist_profile_now();
+        }
+        ImGui::SameLine(0.0f, 6.0f * scale);
+        const std::string pct_lbl = std::format("{}%##zoom_rst", zoom_pct);
+        if (selfano::ui::pill_button(pct_lbl.c_str(), selfano::ui::ButtonTone::SoftAccent,
+                                     selfano::ui::IconId::None, 28.0f, 64.0f)) {
+          selfano::ui::reset_ui_zoom();
+          last_zoom_toast_ms = now_ms;
+          persist_profile_now();
+        }
+        ImGui::SameLine(0.0f, 6.0f * scale);
+        if (selfano::ui::pill_button("+##zoom_inc", selfano::ui::ButtonTone::Secondary,
+                                     selfano::ui::IconId::None, 28.0f, 34.0f)) {
+          selfano::ui::adjust_ui_zoom(+selfano::ui::kUiZoomStep);
+          last_zoom_toast_ms = now_ms;
+          persist_profile_now();
+        }
+        selfano::ui::hairline_separator(6.0f);
+        selfano::ui::section_kicker("DIAGNOSTICS");
+        ImGui::Spacing();
+        {
+          selfano::ui::ScopedFont cap(selfano::ui::TypeStyle::Caption);
+          ImGui::TextColored(c.text_secondary, "Frame Rate: %.1f FPS",
+                             static_cast<double>(ImGui::GetIO().Framerate));
+          ImGui::TextColored(c.text_secondary, "SMuFL Font: %s", font_filename.c_str());
+          ImGui::TextColored(c.text_tertiary, "Profile: %s", profile_path_str.c_str());
+        }
+        ImGui::EndPopup();
+      }
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+
+    // Right hairline border of sidebar
+    const ImVec2 sb_max = ImGui::GetItemRectMax();
+    const ImVec2 sb_min = ImGui::GetItemRectMin();
+    ImGui::GetWindowDrawList()->AddLine(ImVec2(sb_max.x, sb_min.y), ImVec2(sb_max.x, sb_max.y),
+                                        selfano::ui::to_u32(c.hairline), 1.0f);
+  }
+
   bool init(const CliOptions& cli_opts) {
     cli = cli_opts;
 
@@ -746,7 +1023,7 @@ struct AppContext {
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
 
-    window = SDL_CreateWindow("Selfano - C++23 Piano Trainer", init_w, init_h, window_flags);
+    window = SDL_CreateWindow("Selfano", init_w, init_h, window_flags);
     if (window == nullptr) {
       std::cerr << "Error: SDL_CreateWindow(): " << SDL_GetError() << '\n';
       SDL_Quit();
@@ -771,19 +1048,12 @@ struct AppContext {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.IniFilename = nullptr; // Never pollute working directory or MEMFS with imgui.ini
-
-    ImGuiStyle& style = ImGui::GetStyle();
-    ImGui::StyleColorsDark();
-    style.FrameRounding = 4.0f;
-    style.WindowRounding = 0.0f;
-    style.ScaleAllSizes(main_scale);
-    style.FontScaleDpi = main_scale;
+    io.IniFilename = nullptr;
 
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
 
-    const auto loaded_fonts = selfano::ui::load_app_fonts(io, 16.0f);
+    const auto loaded_fonts = selfano::ui::load_app_fonts(io, 14.5f);
     if (!loaded_fonts.has_value()) {
       std::cerr << "Error loading fonts: " << loaded_fonts.error() << '\n';
       ImGui_ImplSDLRenderer3_Shutdown();
@@ -798,6 +1068,9 @@ struct AppContext {
     }
     fonts = *loaded_fonts;
     font_filename = std::filesystem::path(fonts.loaded_smufl_path).filename().string();
+
+    selfano::ui::init_design_system(
+        fonts, cli.theme_override.value_or(selfano::ui::AppTheme::Light), main_scale);
 
     if (const auto audio_res = audio_synth.init(); !audio_res.has_value()) {
       midi_bar_state.status_banner = audio_res.error();
@@ -847,7 +1120,7 @@ struct AppContext {
     show_piano_dock = !midi_engine.is_input_open();
     app_mode = cli.initial_mode;
     free_stage = cli.initial_free_stage;
-    pending_dev_subtab = cli.initial_dev_subtab;
+    dev_subtab = cli.initial_dev_subtab;
 
     if (cli.initial_mode == AppMode::Autopilot) {
       start_autopilot_session(prev_now_ms);
@@ -866,6 +1139,7 @@ struct AppContext {
     const double dt_ms = std::clamp(now_ms - prev_now_ms, 0.0, 100.0);
     prev_now_ms = now_ms;
     const std::int64_t today_epoch_day = current_epoch_day();
+    selfano::ui::begin_design_system_frame(static_cast<float>(dt_ms / 1000.0));
 
 #ifdef __EMSCRIPTEN__
     const int css_w = selfano_browser_viewport_width();
@@ -911,7 +1185,7 @@ struct AppContext {
       } else if (!prev_midi_in_open && now_in_open) {
         show_piano_dock = false;
         shared_piano_dock.release_mouse_key(now_ms, frame_events);
-        midi_bar_state.status_banner = "Reconnected MIDI IN: " + midi_engine.active_input_name();
+        midi_bar_state.status_banner = "Connected: " + midi_engine.active_input_name();
       } else {
         midi_bar_state.status_banner = "MIDI devices updated";
       }
@@ -948,6 +1222,28 @@ struct AppContext {
         if (!audio_unlocked_by_gesture) {
           audio_synth.resume();
           audio_unlocked_by_gesture = true;
+        }
+        const bool has_zoom_mod = (event.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
+        if (has_zoom_mod && (event.key.mod & SDL_KMOD_ALT) == 0) {
+          if (event.key.key == SDLK_EQUALS || event.key.key == SDLK_PLUS ||
+              event.key.key == SDLK_KP_PLUS) {
+            selfano::ui::adjust_ui_zoom(+selfano::ui::kUiZoomStep);
+            last_zoom_toast_ms = now_ms;
+            persist_profile_now();
+            continue;
+          }
+          if (event.key.key == SDLK_MINUS || event.key.key == SDLK_KP_MINUS) {
+            selfano::ui::adjust_ui_zoom(-selfano::ui::kUiZoomStep);
+            last_zoom_toast_ms = now_ms;
+            persist_profile_now();
+            continue;
+          }
+          if (event.key.key == SDLK_0 || event.key.key == SDLK_KP_0) {
+            selfano::ui::reset_ui_zoom();
+            last_zoom_toast_ms = now_ms;
+            persist_profile_now();
+            continue;
+          }
         }
         const bool has_shortcut_mod =
             (event.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)) != 0;
@@ -1065,211 +1361,128 @@ struct AppContext {
     ImGui::NewFrame();
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const float scale = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     constexpr ImGuiWindowFlags kRootFlags =
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
     if (ImGui::Begin("SelfanoRoot", nullptr, kRootFlags)) {
-      auto nav_btn = [&](const char* label, AppMode mode) {
-        const bool active = (app_mode == mode);
-        if (active) {
-          ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.48f, 0.80f, 1.0f));
-        }
-        const bool clicked = ImGui::Button(label);
-        if (active) {
-          ImGui::PopStyleColor();
-        }
-        return clicked;
-      };
-
-      if (nav_btn("Home Dashboard", AppMode::Home)) {
-        cleanup_stage_transitions(now_ms);
-        app_mode = AppMode::Home;
-      }
-      ImGui::SameLine();
-      if (nav_btn("30-Min Autopilot", AppMode::Autopilot)) {
-        if (autopilot.state() == selfano::core::AutopilotState::Idle ||
-            autopilot.state() == selfano::core::AutopilotState::Completed) {
-          start_autopilot_session(now_ms);
-        } else {
-          app_mode = AppMode::Autopilot;
-        }
-      }
-      ImGui::SameLine();
-      if (nav_btn("Free Practice", AppMode::FreePractice)) {
-        cleanup_stage_transitions(now_ms);
-        app_mode = AppMode::FreePractice;
-      }
-      ImGui::SameLine();
-      if (nav_btn("Dev Tools", AppMode::DevTools)) {
-        cleanup_stage_transitions(now_ms);
-        app_mode = AppMode::DevTools;
+      const float sidebar_w =
+          sidebar_collapsed ? 0.0f : std::min(232.0f * scale, viewport->WorkSize.x * 0.34f);
+      if (!sidebar_collapsed) {
+        draw_sidebar(now_ms, today_epoch_day, sidebar_w);
+        ImGui::SameLine(0.0f, 0.0f);
       }
 
-      ImGui::SameLine();
-      ImGui::TextDisabled(
-          "| %.1f FPS | Font: %s | Key: %s", static_cast<double>(io.Framerate),
-          font_filename.c_str(),
-          selfano::core::format_key_name(selfano::core::weekly_key_at(profile.weekly_key.key_index))
-              .c_str());
-      ImGui::SameLine();
-      if (ImGui::Checkbox("Virtual Piano", &show_piano_dock)) {
-        if (!show_piano_dock) {
-          shared_piano_dock.release_mouse_key(now_ms, virtual_events);
-        }
-      }
-      ImGui::Separator();
-
-      const auto bar_actions =
-          selfano::ui::draw_midi_device_bar(midi_engine, audio_synth, chord_grouper, midi_bar_state,
-                                            qwerty_mapper.base_octave(), now_ms);
-
-      if (bar_actions.test_chord_triggered) {
-        for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-          dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
-        }
-        const std::array<selfano::midi::ScheduledMidiNote, 4> test_notes{{
-            {60, 96, now_ms + 0.0, 650.0, 0},
-            {64, 96, now_ms + 70.0, 580.0, 0},
-            {67, 96, now_ms + 140.0, 510.0, 0},
-            {72, 100, now_ms + 210.0, 440.0, 0},
-        }};
-        playback_scheduler.schedule_batch(test_notes);
-      }
-
-      if (bar_actions.panic_triggered) {
-        for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-          dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
-        }
-        midi_engine.send_all_notes_off();
-        audio_synth.all_notes_off();
-        const auto qrel = qwerty_mapper.release_all(now_ms);
-        virtual_events.insert(virtual_events.end(), qrel.begin(), qrel.end());
-        phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
-        shared_piano_dock.release_mouse_key(now_ms, virtual_events);
-        chord_grouper.clear();
-        phase2_sandbox.reset_feedback();
-      }
-
-      ImGui::Separator();
-
-      const bool dock_visible = show_piano_dock && active_practice_stage().has_value();
-      const float dock_reserve_h = dock_visible ? 132.0f : 0.0f;
-
-      if (app_mode == AppMode::Home) {
-        if (ImGui::BeginChild("##home_scroll", ImVec2(0.0f, 0.0f))) {
-          sync_profile_from_views();
-          const auto home_actions = selfano::ui::draw_home_dashboard(
-              profile, flashcard_view.engine(), today_epoch_day, profile_path_str);
-          if (home_actions.weekly_key_changed) {
-            apply_weekly_key_to_views(now_ms);
-            persist_profile_now();
+      // Main Content Workspace
+      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f * scale, 18.0f * scale));
+      ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f * scale, 8.0f * scale));
+      if (ImGui::BeginChild("##selfano_workspace", ImVec2(0.0f, 0.0f),
+                            ImGuiChildFlags_AlwaysUseWindowPadding,
+                            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+        // Focus-mode unobtrusive top expand strip when sidebar is collapsed (non-autopilot)
+        if (sidebar_collapsed && app_mode != AppMode::Autopilot) {
+          if (selfano::ui::icon_button("##ws_expand_sb", selfano::ui::IconId::SidebarToggle,
+                                       "Show Sidebar", false, 30.0f,
+                                       selfano::ui::ButtonTone::Secondary)) {
+            sidebar_collapsed = false;
           }
-          if (home_actions.start_autopilot) {
-            start_autopilot_session(now_ms);
-          } else if (home_actions.open_free_stage.has_value()) {
-            cleanup_stage_transitions(now_ms);
-            free_stage = *home_actions.open_free_stage;
-            app_mode = AppMode::FreePractice;
-          } else if (home_actions.open_dev_tools) {
-            cleanup_stage_transitions(now_ms);
-            app_mode = AppMode::DevTools;
+          ImGui::SameLine(0.0f, 8.0f * scale);
+          if (selfano::ui::pill_button("Audio & MIDI##ws_midi_btn",
+                                       selfano::ui::ButtonTone::Secondary,
+                                       selfano::ui::IconId::MidiPlug, 30.0f)) {
+            ImGui::OpenPopup("##ws_midi_pop");
           }
+          if (ImGui::BeginPopup("##ws_midi_pop")) {
+            const auto bar_actions = selfano::ui::draw_midi_audio_popover(
+                midi_engine, audio_synth, chord_grouper, midi_bar_state,
+                qwerty_mapper.base_octave(), now_ms);
+            handle_midi_popover_actions(bar_actions, now_ms);
+            ImGui::EndPopup();
+          }
+          ImGui::SameLine(0.0f, 8.0f * scale);
+          if (selfano::ui::icon_button("##ws_piano_tog", selfano::ui::IconId::Piano,
+                                       show_piano_dock ? "Hide Piano Dock" : "Show Piano Dock",
+                                       show_piano_dock, 30.0f,
+                                       selfano::ui::ButtonTone::Secondary)) {
+            show_piano_dock = !show_piano_dock;
+          }
+          ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
         }
-        ImGui::EndChild();
-      } else if (app_mode == AppMode::Autopilot) {
-        if (autopilot.state() == selfano::core::AutopilotState::Completed) {
-          const auto& sum = autopilot.summary();
-          if (ImGui::BeginChild("##autopilot_recap", ImVec2(0.0f, 0.0f), ImGuiChildFlags_Borders)) {
-            ImGui::TextColored(ImVec4(0.32f, 0.88f, 0.52f, 1.0f),
-                               sum.ended_early ? "Practice Session Ended Early - Saved to Profile"
-                                               : "30-Minute Autopilot Session Complete!");
-            ImGui::Separator();
-            ImGui::Text("Duration Practiced: %d:%02d  |  Weekly Key: %s", sum.duration_sec / 60,
-                        sum.duration_sec % 60, sum.weekly_key_name.c_str());
-            ImGui::Spacing();
-            ImGui::BulletText("Stage 1 Warm-Up Runs Completed: %u", sum.warmup_runs);
-            ImGui::BulletText("Stage 2A Flashcards: %.0f%% accuracy | Avg RT: %.0f ms",
-                              sum.flashcard_accuracy * 100.0, sum.flashcard_avg_rt_ms);
-            ImGui::BulletText("Stage 2B Etudes: %u bars read | %.0f%% accuracy",
-                              sum.etude_bars_read, sum.etude_accuracy * 100.0);
-            ImGui::BulletText("Stage 3 Companion Mode Clean Reps: %u", sum.companion_reps);
-            ImGui::BulletText("Stage 4A SRS Cards Reviewed: %u", sum.srs_cards_reviewed);
-            ImGui::BulletText("Stage 4B Ear Trainer Melodies Solved: %u", sum.ear_melodies_solved);
-            ImGui::Spacing();
-            if (ImGui::Button("Return to Home Dashboard", ImVec2(240.0f, 40.0f))) {
-              autopilot.reset_to_idle();
-              app_mode = AppMode::Home;
+
+        const bool dock_visible = show_piano_dock && active_practice_stage().has_value();
+        const float piano_h = std::min(114.0f * scale, viewport->WorkSize.y * 0.24f);
+        const float dock_reserve_h = dock_visible ? (piano_h + 36.0f * scale) : 0.0f;
+
+        if (app_mode == AppMode::Home) {
+          if (ImGui::BeginChild("##home_scroll", ImVec2(0.0f, 0.0f))) {
+            sync_profile_from_views();
+            const auto home_actions =
+                selfano::ui::draw_home_dashboard(profile, flashcard_view.engine(), today_epoch_day);
+            if (home_actions.weekly_key_changed) {
+              apply_weekly_key_to_views(now_ms);
+              persist_profile_now();
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Start Another Session", ImVec2(200.0f, 40.0f))) {
+            if (home_actions.start_autopilot) {
               start_autopilot_session(now_ms);
+            } else if (home_actions.open_free_stage.has_value()) {
+              cleanup_stage_transitions(now_ms);
+              free_stage = *home_actions.open_free_stage;
+              app_mode = AppMode::FreePractice;
             }
           }
           ImGui::EndChild();
-        } else {
-          const auto& blk = autopilot.current_block();
-          const int rem_s = static_cast<int>(std::ceil(autopilot.block_remaining_sec()));
-          const int tot_rem_s = static_cast<int>(std::ceil(std::max(
-              0.0, selfano::core::kTotalAutopilotDurationSec - autopilot.total_elapsed_sec())));
-
-          ImGui::BeginChild("##autopilot_bar", ImVec2(0.0f, 64.0f), ImGuiChildFlags_Borders);
-          ImGui::TextColored(ImVec4(0.45f, 0.78f, 0.98f, 1.0f), "[Stage %.*s] %.*s",
-                             static_cast<int>(blk.stage_badge.size()), blk.stage_badge.data(),
-                             static_cast<int>(blk.title.size()), blk.title.data());
-          ImGui::SameLine();
-          ImGui::Text("  |  Block Left: %02d:%02d  |  Session Left: %02d:%02d", rem_s / 60,
-                      rem_s % 60, tot_rem_s / 60, tot_rem_s % 60);
-          if (autopilot.is_block_overtime()) {
-            ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.98f, 0.78f, 0.25f, 1.0f), " (Finishing active bar...)");
-          }
-
-          ImGui::ProgressBar(static_cast<float>(autopilot.total_progress_ratio()),
-                             ImVec2(240.0f, 0.0f));
-          ImGui::SameLine();
-          if (ImGui::Button(autopilot.state() == selfano::core::AutopilotState::Paused ? "Resume"
-                                                                                       : "Pause")) {
-            autopilot.toggle_pause();
-          }
-          ImGui::SameLine();
-          if (ImGui::Button("Skip Block")) {
-            const auto res = autopilot.skip_block();
-            cleanup_stage_transitions(now_ms);
-            if (res.stage_changed && autopilot.current_block().stage ==
-                                         selfano::core::AutopilotStage::Stage4BEarTrainer) {
-              ear_trainer_view.trigger_replay(now_ms, pending_playback);
+        } else if (app_mode == AppMode::Autopilot) {
+          if (autopilot.state() == selfano::core::AutopilotState::Completed) {
+            if (ImGui::BeginChild("##ap_recap_scroll", ImVec2(0.0f, 0.0f))) {
+              const auto recap_act = selfano::ui::draw_autopilot_recap(autopilot.summary());
+              if (recap_act.return_home) {
+                autopilot.reset_to_idle();
+                app_mode = AppMode::Home;
+                sidebar_collapsed = false;
+              } else if (recap_act.start_another) {
+                start_autopilot_session(now_ms);
+              }
             }
-            if (res.session_completed) {
+            ImGui::EndChild();
+          } else {
+            const auto ap_act = selfano::ui::draw_autopilot_bar(autopilot, sidebar_collapsed);
+            if (ap_act.toggle_sidebar) {
+              sidebar_collapsed = !sidebar_collapsed;
+            }
+            if (ap_act.toggle_pause) {
+              autopilot.toggle_pause();
+            }
+            if (ap_act.repeat_block) {
+              autopilot.repeat_block();
+            }
+            if (ap_act.skip_block) {
+              const auto res = autopilot.skip_block();
+              cleanup_stage_transitions(now_ms);
+              if (res.stage_changed && autopilot.current_block().stage ==
+                                           selfano::core::AutopilotStage::Stage4BEarTrainer) {
+                ear_trainer_view.trigger_replay(now_ms, pending_playback);
+              }
+              if (res.session_completed) {
+                finalize_autopilot_recap(today_epoch_day);
+              }
+            }
+            if (ap_act.end_early) {
+              (void)autopilot.end_early();
+              cleanup_stage_transitions(now_ms);
               finalize_autopilot_recap(today_epoch_day);
             }
-          }
-          ImGui::SameLine();
-          if (ImGui::Button("Repeat Block")) {
-            autopilot.repeat_block();
-          }
-          ImGui::SameLine();
-          if (ImGui::Button("End Early")) {
-            (void)autopilot.end_early();
-            cleanup_stage_transitions(now_ms);
-            finalize_autopilot_recap(today_epoch_day);
-          }
-          ImGui::EndChild();
 
-          if (autopilot.state() == selfano::core::AutopilotState::TransitionBanner) {
-            if (ImGui::BeginChild("##autopilot_transition", ImVec2(0.0f, 180.0f),
-                                  ImGuiChildFlags_Borders)) {
-              const auto next_b = autopilot.next_block();
-              ImGui::TextColored(ImVec4(0.32f, 0.88f, 0.52f, 1.0f), "Block Complete!");
-              if (next_b.has_value()) {
-                ImGui::Text("Up Next: %.*s (starting in %.1fs)",
-                            static_cast<int>(next_b->title.size()), next_b->title.data(),
-                            autopilot.transition_remaining_sec());
-              }
-              ImGui::Spacing();
-              if (ImGui::Button("Continue Immediately")) {
+            ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+
+            if (autopilot.state() == selfano::core::AutopilotState::TransitionBanner) {
+              if (selfano::ui::draw_autopilot_transition(autopilot)) {
                 autopilot.dismiss_transition();
                 cleanup_stage_transitions(now_ms);
                 if (autopilot.current_block().stage ==
@@ -1277,99 +1490,120 @@ struct AppContext {
                   ear_trainer_view.trigger_replay(now_ms, pending_playback);
                 }
               }
-            }
-            ImGui::EndChild();
-          } else if (autopilot.state() != selfano::core::AutopilotState::Completed) {
-            if (ImGui::BeginChild("##autopilot_stage_body", ImVec2(0.0f, -dock_reserve_h))) {
-              draw_stage_body(autopilot.current_block().stage, now_ms, today_epoch_day);
-            }
-            ImGui::EndChild();
-          }
-        }
-      } else if (app_mode == AppMode::FreePractice) {
-        for (std::size_t i = 0; i < selfano::core::kAutopilotBlocks.size(); ++i) {
-          if (i > 0) {
-            ImGui::SameLine();
-          }
-          const auto& blk = selfano::core::kAutopilotBlocks[i];
-          const bool sel = (free_stage == blk.stage);
-          if (sel) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.52f, 0.36f, 1.0f));
-          }
-          const std::string lbl = std::string(blk.title);
-          if (ImGui::Button(lbl.c_str())) {
-            if (free_stage != blk.stage) {
-              cleanup_stage_transitions(now_ms);
-              free_stage = blk.stage;
+            } else if (autopilot.state() != selfano::core::AutopilotState::Completed) {
+              if (ImGui::BeginChild("##autopilot_stage_body", ImVec2(0.0f, -dock_reserve_h))) {
+                draw_stage_body(autopilot.current_block().stage, now_ms, today_epoch_day);
+              }
+              ImGui::EndChild();
             }
           }
-          if (sel) {
-            ImGui::PopStyleColor();
+        } else if (app_mode == AppMode::FreePractice) {
+          if (ImGui::BeginChild("##free_stage_body", ImVec2(0.0f, -dock_reserve_h))) {
+            draw_stage_body(free_stage, now_ms, today_epoch_day);
           }
-        }
-        ImGui::Separator();
+          ImGui::EndChild();
+        } else {
+          // Developer Tools (accessible via Sidebar Footer '...' menu or --tab devtools)
+          {
+            selfano::ui::ScopedFont tf(selfano::ui::TypeStyle::Title);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted("Developer Tools");
+          }
+          ImGui::SameLine(0.0f, 16.0f * scale);
+          static constexpr std::array<std::string_view, 2> kDevTabs{"MIDI Sandbox",
+                                                                    "Staff Showcase"};
+          selfano::ui::segmented_control("##dev_seg", &dev_subtab, kDevTabs, 270.0f, 30.0f);
+          selfano::ui::hairline_separator(8.0f);
 
-        if (ImGui::BeginChild("##free_stage_body", ImVec2(0.0f, -dock_reserve_h))) {
-          draw_stage_body(free_stage, now_ms, today_epoch_day);
-        }
-        ImGui::EndChild();
-      } else {
-        if (ImGui::BeginTabBar("##dev_tools_tabs")) {
-          const ImGuiTabItemFlags sb_flags =
-              (pending_dev_subtab.has_value() && *pending_dev_subtab == 0)
-                  ? ImGuiTabItemFlags_SetSelected
-                  : ImGuiTabItemFlags_None;
-          if (ImGui::BeginTabItem("Phase 2: Live MIDI Sandbox", nullptr, sb_flags)) {
-            phase2_sandbox.draw(fonts.smufl_font, fonts.ui_font, chord_grouper.held_notes(),
-                                midi_bar_state.piano_mode, now_ms, virtual_events,
-                                pending_playback);
-            ImGui::EndTabItem();
+          if (ImGui::BeginChild("##dev_body", ImVec2(0.0f, 0.0f))) {
+            if (dev_subtab == 0) {
+              phase2_sandbox.draw(fonts.smufl_font, fonts.ui_font, chord_grouper.held_notes(),
+                                  midi_bar_state.piano_mode, now_ms, virtual_events,
+                                  pending_playback);
+            } else {
+              staff_showcase.draw_contents(fonts.smufl_font, fonts.ui_font);
+            }
           }
+          ImGui::EndChild();
+        }
 
-          const ImGuiTabItemFlags sc_flags =
-              (pending_dev_subtab.has_value() && *pending_dev_subtab == 1)
-                  ? ImGuiTabItemFlags_SetSelected
-                  : ImGuiTabItemFlags_None;
-          if (ImGui::BeginTabItem("Phase 1: Grand Staff Showcase", nullptr, sc_flags)) {
-            staff_showcase.draw_contents(fonts.smufl_font, fonts.ui_font);
-            ImGui::EndTabItem();
+        // Tactile Bottom Virtual Piano Dock
+        if (dock_visible) {
+          ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+          {
+            selfano::ui::ScopedFont cap(selfano::ui::TypeStyle::Caption);
+            ImGui::TextColored(selfano::ui::colors().text_tertiary,
+                               "VIRTUAL PIANO  \xC2\xB7  %s  \xC2\xB7  QWERTY C%d (Z/X)",
+                               shared_piano_dock.is_showing_88_keys() ? "88-KEY" : "4-OCTAVE",
+                               qwerty_mapper.base_octave());
           }
-          ImGui::EndTabBar();
+          ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
+
+          const auto stage = active_practice_stage();
+          selfano::ui::VirtualPianoHighlights hi{};
+          hi.held = chord_grouper.held_notes();
+          if (stage.has_value()) {
+            switch (*stage) {
+            case selfano::core::AutopilotStage::Stage1WarmUp:
+              hi = warmup_view.virtual_piano_highlights(chord_grouper.held_notes());
+              break;
+            case selfano::core::AutopilotStage::Stage2AFlashcards:
+              hi = flashcard_view.virtual_piano_highlights(chord_grouper.held_notes());
+              break;
+            case selfano::core::AutopilotStage::Stage2BEtudes:
+              hi = etude_view.virtual_piano_highlights(chord_grouper.held_notes());
+              break;
+            case selfano::core::AutopilotStage::Stage3Companion:
+              hi = companion_view.virtual_piano_highlights(chord_grouper.held_notes());
+              break;
+            case selfano::core::AutopilotStage::Stage4BEarTrainer:
+              hi = ear_trainer_view.virtual_piano_highlights(chord_grouper.held_notes());
+              break;
+            case selfano::core::AutopilotStage::Stage4ASrs:
+              break;
+            }
+          }
+          shared_piano_dock.draw("##shared_virtual_piano", midi_bar_state.piano_mode, hi, now_ms,
+                                 virtual_events, piano_h);
         }
-        pending_dev_subtab.reset();
       }
+      ImGui::EndChild();
+      ImGui::PopStyleVar(2);
 
-      if (dock_visible) {
-        ImGui::Separator();
-        const auto stage = active_practice_stage();
-        selfano::ui::VirtualPianoHighlights hi{};
-        hi.held = chord_grouper.held_notes();
-        if (stage.has_value()) {
-          switch (*stage) {
-          case selfano::core::AutopilotStage::Stage1WarmUp:
-            hi = warmup_view.virtual_piano_highlights(chord_grouper.held_notes());
-            break;
-          case selfano::core::AutopilotStage::Stage2AFlashcards:
-            hi = flashcard_view.virtual_piano_highlights(chord_grouper.held_notes());
-            break;
-          case selfano::core::AutopilotStage::Stage2BEtudes:
-            hi = etude_view.virtual_piano_highlights(chord_grouper.held_notes());
-            break;
-          case selfano::core::AutopilotStage::Stage3Companion:
-            hi = companion_view.virtual_piano_highlights(chord_grouper.held_notes());
-            break;
-          case selfano::core::AutopilotStage::Stage4BEarTrainer:
-            hi = ear_trainer_view.virtual_piano_highlights(chord_grouper.held_notes());
-            break;
-          case selfano::core::AutopilotStage::Stage4ASrs:
-            break;
-          }
+      // Subtle floating Apple HUD pill when user zooms with Ctrl + = / - / 0
+      const double zoom_age_ms = now_ms - last_zoom_toast_ms;
+      if (zoom_age_ms >= 0.0 && zoom_age_ms < 1400.0) {
+        const float fade = (zoom_age_ms > 1000.0)
+                               ? static_cast<float>(1.0 - (zoom_age_ms - 1000.0) / 400.0)
+                               : 1.0f;
+        const int pct = static_cast<int>(std::round(selfano::ui::ui_zoom() * 100.0f));
+        const std::string toast = std::format("Zoom {}%", pct);
+        ImDrawList* fdl = ImGui::GetForegroundDrawList();
+        ImFont* sb = selfano::ui::font_for_style(selfano::ui::TypeStyle::Headline);
+        const float fs = selfano::ui::draw_font_size(14.0f);
+        const ImVec2 tsz = (sb != nullptr) ? sb->CalcTextSizeA(fs, FLT_MAX, 0.0f, toast.c_str())
+                                           : ImGui::CalcTextSize(toast.c_str());
+        const float pad_x = 16.0f * scale;
+        const float pad_y = 8.0f * scale;
+        const float bw = tsz.x + pad_x * 2.0f;
+        const float bh = tsz.y + pad_y * 2.0f;
+        const ImVec2 bmin(viewport->WorkPos.x + viewport->WorkSize.x - bw - 24.0f * scale,
+                          viewport->WorkPos.y + 18.0f * scale);
+        const ImVec2 bmax(bmin.x + bw, bmin.y + bh);
+        const auto& tc = selfano::ui::colors();
+        selfano::ui::draw_card_shadow(fdl, bmin, bmax, bh * 0.5f, fade);
+        fdl->AddRectFilled(bmin, bmax, selfano::ui::with_alpha(tc.card_elevated_bg, 0.95f * fade),
+                           bh * 0.5f);
+        fdl->AddRect(bmin, bmax, selfano::ui::with_alpha(tc.hairline_strong, fade), bh * 0.5f, 0,
+                     1.0f);
+        if (sb != nullptr) {
+          fdl->AddText(sb, fs, ImVec2(std::round(bmin.x + pad_x), std::round(bmin.y + pad_y)),
+                       selfano::ui::with_alpha(tc.text_primary, fade), toast.c_str());
         }
-        shared_piano_dock.draw("##shared_virtual_piano", midi_bar_state.piano_mode, hi, now_ms,
-                               virtual_events, 110.0f);
       }
     }
     ImGui::End();
+    ImGui::PopStyleVar(2);
 
     if (!virtual_events.empty()) {
       process_note_events(virtual_events, now_ms);
@@ -1386,8 +1620,6 @@ struct AppContext {
       playback_scheduler.schedule_batch(pending_playback);
     }
 
-    // Periodic dirty-check auto-save (~750 ms) so SRS / Companion / Telemetry persist quickly
-    // across desktop exits and browser reloads via IDBFS.
     if ((now_ms - last_autosave_check_ms) >= 750.0) {
       last_autosave_check_ms = now_ms;
 #ifdef __EMSCRIPTEN__
@@ -1415,6 +1647,7 @@ struct AppContext {
     }
 
     ImGui::Render();
+    const ImVec4 clear_color = selfano::ui::colors().canvas_bg;
     SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
     SDL_SetRenderDrawColorFloat(renderer, clear_color.x, clear_color.y, clear_color.z,
                                 clear_color.w);

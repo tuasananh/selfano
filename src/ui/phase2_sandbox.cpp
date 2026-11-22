@@ -2,6 +2,10 @@
 
 #include "core/pitch.hpp"
 
+#include "ui/design_system.hpp"
+#include "ui/icons.hpp"
+#include "ui/widgets.hpp"
+
 #include "imgui.h"
 
 #include <algorithm>
@@ -144,10 +148,8 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
   }
 
   // Control strip
-  ImGui::AlignTextToFramePadding();
-  ImGui::Text("Prompt (%zu/%zu):", prompt_index_ + 1, prompts_.size());
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(300.0f);
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  ImGui::SetNextItemWidth(300.0f * scale);
   if (ImGui::BeginCombo("##prompt_sel", prompts_[prompt_index_].title.c_str())) {
     for (std::size_t i = 0; i < prompts_.size(); ++i) {
       if (ImGui::Selectable(prompts_[i].title.c_str(), i == prompt_index_)) {
@@ -157,40 +159,47 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     ImGui::EndCombo();
   }
 
-  ImGui::SameLine();
-  if (ImGui::Button("Prev")) {
+  ImGui::SameLine(0.0f, 8.0f * scale);
+  if (pill_button("Prev##sb_prev", ButtonTone::Secondary, IconId::None, 30.0f)) {
     select_prompt(prompt_index_ == 0 ? prompts_.size() - 1 : prompt_index_ - 1);
   }
-  ImGui::SameLine();
-  if (ImGui::Button("Next")) {
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  if (pill_button("Next##sb_next", ButtonTone::Secondary, IconId::None, 30.0f)) {
     select_prompt(prompt_index_ + 1);
   }
-  ImGui::SameLine();
-  if (ImGui::Button("Hear Target")) {
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  if (pill_button("Hear Target##sb_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 30.0f)) {
     const auto preview = build_prompt_preview(now_ms);
     out_playback_notes.insert(out_playback_notes.end(), preview.begin(), preview.end());
   }
-  ImGui::SameLine();
-  ImGui::Checkbox("Auto-Advance", &auto_advance_);
-  ImGui::SameLine();
-  ImGui::Checkbox("Paper Staff", &light_paper_theme_);
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  ImGui::AlignTextToFramePadding();
+  ImGui::TextColored(colors().text_secondary, "Auto-Advance");
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  toggle_switch("##sb_auto", &auto_advance_);
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  ImGui::AlignTextToFramePadding();
+  ImGui::TextColored(colors().text_secondary, "Paper Staff");
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  toggle_switch("##sb_paper", &light_paper_theme_);
 
   // Bind active prompt AFTER selection controls so switching never lags by 1 frame.
   const auto& prompt = prompts_[prompt_index_];
 
-  // Feedback status banner
-  ImVec4 banner_col(0.75f, 0.80f, 0.88f, 1.0f);
+  ImGui::Spacing();
+  // Feedback status pill
+  StatusTone sb_tone = StatusTone::Neutral;
   if (last_feedback_ == NoteFeedback::Correct) {
-    banner_col = ImVec4(0.32f, 0.88f, 0.52f, 1.0f);
+    sb_tone = StatusTone::Success;
   } else if (last_feedback_ == NoteFeedback::Incorrect) {
-    banner_col = ImVec4(0.96f, 0.42f, 0.42f, 1.0f);
+    sb_tone = StatusTone::Danger;
   }
-  ImGui::TextColored(banner_col, "%s", feedback_summary_.c_str());
+  status_pill(feedback_summary_, sb_tone, IconId::None, true);
   if (soft_pedal_count_ > 0) {
-    ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.98f, 0.82f, 0.34f, 1.0f), " | CC 67 Replay Triggers: %d",
-                       soft_pedal_count_);
+    ImGui::SameLine(0.0f, 8.0f * scale);
+    status_pill(std::format("CC 67 Replays: {}", soft_pedal_count_), StatusTone::Warning);
   }
+  ImGui::Spacing();
 
   // Compute unexpected played notes and missed targets for accurate, concise mismatch badges
   std::vector<std::uint8_t> unexpected_played;

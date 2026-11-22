@@ -24,11 +24,16 @@ struct MidiDeviceBarActions {
   bool test_chord_triggered{false};
 };
 
-// Draws the compact hardware MIDI / Audio / Virtual Piano toolbar.
-[[nodiscard]] MidiDeviceBarActions draw_midi_device_bar(midi::MidiEngine& midi_engine,
-                                                        midi::AudioSynth& synth,
-                                                        midi::PolyphonicChordGrouper& grouper,
-                                                        MidiDeviceBarState& state,
-                                                        int qwerty_base_octave, double now_ms);
+// Draws the compact sidebar-footer Audio & MIDI status pill. Returns true when clicked to open
+// the Audio & MIDI settings popover.
+[[nodiscard]] bool draw_midi_status_pill(const midi::MidiEngine& midi_engine,
+                                         const MidiDeviceBarState& state, double now_ms);
+
+// Draws the grouped Apple-style Audio & MIDI Settings popover sheet (call inside BeginPopup).
+[[nodiscard]] MidiDeviceBarActions draw_midi_audio_popover(midi::MidiEngine& midi_engine,
+                                                           midi::AudioSynth& synth,
+                                                           midi::PolyphonicChordGrouper& grouper,
+                                                           MidiDeviceBarState& state,
+                                                           int qwerty_base_octave, double now_ms);
 
 } // namespace selfano::ui

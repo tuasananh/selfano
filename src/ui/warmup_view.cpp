@@ -2,10 +2,16 @@
 
 #include "core/pitch.hpp"
 
+#include "ui/design_system.hpp"
+#include "ui/icons.hpp"
+#include "ui/widgets.hpp"
+
 #include "imgui.h"
 
 #include <algorithm>
+#include <array>
 #include <format>
+#include <string_view>
 
 namespace selfano::ui {
 
@@ -16,7 +22,7 @@ namespace {
   std::string out;
   for (std::size_t i = 0; i < notes.size(); ++i) {
     if (i > 0) {
-      out += "+";
+      out += " + ";
     }
     const auto sp = core::spell_midi_in_key(notes[i], key);
     out += sp.has_value() ? core::format_note(*sp) : std::to_string(notes[i]);
@@ -67,7 +73,7 @@ void WarmUpView::set_weekly_key(core::KeySignature key, core::MinorScaleMode min
   cfg.minor_mode = minor_mode;
   engine_.configure(cfg);
   last_feedback_ = NoteFeedback::Neutral;
-  status_banner_ = std::format("Key set to {} - play step 1", core::format_key_name(key));
+  status_banner_ = std::format("Key set to {} \xC2\xB7 Play step 1", core::format_key_name(key));
 }
 
 void WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
@@ -82,12 +88,12 @@ void WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
     break;
   case core::WarmUpEvalStatus::AlreadyComplete:
     last_feedback_ = NoteFeedback::Correct;
-    status_banner_ = "Warm-up complete! Click Repeat / Reset to play another pass.";
+    status_banner_ = "Warm-up complete \xC2\xB7 Press Reset to play another pass";
     break;
   case core::WarmUpEvalStatus::Correct:
     last_feedback_ = NoteFeedback::Correct;
     if (res.exercise_completed) {
-      status_banner_ = std::format("Warm-up complete! Accuracy: {:.0f}% (Runs: {})",
+      status_banner_ = std::format("Warm-up complete \xC2\xB7 {:.0f}% accuracy (Run #{})",
                                    engine_.accuracy_ratio() * 100.0, engine_.completed_runs());
     } else {
       status_banner_ = std::format("Matched step {} ({})", res.evaluated_step_index + 1,
@@ -96,9 +102,9 @@ void WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
     break;
   case core::WarmUpEvalStatus::Incorrect:
     last_feedback_ = NoteFeedback::Incorrect;
-    status_banner_ = std::format(
-        "Mismatch on step {} - Target: {} | Played: {}", res.evaluated_step_index + 1,
-        format_midi_list(res.expected_midi, key), format_midi_list(res.played_midi, key));
+    status_banner_ = std::format("Target: {}  \xE2\x86\x92  Played: {}",
+                                 format_midi_list(res.expected_midi, key),
+                                 format_midi_list(res.played_midi, key));
     break;
   }
 }
@@ -163,108 +169,160 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   bool key_or_mode_changed = false;
   bool config_changed = false;
 
-  // Row 1: Weekly Key & Minor Mode
-  ImGui::AlignTextToFramePadding();
-  ImGui::TextUnformatted("Weekly Key:");
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(160.0f);
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
   const std::string cur_key_name = core::format_key_name(cfg.key);
-  if (ImGui::BeginCombo("##warmup_key", cur_key_name.c_str())) {
-    for (std::size_t i = 0; i < core::kWeeklyKeyCycle.size(); ++i) {
-      const auto candidate = core::weekly_key_at(i);
-      const std::string label =
-          std::format("Wk {:02d}: {}", i + 1, core::format_key_name(candidate));
-      const bool selected = (candidate == cfg.key);
-      if (ImGui::Selectable(label.c_str(), selected)) {
-        cfg.key = candidate;
+
+  // Single Slim Stage Header
+  {
+    ScopedFont tf(TypeStyle::Title);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Key Warm-Up");
+  }
+  ImGui::SameLine(0.0f, 12.0f * scale);
+  status_pill(cur_key_name, StatusTone::Accent);
+
+  // Right-aligned Primary Actions + Options Popover
+  const float right_w = 276.0f * scale;
+  const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+  if (avail_end > right_w + 180.0f * scale) {
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
+  }
+
+  if (pill_button("Hear Step##wu_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f)) {
+    const auto preview = build_current_step_preview(now_ms);
+    out_playback_notes.insert(out_playback_notes.end(), preview.begin(), preview.end());
+  }
+  ImGui::SameLine(0.0f, 8.0f * scale);
+  if (icon_button("##wu_reset", IconId::Refresh, "Reset / Repeat Pass", false, 32.0f,
+                  ButtonTone::Secondary)) {
+    engine_.reset();
+    last_feedback_ = NoteFeedback::Neutral;
+    status_banner_ = "Warm-up reset \xC2\xB7 Play step 1";
+  }
+  ImGui::SameLine(0.0f, 8.0f * scale);
+  if (pill_button("Options##wu_opts", ButtonTone::Secondary, IconId::Sliders, 32.0f)) {
+    ImGui::OpenPopup("##warmup_options_pop");
+  }
+
+  // Progressive Disclosure Options Popover
+  if (ImGui::BeginPopup("##warmup_options_pop")) {
+    const float pop_w = 290.0f * scale;
+    section_kicker("WARM-UP OPTIONS");
+    ImGui::Spacing();
+
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Weekly Key");
+    }
+    ImGui::SetNextItemWidth(pop_w);
+    if (ImGui::BeginCombo("##wu_key_pop", cur_key_name.c_str())) {
+      for (std::size_t i = 0; i < core::kWeeklyKeyCycle.size(); ++i) {
+        const auto candidate = core::weekly_key_at(i);
+        const std::string label =
+            std::format("Wk {:02d}  \xC2\xB7  {}", i + 1, core::format_key_name(candidate));
+        const bool selected = (candidate == cfg.key);
+        if (ImGui::Selectable(label.c_str(), selected)) {
+          cfg.key = candidate;
+          config_changed = true;
+          key_or_mode_changed = true;
+        }
+        if (selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+
+    if (cfg.key.mode == core::Mode::Minor) {
+      ImGui::Spacing();
+      static constexpr std::array<std::string_view, 2> kMinorModes{"Harmonic", "Natural"};
+      int minor_idx = static_cast<int>(cfg.minor_mode);
+      if (segmented_control("##wu_minor_seg", &minor_idx, kMinorModes, pop_w / scale, 28.0f)) {
+        cfg.minor_mode = static_cast<core::MinorScaleMode>(minor_idx);
         config_changed = true;
         key_or_mode_changed = true;
       }
-      if (selected) {
-        ImGui::SetItemDefaultFocus();
-      }
     }
-    ImGui::EndCombo();
-  }
 
-  if (cfg.key.mode == core::Mode::Minor) {
-    ImGui::SameLine();
-    int minor_idx = static_cast<int>(cfg.minor_mode);
-    ImGui::SetNextItemWidth(155.0f);
-    if (ImGui::Combo("##warmup_minor_mode", &minor_idx, "Harmonic Minor\0Natural Minor\0")) {
-      cfg.minor_mode = static_cast<core::MinorScaleMode>(minor_idx);
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Range");
+    }
+    static constexpr std::array<std::string_view, 2> kOcts{"1 Octave", "2 Octaves"};
+    int oct_idx = (cfg.octaves == 2) ? 1 : 0;
+    if (segmented_control("##wu_oct_seg", &oct_idx, kOcts, pop_w / scale, 28.0f)) {
+      cfg.octaves = (oct_idx == 1) ? 2 : 1;
       config_changed = true;
-      key_or_mode_changed = true;
     }
-  }
 
-  ImGui::SameLine();
-  int oct_idx = (cfg.octaves == 2) ? 1 : 0;
-  ImGui::SetNextItemWidth(115.0f);
-  if (ImGui::Combo("##warmup_oct", &oct_idx, "1 Octave\0002 Octaves\0")) {
-    cfg.octaves = (oct_idx == 1) ? 2 : 1;
-    config_changed = true;
-  }
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Hands");
+    }
+    static constexpr std::array<std::string_view, 3> kHands{"Both", "Right", "Left"};
+    int hand_idx = static_cast<int>(cfg.hand);
+    if (segmented_control("##wu_hand_seg", &hand_idx, kHands, pop_w / scale, 28.0f)) {
+      cfg.hand = static_cast<core::HandSelection>(hand_idx);
+      config_changed = true;
+    }
 
-  ImGui::SameLine();
-  int hand_idx = static_cast<int>(cfg.hand);
-  ImGui::SetNextItemWidth(155.0f);
-  if (ImGui::Combo("##warmup_hand", &hand_idx, "Hands Together\0Right Hand\0Left Hand\0")) {
-    cfg.hand = static_cast<core::HandSelection>(hand_idx);
-    config_changed = true;
-  }
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Exercise");
+    }
+    static constexpr std::array<std::string_view, 3> kExs{"Scale + Cadence", "Scale", "Cadence"};
+    int ex_idx = static_cast<int>(cfg.exercise);
+    if (segmented_control("##wu_ex_seg", &ex_idx, kExs, pop_w / scale, 28.0f)) {
+      cfg.exercise = static_cast<core::WarmUpExerciseKind>(ex_idx);
+      config_changed = true;
+    }
 
-  ImGui::SameLine();
-  int ex_idx = static_cast<int>(cfg.exercise);
-  ImGui::SetNextItemWidth(155.0f);
-  if (ImGui::Combo("##warmup_ex", &ex_idx, "Scale + Cadence\0Scale Only\0Cadence Only\0")) {
-    cfg.exercise = static_cast<core::WarmUpExerciseKind>(ex_idx);
-    config_changed = true;
+    hairline_separator(8.0f);
+    settings_toggle_row("Warm Ivory Paper Staff", "##wu_paper_sw", &light_paper_theme_);
+    ImGui::EndPopup();
   }
 
   if (config_changed) {
     engine_.configure(cfg);
     last_feedback_ = NoteFeedback::Neutral;
-    status_banner_ = std::format("Configured {} - play step 1", core::format_key_name(cfg.key));
+    status_banner_ =
+        std::format("Configured {} \xC2\xB7 Play step 1", core::format_key_name(cfg.key));
   }
 
-  // Row 2: Actions & Progress
-  if (ImGui::Button("Reset / Repeat")) {
-    engine_.reset();
-    last_feedback_ = NoteFeedback::Neutral;
-    status_banner_ = "Warm-up reset - play step 1";
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("Hear Step (Space / CC67)")) {
-    const auto preview = build_current_step_preview(now_ms);
-    out_playback_notes.insert(out_playback_notes.end(), preview.begin(), preview.end());
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Paper Staff", &light_paper_theme_);
+  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
 
+  // Calm Progress & Feedback Row
   const auto steps = engine_.steps();
   const std::size_t cur_step = engine_.current_step_index();
   const float progress =
       steps.empty() ? 0.0f : static_cast<float>(cur_step) / static_cast<float>(steps.size());
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(220.0f);
-  const std::string overlay =
-      std::format("Step {}/{}", std::min(cur_step + 1, steps.size()), steps.size());
-  ImGui::ProgressBar(engine_.is_complete() ? 1.0f : progress, ImVec2(220.0f, 0.0f),
-                     engine_.is_complete() ? "Complete!" : overlay.c_str());
 
-  ImGui::SameLine();
-  ImGui::TextDisabled("| Runs: %u | Accuracy: %.0f%%", engine_.completed_runs(),
-                      engine_.accuracy_ratio() * 100.0);
-
-  // Feedback status banner
-  ImVec4 banner_col(0.75f, 0.80f, 0.88f, 1.0f);
+  StatusTone fb_tone = StatusTone::Neutral;
   if (last_feedback_ == NoteFeedback::Correct) {
-    banner_col = ImVec4(0.32f, 0.88f, 0.52f, 1.0f);
+    fb_tone = StatusTone::Success;
   } else if (last_feedback_ == NoteFeedback::Incorrect) {
-    banner_col = ImVec4(0.96f, 0.42f, 0.42f, 1.0f);
+    fb_tone = StatusTone::Danger;
   }
-  ImGui::TextColored(banner_col, "%s", status_banner_.c_str());
+  status_pill(status_banner_, fb_tone, IconId::None, true);
+
+  ImGui::SameLine(0.0f, 12.0f * scale);
+  const std::string stats_lbl = std::format(
+      "Step {}/{}  \xC2\xB7  Runs: {}  \xC2\xB7  {:.0f}%", std::min(cur_step + 1, steps.size()),
+      steps.size(), engine_.completed_runs(), engine_.accuracy_ratio() * 100.0);
+  {
+    ScopedFont sub(TypeStyle::Subheadline);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f * scale);
+    ImGui::TextColored(c.text_secondary, "%s", stats_lbl.c_str());
+  }
+
+  ImGui::Spacing();
+  progress_bar_capsule(engine_.is_complete() ? 1.0f : progress, ImVec2(-1.0f, 5.0f * scale),
+                       engine_.is_complete() ? c.success : c.accent);
+  ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
 
   // Build paged Grand Staff view (4 bars per page)
   const auto bars = partition_warmup_bars(steps);
@@ -327,10 +385,14 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     measures.push_back(std::move(sm));
   }
 
-  ImGui::TextDisabled("System Page %zu/%zu - %s", current_page, total_pages,
-                      (cur_step < steps.size() && steps[cur_step].is_cadence)
-                          ? "Primary Triad Cadence"
-                          : "Scale (Ascending & Descending)");
+  {
+    ScopedFont cap(TypeStyle::Caption);
+    ImGui::TextColored(c.text_tertiary, "PAGE %zu OF %zu  \xC2\xB7  %s", current_page, total_pages,
+                       (cur_step < steps.size() && steps[cur_step].is_cadence)
+                           ? "PRIMARY TRIAD CADENCE"
+                           : "SCALE (ASCENDING & DESCENDING)");
+  }
+  ImGui::Spacing();
 
   StaffRenderOptions opts{};
   opts.key = cfg.key;
@@ -338,11 +400,14 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
                        ? StaffViewMode::TrebleOnly
                        : ((cfg.hand == core::HandSelection::LeftOnly) ? StaffViewMode::BassOnly
                                                                       : StaffViewMode::GrandStaff);
-  opts.staff_space = 15.0f;
+  const float avail_y = ImGui::GetContentRegionAvail().y;
+  const float staves_spaces = (opts.view_mode == StaffViewMode::GrandStaff) ? 14.5f : 4.0f;
+  const float total_spaces = 10.4f + staves_spaces;
+  opts.staff_space = std::clamp((avail_y - 16.0f) / total_spaces, 12.0f, 20.0f);
   opts.grand_staff_gap_spaces = 6.5f;
   opts.light_paper_theme = light_paper_theme_;
 
-  const float canvas_w = std::max(500.0f, ImGui::GetContentRegionAvail().x);
+  const float canvas_w = std::max(460.0f, ImGui::GetContentRegionAvail().x);
   const float canvas_h = compute_staff_canvas_height(opts);
   const ImVec2 canvas_origin = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton("##warmup_staff", ImVec2(canvas_w, canvas_h));

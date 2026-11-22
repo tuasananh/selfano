@@ -2,6 +2,10 @@
 
 #include "core/pitch.hpp"
 
+#include "ui/design_system.hpp"
+#include "ui/icons.hpp"
+#include "ui/widgets.hpp"
+
 #include "imgui.h"
 
 #include <algorithm>
@@ -10,6 +14,7 @@
 #include <format>
 #include <map>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 namespace selfano::ui {
@@ -251,114 +256,173 @@ EtudeView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) con
 void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool& out_accent) {
   auto cfg = engine_.config();
   bool rebuild = false;
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
 
-  // Row 1: Transport & Timing
-  const auto st = engine_.playback_state();
-  const char* play_lbl = "Start (Space)";
-  if (st == core::EtudePlaybackState::CountIn || st == core::EtudePlaybackState::Playing) {
-    play_lbl = "Pause (Space)";
-  } else if (st == core::EtudePlaybackState::Paused) {
-    play_lbl = "Resume (Space)";
+  // Single Slim Stage Header
+  {
+    ScopedFont tf(TypeStyle::Title);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Continuous Etudes");
   }
-  if (ImGui::Button(play_lbl)) {
-    toggle_play_pause(out_click, out_accent);
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("Stop")) {
-    engine_.stop();
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("New Passage")) {
-    engine_.regenerate(cfg.seed + 1U);
-    cfg = engine_.config();
-  }
+  ImGui::SameLine(0.0f, 12.0f * scale);
+  status_pill(std::format("{:.0f} BPM", cfg.bpm), StatusTone::Accent, IconId::Metronome);
 
-  ImGui::SameLine();
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  static constexpr std::array<std::string_view, 2> kTimings{"Steady-Pulse", "Wait-for-Note"};
   int timing_idx = static_cast<int>(cfg.timing_mode);
-  ImGui::SetNextItemWidth(160.0f);
-  if (ImGui::Combo("Timing", &timing_idx, "Steady-Pulse\0Wait-for-Note\0")) {
+  if (segmented_control("##etude_timing_seg", &timing_idx, kTimings, 224.0f, 30.0f)) {
     engine_.set_timing_mode(static_cast<core::EtudeTimingMode>(timing_idx));
     cfg = engine_.config();
   }
 
-  ImGui::SameLine();
-  float bpm_f = static_cast<float>(cfg.bpm);
-  ImGui::SetNextItemWidth(160.0f);
-  if (ImGui::SliderFloat("BPM", &bpm_f, 40.0f, 120.0f, "%.0f")) {
-    engine_.set_bpm(static_cast<double>(bpm_f));
+  // Right-aligned Transport + Options Popover
+  const float right_w = 276.0f * scale;
+  const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+  if (avail_end > right_w + 320.0f * scale) {
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
+  }
+
+  const auto st = engine_.playback_state();
+  const bool running =
+      (st == core::EtudePlaybackState::CountIn || st == core::EtudePlaybackState::Playing);
+  const char* play_lbl =
+      running ? "Pause##et_play"
+              : (st == core::EtudePlaybackState::Paused ? "Resume##et_play" : "Start##et_play");
+  if (pill_button(play_lbl, running ? ButtonTone::Warning : ButtonTone::Primary,
+                  running ? IconId::Pause : IconId::Play, 32.0f, 96.0f, true)) {
+    toggle_play_pause(out_click, out_accent);
+  }
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  if (icon_button("##et_stop", IconId::Stop, "Stop Playback", false, 32.0f,
+                  ButtonTone::Secondary)) {
+    engine_.stop();
+  }
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  if (icon_button("##et_regen", IconId::Refresh, "Generate New Passage", false, 32.0f,
+                  ButtonTone::Secondary)) {
+    engine_.regenerate(cfg.seed + 1U);
     cfg = engine_.config();
   }
-
-  // Row 2: Hand Mode, Max Jump, Metronome, Theme
-  int hand_idx = static_cast<int>(cfg.hand_mode);
-  ImGui::SetNextItemWidth(175.0f);
-  if (ImGui::Combo("Hands", &hand_idx, "Right Hand\0Left Hand\0Easy Hands-Together\0")) {
-    cfg.hand_mode = static_cast<core::EtudeHandMode>(hand_idx);
-    rebuild = true;
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  if (pill_button("Options##et_opts", ButtonTone::Secondary, IconId::Sliders, 32.0f)) {
+    ImGui::OpenPopup("##etude_options_pop");
   }
 
-  ImGui::SameLine();
-  int jump_idx = 1;
-  switch (cfg.max_jump) {
-  case core::EtudeMaxJump::Steps:
-    jump_idx = 0;
-    break;
-  case core::EtudeMaxJump::Thirds:
-    jump_idx = 1;
-    break;
-  case core::EtudeMaxJump::Fifths:
-    jump_idx = 2;
-    break;
-  case core::EtudeMaxJump::ChordSkips:
-    jump_idx = 3;
-    break;
-  }
-  ImGui::SetNextItemWidth(150.0f);
-  if (ImGui::Combo("Max Jump", &jump_idx, "Steps (2nds)\0003rds\0005ths\0Chord Skips\0")) {
-    constexpr std::array<core::EtudeMaxJump, 4> kJumps{
-        core::EtudeMaxJump::Steps,
-        core::EtudeMaxJump::Thirds,
-        core::EtudeMaxJump::Fifths,
-        core::EtudeMaxJump::ChordSkips,
-    };
-    cfg.max_jump = kJumps[static_cast<std::size_t>(jump_idx)];
-    rebuild = true;
+  if (ImGui::BeginPopup("##etude_options_pop")) {
+    const float pop_w = 290.0f * scale;
+    section_kicker("ETUDE OPTIONS");
+    ImGui::Spacing();
+
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Tempo (%.0f BPM)", cfg.bpm);
+    }
+    float bpm_f = static_cast<float>(cfg.bpm);
+    ImGui::SetNextItemWidth(pop_w);
+    if (ImGui::SliderFloat("##et_bpm_pop", &bpm_f, 40.0f, 120.0f, "%.0f BPM")) {
+      engine_.set_bpm(static_cast<double>(bpm_f));
+      cfg = engine_.config();
+    }
+
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Hands");
+    }
+    static constexpr std::array<std::string_view, 3> kHands{"RH", "LH", "Easy Both"};
+    int hand_idx = static_cast<int>(cfg.hand_mode);
+    if (segmented_control("##et_hand_seg", &hand_idx, kHands, pop_w / scale, 28.0f)) {
+      cfg.hand_mode = static_cast<core::EtudeHandMode>(hand_idx);
+      rebuild = true;
+    }
+
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Max Melodic Jump");
+    }
+    int jump_idx = 1;
+    switch (cfg.max_jump) {
+    case core::EtudeMaxJump::Steps:
+      jump_idx = 0;
+      break;
+    case core::EtudeMaxJump::Thirds:
+      jump_idx = 1;
+      break;
+    case core::EtudeMaxJump::Fifths:
+      jump_idx = 2;
+      break;
+    case core::EtudeMaxJump::ChordSkips:
+      jump_idx = 3;
+      break;
+    }
+    static constexpr std::array<std::string_view, 4> kJumps{"2nds", "3rds", "5ths", "Skips"};
+    if (segmented_control("##et_jump_seg", &jump_idx, kJumps, pop_w / scale, 28.0f)) {
+      constexpr std::array<core::EtudeMaxJump, 4> kJumpVals{
+          core::EtudeMaxJump::Steps,
+          core::EtudeMaxJump::Thirds,
+          core::EtudeMaxJump::Fifths,
+          core::EtudeMaxJump::ChordSkips,
+      };
+      cfg.max_jump = kJumpVals[static_cast<std::size_t>(jump_idx)];
+      rebuild = true;
+    }
+
+    hairline_separator(8.0f);
+    settings_toggle_row("Metronome Click", "##et_metro_sw", &metronome_enabled_);
+    settings_toggle_row("Warm Ivory Paper Staff", "##et_paper_sw", &light_paper_theme_);
+    ImGui::EndPopup();
   }
 
   if (rebuild) {
     engine_.configure(cfg);
   }
 
-  ImGui::SameLine();
-  ImGui::Checkbox("Metronome Click", &metronome_enabled_);
-  ImGui::SameLine();
-  ImGui::Checkbox("Paper Staff", &light_paper_theme_);
+  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
 
-  // Telemetry & Count-in status bar
+  // Calm Transport Status Strip + 4-Beat Count-In Dots
   const auto cur_state = engine_.playback_state();
   if (cur_state == core::EtudePlaybackState::CountIn) {
-    ImGui::TextColored(ImVec4(0.98f, 0.78f, 0.25f, 1.0f), "COUNT-IN: Beat %d / 4  (Get Ready!)",
-                       engine_.count_in_beat_number());
+    const int beat = engine_.count_in_beat_number();
+    status_pill(std::format("Count-In  \xC2\xB7  Beat {} of 4", beat), StatusTone::Warning,
+                IconId::Metronome);
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    const ImVec2 dpos = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(64.0f * scale, 24.0f * scale));
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    for (int i = 0; i < 4; ++i) {
+      const bool lit = (i < beat);
+      dl->AddCircleFilled(ImVec2(dpos.x + 8.0f * scale + static_cast<float>(i) * 16.0f * scale,
+                                 dpos.y + 12.0f * scale),
+                          4.5f * scale, to_u32(lit ? c.warning : c.control_bg), 12);
+    }
   } else if (cur_state == core::EtudePlaybackState::Playing) {
     if (engine_.config().timing_mode == core::EtudeTimingMode::SteadyPulse) {
-      ImGui::TextColored(ImVec4(0.32f, 0.88f, 0.52f, 1.0f),
-                         "PLAYING Steady-Pulse (%.0f BPM) - Never stop for mistakes!",
-                         engine_.config().bpm);
+      status_pill("Playing Steady-Pulse \xC2\xB7 Keep going through mistakes", StatusTone::Success,
+                  IconId::None, true);
     } else {
-      ImGui::TextColored(ImVec4(0.45f, 0.78f, 0.98f, 1.0f),
-                         "WAIT-FOR-NOTE - Play highlighted beat target");
+      status_pill("Wait-for-Note \xC2\xB7 Play highlighted beat", StatusTone::Accent, IconId::None,
+                  true);
     }
   } else if (cur_state == core::EtudePlaybackState::Paused) {
-    ImGui::TextColored(ImVec4(0.98f, 0.78f, 0.25f, 1.0f), "PAUSED");
+    status_pill("Paused", StatusTone::Warning, IconId::Pause);
   } else {
-    ImGui::TextDisabled("READY - Key: %s | Press Start or Spacebar to begin 4-beat count-in",
-                        core::format_key_name(engine_.config().key).c_str());
+    status_pill(std::format("Ready  \xC2\xB7  {}  \xC2\xB7  Press Space to begin",
+                            core::format_key_name(engine_.config().key)),
+                StatusTone::Neutral, IconId::None, true);
   }
 
-  ImGui::SameLine();
-  ImGui::TextDisabled("  |  Bars Read: %u  |  Hits: %u  |  Missed: %u  |  Accuracy: %.0f%%",
-                      engine_.completed_bars(), engine_.hit_targets(), engine_.missed_targets(),
-                      engine_.accuracy_ratio() * 100.0);
+  ImGui::SameLine(0.0f, 12.0f * scale);
+  {
+    ScopedFont sub(TypeStyle::Subheadline);
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f * scale);
+    ImGui::TextColored(c.text_secondary, "Bars: %u  \xC2\xB7  Hits: %u  \xC2\xB7  %.0f%% accuracy",
+                       engine_.completed_bars(), engine_.hit_targets(),
+                       engine_.accuracy_ratio() * 100.0);
+  }
+
+  ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
 
   const StaffViewMode view_mode =
       (engine_.config().hand_mode == core::EtudeHandMode::RightHand)
@@ -375,10 +439,10 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
 
   const float avail_y = ImGui::GetContentRegionAvail().y;
   const float staves_spaces = (view_mode == StaffViewMode::GrandStaff) ? (8.0f + 5.2f) : 4.0f;
-  const float per_system_spaces = 5.6f + staves_spaces + 5.2f;
-  const float reserved_label_h = ImGui::GetTextLineHeightWithSpacing() * 1.5f;
+  const float per_system_spaces = 5.4f + staves_spaces + 5.0f;
+  const float reserved_label_h = 28.0f * scale;
   const float computed_space = (avail_y - reserved_label_h) / (2.0f * per_system_spaces);
-  const float staff_space = std::clamp(computed_space, 9.5f, 14.5f);
+  const float staff_space = std::clamp(computed_space, 9.5f, 15.0f);
 
   // System 1 (Top): Active 4 Bars
   const auto active_measures =
@@ -397,14 +461,16 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
     top_opts.playhead_beat = static_cast<float>(engine_.playhead_beat());
   }
 
-  const float canvas_w = std::max(500.0f, ImGui::GetContentRegionAvail().x);
+  const float canvas_w = std::max(460.0f, ImGui::GetContentRegionAvail().x);
   const float top_h = compute_staff_canvas_height(top_opts);
   const ImVec2 top_origin = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton("##etude_active_staff", ImVec2(canvas_w, top_h));
   render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, top_origin, canvas_w,
                active_measures, top_opts);
 
-  ImGui::TextDisabled("Upcoming 4 Bars (Lookahead Preview):");
+  ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
+  section_kicker("UPCOMING 4 BARS");
+  ImGui::Spacing();
 
   // System 2 (Bottom): Preview 4 Bars
   const auto preview_measures = build_etude_staff_measures(

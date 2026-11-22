@@ -162,10 +162,14 @@ target_link_libraries(piano_midi
 # 3. Dear ImGui + SDL3 UI layer
 add_library(piano_ui STATIC
   src/ui/font_loader.cpp
+  src/ui/design_system.cpp
+  src/ui/icons.cpp
+  src/ui/widgets.cpp
   src/ui/staff_renderer.cpp
   src/ui/staff_showcase.cpp
   src/ui/virtual_piano.cpp
   src/ui/midi_device_bar.cpp
+  src/ui/autopilot_chrome.cpp
   src/ui/phase2_sandbox.cpp
   src/ui/warmup_view.cpp
   src/ui/flashcard_view.cpp
