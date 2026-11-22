@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-21
-- **Active Phase:** Phase 2 — Bidirectional MIDI, SPSC Bridge, Audio Fallback & Virtual Piano *(ready to start)*
-- **Last Completed Phase:** Phase 1 — Build System, Core Theory Foundation & Static Grand Staff
+- **Last Updated:** 2026-11-22
+- **Active Phase:** Phase 3 — Stage 1 (Key & Harmony Warm-Up) & Stage 2 (Flashcards + Continuous Etudes) *(ready to start)*
+- **Last Completed Phase:** Phase 2 — Bidirectional MIDI, SPSC Bridge, Audio Fallback & Virtual Piano
 
 ---
 
@@ -34,6 +34,20 @@
   - `grep -rnE --include='*.h' --include='*.hpp' --include='*.cpp' '#include\s*[<"](imgui|SDL|libremidi|emscripten)' src/core/` returned 0 matches.
   - `./build/native-debug/selfano --smoke-frames 5 --screenshot ...` verified crisp Grand Staff rendering at ~144 FPS with Bravura SMuFL clefs, brace, key signatures, ledger lines, stems, 2nd-interval offsets, and color-coded feedback badges.
 
+### Phase 2 — Bidirectional MIDI, SPSC Bridge, Audio Fallback & Virtual Piano
+- **Status:** Complete
+- **Artifacts Created:**
+  - Lock-free MIDI & audio (`src/midi/`): `spsc_queue.hpp`, `midi_event.hpp`, `chord_grouper.hpp/.cpp`, `midi_scheduler.hpp/.cpp`, `audio_synth.hpp/.cpp` (`consteval` MIDI frequency table + `SDL_AudioStream` polyphonic synth + metronome/chime cues), `midi_engine.hpp/.cpp` (bidirectional `libremidi` IN/OUT with virtual port tracking, auto hot-reconnect, and CC 123 teardown), `qwerty_mapper.hpp/.cpp`
+  - Interactive UI (`src/ui/`, `src/main.cpp`): `midi_device_bar.hpp/.cpp`, `virtual_piano.hpp/.cpp` (responsive 4-octave / 88-key `ImDrawList` keyboard), `phase2_sandbox.hpp/.cpp` (live Neutral/Green/Red staff feedback, soft pedal CC 67 rising-edge + 200 ms debounce replay, auto-advance grace window), and `src/main.cpp` integration
+  - Catch2 unit tests (`tests/midi_tests.cpp`): SPSC bounds/wrap-around, MIDI1 parser (`vel=0` NoteOff + CC 67 press/release edge state), `PolyphonicChordGrouper` (window clamping, `NaN` safety, deduplication, rolled vs. split chords), `MidiPlaybackScheduler` (timed dispatch, panic, overlapping retrigger), `AudioSynth` DSP (polyphony/voice stealing, mute, decay, metronome/chimes), and `QwertyMapper`
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with zero warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed 21/21 test cases in 0.05s.
+  - `grep -rnE --include='*.h' --include='*.hpp' --include='*.cpp' '#include\s*[<"](imgui|SDL|libremidi|emscripten)' src/core/` returned 0 matches.
+  - `clang-format --dry-run --Werror` clean on all modified Phase 2 C++ files.
+  - `SDL_AUDIODRIVER=dummy ./build/native-debug/selfano --smoke-frames 5 --inject-notes 60,64,67` exited cleanly (`0`).
+  - *Note for user hardware check:* Physical Korg LP-380 MIDI DIN/USB cable hotplug and acoustic speaker monitoring remain to be manually spot-checked on hardware.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -50,10 +64,10 @@
 
 ## Next Concrete Action
 
-Start **Phase 2** by reading [`docs/phases/phase-2-midi-audio-virtual-piano.md`](./phases/phase-2-midi-audio-virtual-piano.md) and `.agents/skills/midi-emscripten-interop/SKILL.md`, querying `context7` for `libremidi` (`midi_in`, `midi_out`, `observer`) and `SDL3` (`SDL_AudioStream` playback callback), and building Slice 2.1 (`SpscQueue` + `PolyphonicChordGrouper` in TDD).
+Start **Phase 3** by reading [`docs/phases/phase-3-warmup-and-sight-reading.md`](./phases/phase-3-warmup-and-sight-reading.md) and `.agents/skills/cpp23-tdd/SKILL.md`, then implement Slice 3.1 (Weekly Key Rotation & Stage 1 Warm-Up Engine in `src/core/` via TDD).
 
 ---
 
 ## Active Handoff / Open Blockers
 
-- None. Phase 1 complete and cleanly committed.
+- None. Phase 2 complete and cleanly committed on `phase-2/midi-audio-virtual-piano`.
