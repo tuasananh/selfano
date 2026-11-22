@@ -111,11 +111,16 @@ add_library(piano_core STATIC
   src/core/srs_deck.cpp
   src/core/ear_trainer.cpp
   src/core/autopilot.cpp
+  src/core/profile_store.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_link_libraries(piano_core PRIVATE selfano_warnings)
+target_link_libraries(piano_core
+  PRIVATE
+    nlohmann_json::nlohmann_json
+    selfano_warnings
+)
 
 # 2. MIDI & audio bridge
 add_library(piano_midi STATIC
@@ -211,6 +216,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/srs_tests.cpp
     tests/ear_trainer_tests.cpp
     tests/autopilot_tests.cpp
+    tests/profile_store_tests.cpp
     tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
