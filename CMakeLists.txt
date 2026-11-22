@@ -106,6 +106,8 @@ add_library(piano_core STATIC
   src/core/warmup_engine.cpp
   src/core/flashcard_engine.cpp
   src/core/etude_engine.cpp
+  src/core/chord_symbol.cpp
+  src/core/companion_matcher.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -199,6 +201,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/warmup_tests.cpp
     tests/flashcard_tests.cpp
     tests/etude_tests.cpp
+    tests/companion_tests.cpp
     tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
