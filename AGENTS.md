@@ -18,6 +18,7 @@ Source of truth:
    - `systematic-debugging` whenever a build, test, MIDI/threading, rendering, or Emscripten bug occurs.
    - `verification-and-review` before claiming any task or phase complete.
    - `music-notation-imgui` when working on staff geometry, SMuFL glyphs, key signatures, or notehead layout.
+   - `apple-hig-imgui` when working on UI styling, typography, color tokens, custom widgets, layout, or `web/shell.html`.
    - `midi-emscripten-interop` when working on `libremidi`, SPSC queues, `SDL_AudioStream`, WebMIDI, or `IDBFS`.
 3. **Update `docs/STATE.md` at phase completion** (or before a handoff) with exact verification evidence and the next concrete step.
 4. **Atomic commits:** Keep git history clean with focused commits per vertical slice/phase.
