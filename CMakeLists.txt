@@ -102,6 +102,8 @@ add_library(piano_core STATIC
   src/core/key_signature.cpp
   src/core/theory.cpp
   src/core/staff_layout.cpp
+  src/core/weekly_key.cpp
+  src/core/warmup_engine.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -189,6 +191,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/key_signature_tests.cpp
     tests/theory_tests.cpp
     tests/staff_layout_tests.cpp
+    tests/warmup_tests.cpp
     tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
