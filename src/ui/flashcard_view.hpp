@@ -26,6 +26,7 @@ public:
   void set_key(core::KeySignature key, core::MinorScaleMode minor_mode, double now_ms);
   void on_played_chord(const midi::PlayedChord& chord, double now_ms);
   void update(double now_ms);
+  void skip_card(double now_ms);
 
   [[nodiscard]] std::size_t expected_chord_cardinality() const noexcept;
   [[nodiscard]] std::vector<midi::ScheduledMidiNote>

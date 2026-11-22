@@ -242,6 +242,24 @@ void EtudeView::update(double dt_ms, bool& out_click, bool& out_accent) {
   }
 }
 
+double EtudeView::adjust_bpm(double delta) {
+  const double next = std::clamp(engine_.config().bpm + delta, 40.0, 120.0);
+  engine_.set_bpm(next);
+  return engine_.config().bpm;
+}
+
+void EtudeView::new_passage() {
+  engine_.regenerate(engine_.config().seed + 1U);
+}
+
+core::EtudeTimingMode EtudeView::toggle_timing_mode() {
+  const auto next = (engine_.config().timing_mode == core::EtudeTimingMode::SteadyPulse)
+                        ? core::EtudeTimingMode::WaitForNote
+                        : core::EtudeTimingMode::SteadyPulse;
+  engine_.set_timing_mode(next);
+  return next;
+}
+
 std::size_t EtudeView::expected_chord_cardinality() const noexcept {
   return engine_.expected_cardinality();
 }

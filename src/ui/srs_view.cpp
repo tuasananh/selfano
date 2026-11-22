@@ -55,6 +55,28 @@ void SrsView::clear_form() {
   hint_buf_[0] = '\0';
 }
 
+std::optional<std::string> SrsView::rate_active_card(core::SrsRating rating,
+                                                     std::int64_t today_epoch_day) {
+  const auto due = deck_.due_cards(today_epoch_day);
+  if (due.empty()) {
+    return std::nullopt;
+  }
+  const auto& card = due.front();
+  const int next_d = core::preview_next_interval_days(card, rating, today_epoch_day);
+  (void)deck_.review_card_by_id(card.id, rating, today_epoch_day);
+  peek_chord_hint_ = false;
+
+  const char* rating_name = "Good";
+  if (rating == core::SrsRating::Again) {
+    rating_name = "Again";
+  } else if (rating == core::SrsRating::Hard) {
+    rating_name = "Hard";
+  }
+  status_banner_ = std::format("Rated '{}' {} \xC2\xB7 scheduled in {}d", card.section_name,
+                               rating_name, next_d);
+  return std::format("Rated {} ({}d)", rating_name, next_d);
+}
+
 void SrsView::draw(std::int64_t today_epoch_day) {
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;

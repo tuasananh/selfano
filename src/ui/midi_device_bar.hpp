@@ -14,6 +14,7 @@ struct MidiDeviceBarState {
   float chord_window_ms{100.0f};
   bool monitor_midi_in{false}; // Default OFF so Korg LP-380 built-in speakers aren't doubled
   bool synth_muted{false};
+  bool piano_remote_enabled{true};
   VirtualPianoMode piano_mode{VirtualPianoMode::Auto};
   std::string status_banner{};
   double last_soft_pedal_ms{-10000.0};
@@ -22,6 +23,9 @@ struct MidiDeviceBarState {
 struct MidiDeviceBarActions {
   bool panic_triggered{false};
   bool test_chord_triggered{false};
+  bool open_midi_monitor{false};
+  bool open_key_map{false};
+  bool piano_remote_changed{false};
 };
 
 // Draws the compact sidebar-footer Audio & MIDI status pill. Returns true when clicked to open

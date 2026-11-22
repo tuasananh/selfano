@@ -29,6 +29,8 @@ public:
   }
 
   void on_played_chord(const midi::PlayedChord& chord);
+  void reset_pass();
+  [[nodiscard]] int toggle_octaves();
   [[nodiscard]] std::size_t expected_chord_cardinality() const noexcept;
   [[nodiscard]] std::vector<midi::ScheduledMidiNote>
   build_current_step_preview(double now_ms) const;

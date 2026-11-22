@@ -207,7 +207,27 @@ MidiDeviceBarActions draw_midi_audio_popover(midi::MidiEngine& midi_engine, midi
 
   hairline_separator(8.0f);
 
-  // Section 3: Virtual Keyboard
+  // Section 3: Hands-Free Piano Remote & Inspector
+  section_kicker("PIANO REMOTE & MONITOR");
+  ImGui::Spacing();
+  if (settings_toggle_row("Hands-Free Piano Remote", "##pop_pr_sw", &state.piano_remote_enabled,
+                          "Control app from A0-B0 & C7-C8 (hold Soft Pedal in Companion Mode)")) {
+    actions.piano_remote_changed = true;
+  }
+  ImGui::Spacing();
+  if (pill_button("MIDI Monitor##pop_mm", ButtonTone::Secondary, IconId::MidiPlug, 30.0f, half_w)) {
+    actions.open_midi_monitor = true;
+    ImGui::CloseCurrentPopup();
+  }
+  ImGui::SameLine(0.0f, 8.0f * scale);
+  if (pill_button("Key Map (A#0)##pop_km", ButtonTone::SoftAccent, IconId::Piano, 30.0f, half_w)) {
+    actions.open_key_map = true;
+    ImGui::CloseCurrentPopup();
+  }
+
+  hairline_separator(8.0f);
+
+  // Section 4: Virtual Keyboard
   section_kicker("VIRTUAL KEYBOARD");
   ImGui::Spacing();
 

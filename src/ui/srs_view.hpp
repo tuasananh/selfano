@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace selfano::ui {
@@ -14,6 +15,13 @@ public:
 
   [[nodiscard]] const core::SrsDeck& deck() const noexcept { return deck_; }
   [[nodiscard]] core::SrsDeck& mutable_deck() noexcept { return deck_; }
+
+  [[nodiscard]] std::optional<std::string> rate_active_card(core::SrsRating rating,
+                                                            std::int64_t today_epoch_day);
+  [[nodiscard]] bool toggle_hint() noexcept {
+    peek_chord_hint_ = !peek_chord_hint_;
+    return peek_chord_hint_;
+  }
 
   void draw(std::int64_t today_epoch_day);
 

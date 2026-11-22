@@ -113,6 +113,22 @@ std::size_t WarmUpView::expected_chord_cardinality() const noexcept {
   return engine_.expected_cardinality();
 }
 
+void WarmUpView::reset_pass() {
+  engine_.reset();
+  last_feedback_ = NoteFeedback::Neutral;
+  status_banner_ = "Warm-up reset \xC2\xB7 Play step 1";
+}
+
+int WarmUpView::toggle_octaves() {
+  auto cfg = engine_.config();
+  cfg.octaves = (cfg.octaves == 2) ? 1 : 2;
+  engine_.configure(cfg);
+  last_feedback_ = NoteFeedback::Neutral;
+  status_banner_ = std::format("Switched to {} octave{} \xC2\xB7 Play step 1", cfg.octaves,
+                               cfg.octaves == 2 ? "s" : "");
+  return cfg.octaves;
+}
+
 std::vector<midi::ScheduledMidiNote> WarmUpView::build_current_step_preview(double now_ms) const {
   std::vector<midi::ScheduledMidiNote> out;
   const auto steps = engine_.steps();

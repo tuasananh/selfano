@@ -130,6 +130,16 @@ void CompanionView::reset_phrase(double now_ms) {
   status_banner_ = "Phrase reset to Bar 1";
 }
 
+std::string CompanionView::next_phrase(double now_ms) {
+  if (phrases_.empty()) {
+    return {};
+  }
+  selected_index_ = (selected_index_ + 1U) % phrases_.size();
+  load_editor_from_selected(now_ms);
+  return std::format("{} \xC2\xB7 {}", phrases_[selected_index_].piece_name,
+                     phrases_[selected_index_].phrase_name);
+}
+
 void CompanionView::set_phrases(std::vector<core::RepertoirePhrase> phrases, double now_ms) {
   phrases_ = std::move(phrases);
   selected_index_ = 0;

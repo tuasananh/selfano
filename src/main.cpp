@@ -1,4 +1,5 @@
 #include "core/autopilot.hpp"
+#include "core/piano_remote.hpp"
 #include "core/profile_store.hpp"
 #include "core/weekly_key.hpp"
 
@@ -18,7 +19,9 @@
 #include "ui/home_dashboard.hpp"
 #include "ui/icons.hpp"
 #include "ui/midi_device_bar.hpp"
+#include "ui/midi_monitor_view.hpp"
 #include "ui/phase2_sandbox.hpp"
+#include "ui/piano_remote_overlay.hpp"
 #include "ui/srs_view.hpp"
 #include "ui/staff_showcase.hpp"
 #include "ui/virtual_piano.hpp"
@@ -57,7 +60,8 @@ enum class AppMode : std::uint8_t {
   Home = 0,
   Autopilot = 1,
   FreePractice = 2,
-  DevTools = 3,
+  MidiMonitor = 3,
+  DevTools = 4,
 };
 
 struct CliOptions {
@@ -69,6 +73,7 @@ struct CliOptions {
   selfano::core::AutopilotStage initial_free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
   int initial_dev_subtab{0};
   std::optional<selfano::ui::AppTheme> theme_override{};
+  bool open_keymap{false};
 };
 
 struct SessionBaselines {
@@ -154,6 +159,8 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
   } else if (arg == "ear") {
     opts.initial_mode = AppMode::FreePractice;
     opts.initial_free_stage = S::Stage4BEarTrainer;
+  } else if (arg == "midi" || arg == "monitor") {
+    opts.initial_mode = AppMode::MidiMonitor;
   } else if (arg == "devtools" || arg == "sandbox") {
     opts.initial_mode = AppMode::DevTools;
     opts.initial_dev_subtab = 0;
@@ -186,6 +193,8 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
       } else if (t == "light") {
         opts.theme_override = selfano::ui::AppTheme::Light;
       }
+    } else if (arg == "--keymap") {
+      opts.open_keymap = true;
     }
   }
   return opts;
@@ -350,6 +359,7 @@ struct AppContext {
   selfano::ui::CompanionView companion_view;
   selfano::ui::SrsView srs_view;
   selfano::ui::EarTrainerView ear_trainer_view;
+  selfano::ui::MidiMonitorView midi_monitor_view;
   selfano::ui::Phase2Sandbox phase2_sandbox;
   selfano::ui::StaffShowcase staff_showcase;
   selfano::ui::VirtualPiano shared_piano_dock;
@@ -373,8 +383,11 @@ struct AppContext {
   bool soft_pedal_down{false};
   bool show_piano_dock{true};
   bool sidebar_collapsed{false};
+  bool show_piano_remote_overlay{false};
   int dev_subtab{0};
-  double last_zoom_toast_ms{-10000.0};
+  std::string hud_toast_text{};
+  double hud_toast_ms{-10000.0};
+  std::array<bool, 128> remote_suppressed_notes{};
 #ifdef __EMSCRIPTEN__
   bool idbfs_hydrated{false};
   int last_css_w{0};
@@ -391,6 +404,17 @@ struct AppContext {
   std::vector<selfano::midi::MidiNoteEvent> frame_events;
   std::vector<selfano::midi::MidiNoteEvent> virtual_events;
   std::vector<selfano::midi::ScheduledMidiNote> pending_playback;
+
+  void show_hud_toast(std::string text, double now_ms) {
+    hud_toast_text = std::move(text);
+    hud_toast_ms = now_ms;
+  }
+
+  void send_outbound_note_logged(std::uint8_t note, std::uint8_t velocity, std::uint8_t channel,
+                                 bool is_note_on, double now_ms) {
+    dispatch_outbound_note(midi_engine, audio_synth, note, velocity, channel, is_note_on);
+    midi_monitor_view.record_outbound_note(note, velocity, channel, is_note_on, now_ms);
+  }
 
   void apply_theme_from_profile() {
     const auto theme = cli.theme_override.value_or(profile.preferences.dark_ui_theme
@@ -413,6 +437,7 @@ struct AppContext {
     apply_theme_from_profile();
     chord_grouper.set_window_ms(profile.preferences.chord_window_ms);
     midi_bar_state.chord_window_ms = static_cast<float>(profile.preferences.chord_window_ms);
+    midi_bar_state.piano_remote_enabled = profile.preferences.piano_remote_enabled;
     apply_weekly_key_to_views(now_ms);
     warmup_view.set_light_paper_theme(profile.preferences.light_paper_staff);
     flashcard_view.set_light_paper_theme(profile.preferences.light_paper_staff);
@@ -468,6 +493,7 @@ struct AppContext {
       profile.preferences.dark_ui_theme = selfano::ui::is_dark_theme();
     }
     profile.preferences.ui_zoom = static_cast<double>(selfano::ui::ui_zoom());
+    profile.preferences.piano_remote_enabled = midi_bar_state.piano_remote_enabled;
     if (midi_engine.is_input_open()) {
       profile.preferences.preferred_midi_in = midi_engine.active_input_name();
     }
@@ -510,9 +536,11 @@ struct AppContext {
     etude_view.stop();
     shared_piano_dock.release_mouse_key(now_ms, frame_events);
     phase2_sandbox.release_virtual_piano(now_ms, frame_events);
+    midi_monitor_view.release_virtual_piano(now_ms, frame_events);
     chord_grouper.clear();
+    remote_suppressed_notes.fill(false);
     for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-      dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+      send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
     }
   }
 
@@ -579,11 +607,39 @@ struct AppContext {
         selfano::core::format_key_name(selfano::core::weekly_key_at(profile.weekly_key.key_index)));
   }
 
+  void trigger_panic_all(double now_ms) {
+    for (const auto& act : playback_scheduler.panic_all_notes_off()) {
+      send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+    }
+    midi_engine.send_all_notes_off();
+    midi_monitor_view.record_outbound_cc(123, 0, 0, now_ms);
+    audio_synth.all_notes_off();
+    const auto qrel = qwerty_mapper.release_all(now_ms);
+    virtual_events.insert(virtual_events.end(), qrel.begin(), qrel.end());
+    phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
+    midi_monitor_view.release_virtual_piano(now_ms, virtual_events);
+    shared_piano_dock.release_mouse_key(now_ms, virtual_events);
+    chord_grouper.clear();
+    midi_monitor_view.clear_held_notes();
+    remote_suppressed_notes.fill(false);
+    phase2_sandbox.reset_feedback();
+  }
+
   void handle_midi_popover_actions(const selfano::ui::MidiDeviceBarActions& bar_actions,
                                    double now_ms) {
+    if (bar_actions.open_midi_monitor) {
+      cleanup_stage_transitions(now_ms);
+      app_mode = AppMode::MidiMonitor;
+    }
+    if (bar_actions.open_key_map) {
+      show_piano_remote_overlay = true;
+    }
+    if (bar_actions.piano_remote_changed) {
+      persist_profile_now();
+    }
     if (bar_actions.test_chord_triggered) {
       for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-        dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
       }
       const std::array<selfano::midi::ScheduledMidiNote, 4> test_notes{{
           {60, 96, now_ms + 0.0, 650.0, 0},
@@ -595,17 +651,7 @@ struct AppContext {
     }
 
     if (bar_actions.panic_triggered) {
-      for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-        dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
-      }
-      midi_engine.send_all_notes_off();
-      audio_synth.all_notes_off();
-      const auto qrel = qwerty_mapper.release_all(now_ms);
-      virtual_events.insert(virtual_events.end(), qrel.begin(), qrel.end());
-      phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
-      shared_piano_dock.release_mouse_key(now_ms, virtual_events);
-      chord_grouper.clear();
-      phase2_sandbox.reset_feedback();
+      trigger_panic_all(now_ms);
     }
   }
 
@@ -669,7 +715,12 @@ struct AppContext {
     } else if (const auto stage = active_practice_stage(); stage.has_value()) {
       switch (*stage) {
       case selfano::core::AutopilotStage::Stage1WarmUp:
-        preview = warmup_view.build_current_step_preview(now_ms);
+        if (warmup_view.engine().is_complete()) {
+          warmup_view.reset_pass();
+          show_hud_toast("Warm-Up Pass Reset", now_ms);
+        } else {
+          preview = warmup_view.build_current_step_preview(now_ms);
+        }
         break;
       case selfano::core::AutopilotStage::Stage2AFlashcards:
         preview = flashcard_view.build_current_prompt_preview(now_ms);
@@ -687,25 +738,321 @@ struct AppContext {
     }
     if (!preview.empty()) {
       for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-        dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
       }
       playback_scheduler.schedule_batch(preview);
     }
   }
 
-  void process_note_events(const std::vector<selfano::midi::MidiNoteEvent>& events, double now_ms) {
+  void execute_piano_remote_action(selfano::core::PianoRemoteAction action, double now_ms,
+                                   std::int64_t today_epoch_day) {
+    using A = selfano::core::PianoRemoteAction;
+    using S = selfano::core::AutopilotStage;
     const auto stage = active_practice_stage();
+
+    auto cycle_free_stage = [&](int delta) {
+      constexpr std::size_t kCount = selfano::core::kAutopilotBlocks.size();
+      std::size_t idx = 0;
+      if (app_mode == AppMode::FreePractice) {
+        for (std::size_t i = 0; i < kCount; ++i) {
+          if (selfano::core::kAutopilotBlocks[i].stage == free_stage) {
+            idx = i;
+            break;
+          }
+        }
+        idx = (idx + kCount + static_cast<std::size_t>(delta + static_cast<int>(kCount))) % kCount;
+      } else {
+        idx = (delta < 0) ? (kCount - 1U) : 0U;
+      }
+      cleanup_stage_transitions(now_ms);
+      free_stage = selfano::core::kAutopilotBlocks[idx].stage;
+      app_mode = AppMode::FreePractice;
+      show_hud_toast(std::string(selfano::core::kAutopilotBlocks[idx].title), now_ms);
+    };
+
+    auto shift_weekly_key = [&](int delta) {
+      const std::size_t n = selfano::core::kWeeklyKeyCycle.size();
+      profile.weekly_key.key_index = (profile.weekly_key.key_index + n +
+                                      static_cast<std::size_t>(delta + static_cast<int>(n))) %
+                                     n;
+      profile.weekly_key.manual_override = true;
+      apply_weekly_key_to_views(now_ms);
+      persist_profile_now();
+      show_hud_toast("Key: " + selfano::core::format_key_name(
+                                   selfano::core::weekly_key_at(profile.weekly_key.key_index)),
+                     now_ms);
+    };
+
+    switch (action) {
+    case A::None:
+      break;
+    case A::GoHome:
+      cleanup_stage_transitions(now_ms);
+      app_mode = AppMode::Home;
+      sidebar_collapsed = false;
+      show_hud_toast("Today", now_ms);
+      break;
+    case A::ToggleCheatSheet:
+      show_piano_remote_overlay = !show_piano_remote_overlay;
+      break;
+    case A::ToggleAutopilot:
+      if (app_mode != AppMode::Autopilot ||
+          autopilot.state() == selfano::core::AutopilotState::Idle ||
+          autopilot.state() == selfano::core::AutopilotState::Completed) {
+        start_autopilot_session(now_ms);
+        show_hud_toast("30-Min Session Started", now_ms);
+      } else {
+        autopilot.toggle_pause();
+        show_hud_toast(autopilot.state() == selfano::core::AutopilotState::Paused
+                           ? "Session Paused"
+                           : "Session Resumed",
+                       now_ms);
+      }
+      break;
+    case A::PrevStage:
+      cycle_free_stage(-1);
+      break;
+    case A::NextStageOrSkipBlock:
+      if (app_mode == AppMode::Autopilot) {
+        if (autopilot.state() == selfano::core::AutopilotState::TransitionBanner) {
+          autopilot.dismiss_transition();
+          cleanup_stage_transitions(now_ms);
+          if (autopilot.current_block().stage == S::Stage4BEarTrainer) {
+            ear_trainer_view.trigger_replay(now_ms, pending_playback);
+          }
+          show_hud_toast("Next Block", now_ms);
+        } else {
+          const auto res = autopilot.skip_block();
+          cleanup_stage_transitions(now_ms);
+          if (res.stage_changed && autopilot.current_block().stage == S::Stage4BEarTrainer) {
+            ear_trainer_view.trigger_replay(now_ms, pending_playback);
+          }
+          if (res.session_completed) {
+            finalize_autopilot_recap(today_epoch_day);
+            show_hud_toast("Session Complete", now_ms);
+          } else {
+            show_hud_toast("Skipped Block", now_ms);
+          }
+        }
+      } else {
+        cycle_free_stage(+1);
+      }
+      break;
+    case A::ReplayOrHear:
+      trigger_replay_for_active_view(now_ms);
+      show_hud_toast("Replay / Hear", now_ms);
+      break;
+    case A::PlayPauseTransport:
+      if (stage == S::Stage2BEtudes) {
+        bool click = false;
+        bool accent = false;
+        etude_view.toggle_play_pause(click, accent);
+        if (click) {
+          audio_synth.play_metronome_click(accent);
+        }
+        show_hud_toast(etude_view.engine().playback_state() ==
+                               selfano::core::EtudePlaybackState::Paused
+                           ? "Etude Paused"
+                           : "Etude Playing",
+                       now_ms);
+      } else if (stage == S::Stage3Companion) {
+        const bool running = companion_view.toggle_timer();
+        show_hud_toast(running ? "Chunk Timer Started" : "Chunk Timer Paused", now_ms);
+      } else if (app_mode == AppMode::Autopilot) {
+        autopilot.toggle_pause();
+        show_hud_toast(autopilot.state() == selfano::core::AutopilotState::Paused
+                           ? "Session Paused"
+                           : "Session Resumed",
+                       now_ms);
+      } else if (app_mode == AppMode::Home) {
+        start_autopilot_session(now_ms);
+        show_hud_toast("30-Min Session Started", now_ms);
+      } else {
+        trigger_replay_for_active_view(now_ms);
+        show_hud_toast("Hear Target", now_ms);
+      }
+      break;
+    case A::ResetOrRepeatPass:
+      if (stage == S::Stage1WarmUp) {
+        warmup_view.reset_pass();
+        show_hud_toast("Warm-Up Pass Reset", now_ms);
+      } else if (stage == S::Stage2BEtudes) {
+        etude_view.stop();
+        show_hud_toast("Etude Reset", now_ms);
+      } else if (stage == S::Stage3Companion) {
+        companion_view.reset_phrase(now_ms);
+        show_hud_toast("Phrase Reset to Bar 1", now_ms);
+      } else if (app_mode == AppMode::Autopilot) {
+        autopilot.repeat_block();
+        show_hud_toast("Block Timer Reset", now_ms);
+      } else if (stage == S::Stage4BEarTrainer) {
+        ear_trainer_view.trigger_replay(now_ms, pending_playback);
+        show_hud_toast("Ear Melody Replayed", now_ms);
+      }
+      break;
+    case A::NextPromptOrPassage:
+      if (stage == S::Stage2AFlashcards) {
+        flashcard_view.skip_card(now_ms);
+        show_hud_toast("Next Flashcard", now_ms);
+      } else if (stage == S::Stage2BEtudes) {
+        etude_view.new_passage();
+        show_hud_toast("New Etude Passage", now_ms);
+      } else if (stage == S::Stage4BEarTrainer) {
+        ear_trainer_view.new_melody(now_ms, pending_playback);
+        show_hud_toast("New Ear Melody", now_ms);
+      } else if (stage == S::Stage3Companion) {
+        const std::string name = companion_view.next_phrase(now_ms);
+        show_hud_toast(name.empty() ? "No Phrases" : ("Phrase: " + name), now_ms);
+      } else if (stage == S::Stage1WarmUp) {
+        warmup_view.reset_pass();
+        show_hud_toast("Warm-Up Pass Reset", now_ms);
+      }
+      break;
+    case A::ContextToggle:
+      if (stage == S::Stage2BEtudes) {
+        const auto m = etude_view.toggle_timing_mode();
+        show_hud_toast(m == selfano::core::EtudeTimingMode::SteadyPulse ? "Steady-Pulse"
+                                                                        : "Wait-for-Note",
+                       now_ms);
+      } else if (stage == S::Stage1WarmUp) {
+        const int octs = warmup_view.toggle_octaves();
+        show_hud_toast(std::format("{} Octave{}", octs, octs == 2 ? "s" : ""), now_ms);
+      } else if (stage == S::Stage4ASrs) {
+        const bool shown = srs_view.toggle_hint();
+        show_hud_toast(shown ? "Chord Hint Shown" : "Chord Hint Hidden", now_ms);
+      } else {
+        sidebar_collapsed = !sidebar_collapsed;
+        show_hud_toast(sidebar_collapsed ? "Focus Mode On" : "Sidebar Shown", now_ms);
+      }
+      break;
+    case A::ConfirmOrGood:
+      if (app_mode == AppMode::Autopilot &&
+          autopilot.state() == selfano::core::AutopilotState::TransitionBanner) {
+        autopilot.dismiss_transition();
+        cleanup_stage_transitions(now_ms);
+        if (autopilot.current_block().stage == S::Stage4BEarTrainer) {
+          ear_trainer_view.trigger_replay(now_ms, pending_playback);
+        }
+        show_hud_toast("Continuing Session", now_ms);
+      } else if (stage == S::Stage4ASrs) {
+        if (const auto lbl =
+                srs_view.rate_active_card(selfano::core::SrsRating::Good, today_epoch_day);
+            lbl.has_value()) {
+          persist_profile_now();
+          show_hud_toast(*lbl, now_ms);
+        }
+      } else if (stage == S::Stage1WarmUp) {
+        warmup_view.reset_pass();
+        show_hud_toast("Warm-Up Pass Reset", now_ms);
+      } else if (app_mode == AppMode::Home) {
+        start_autopilot_session(now_ms);
+        show_hud_toast("30-Min Session Started", now_ms);
+      }
+      break;
+    case A::DecreaseTempoOrKey:
+      if (stage == S::Stage2BEtudes) {
+        const double bpm = etude_view.adjust_bpm(-5.0);
+        show_hud_toast(std::format("{:.0f} BPM", bpm), now_ms);
+      } else {
+        shift_weekly_key(-1);
+      }
+      break;
+    case A::IncreaseTempoOrKey:
+      if (stage == S::Stage2BEtudes) {
+        const double bpm = etude_view.adjust_bpm(+5.0);
+        show_hud_toast(std::format("{:.0f} BPM", bpm), now_ms);
+      } else {
+        shift_weekly_key(+1);
+      }
+      break;
+    case A::SrsAgainOrMetronome:
+      if (stage == S::Stage4ASrs) {
+        if (const auto lbl =
+                srs_view.rate_active_card(selfano::core::SrsRating::Again, today_epoch_day);
+            lbl.has_value()) {
+          persist_profile_now();
+          show_hud_toast(*lbl, now_ms);
+        }
+      } else if (stage == S::Stage3Companion) {
+        const bool ch = companion_view.toggle_chime();
+        show_hud_toast(ch ? "Chime On" : "Chime Off", now_ms);
+      } else {
+        const bool met = etude_view.toggle_metronome();
+        show_hud_toast(met ? "Metronome On" : "Metronome Off", now_ms);
+      }
+      break;
+    case A::SrsHardOrFocusMode:
+      if (stage == S::Stage4ASrs) {
+        if (const auto lbl =
+                srs_view.rate_active_card(selfano::core::SrsRating::Hard, today_epoch_day);
+            lbl.has_value()) {
+          persist_profile_now();
+          show_hud_toast(*lbl, now_ms);
+        }
+      } else {
+        sidebar_collapsed = !sidebar_collapsed;
+        show_hud_toast(sidebar_collapsed ? "Focus Mode On" : "Sidebar Shown", now_ms);
+      }
+      break;
+    case A::SrsGoodOrPanic:
+      if (stage == S::Stage4ASrs) {
+        if (const auto lbl =
+                srs_view.rate_active_card(selfano::core::SrsRating::Good, today_epoch_day);
+            lbl.has_value()) {
+          persist_profile_now();
+          show_hud_toast(*lbl, now_ms);
+        }
+      } else {
+        trigger_panic_all(now_ms);
+        show_hud_toast("All Notes Off", now_ms);
+      }
+      break;
+    }
+  }
+
+  void process_note_events(const std::vector<selfano::midi::MidiNoteEvent>& events, double now_ms,
+                           std::int64_t today_epoch_day) {
     for (const auto& ev : events) {
+      midi_monitor_view.record_input_event(ev);
+
       if (ev.is_soft_pedal) {
         const bool rising_edge = !soft_pedal_down && ev.is_note_on;
         soft_pedal_down = ev.is_note_on;
-        if (rising_edge && (now_ms - midi_bar_state.last_soft_pedal_ms) >= 200.0) {
+        if (app_mode != AppMode::MidiMonitor && rising_edge &&
+            (now_ms - midi_bar_state.last_soft_pedal_ms) >= 200.0) {
           midi_bar_state.last_soft_pedal_ms = now_ms;
           trigger_replay_for_active_view(now_ms);
         }
         continue;
       }
 
+      if (!ev.is_note_message()) {
+        continue;
+      }
+
+      // Suppress matching NoteOff for a Piano Remote command key
+      if (!ev.is_note_on && ev.note < 128U && remote_suppressed_notes[ev.note]) {
+        remote_suppressed_notes[ev.note] = false;
+        continue;
+      }
+
+      // Intercept Piano Remote commands before scoring or software synth echo
+      if (ev.is_note_on && ev.note < 128U) {
+        const selfano::core::PianoRemoteContext pr_ctx{
+            .enabled = midi_bar_state.piano_remote_enabled,
+            .in_midi_monitor = (app_mode == AppMode::MidiMonitor),
+            .active_stage = active_practice_stage(),
+            .soft_pedal_held = soft_pedal_down,
+        };
+        const auto action = selfano::core::resolve_piano_remote_action(ev.note, pr_ctx);
+        if (action != selfano::core::PianoRemoteAction::None) {
+          remote_suppressed_notes[ev.note] = true;
+          execute_piano_remote_action(action, now_ms, today_epoch_day);
+          continue;
+        }
+      }
+
+      const auto stage = active_practice_stage();
       if (stage == selfano::core::AutopilotStage::Stage3Companion && ev.is_note_on) {
         bool chime = false;
         companion_view.on_note_on(ev.note, now_ms, chime);
@@ -725,7 +1072,7 @@ struct AppContext {
           audio_synth.note_off(ev.note);
         }
       } else {
-        dispatch_outbound_note(midi_engine, audio_synth, ev.note, ev.velocity, 0, ev.is_note_on);
+        send_outbound_note_logged(ev.note, ev.velocity, ev.channel, ev.is_note_on, now_ms);
       }
     }
   }
@@ -881,6 +1228,18 @@ struct AppContext {
         }
       }
 
+      ImGui::Dummy(ImVec2(0.0f, 12.0f * scale));
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f * scale);
+      selfano::ui::section_kicker("TOOLS");
+      ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
+
+      if (selfano::ui::sidebar_nav_item(
+              "##nav_midi_mon", "MIDI Monitor", selfano::ui::IconId::MidiPlug,
+              app_mode == AppMode::MidiMonitor, nullptr, midi_engine.is_input_open())) {
+        cleanup_stage_transitions(now_ms);
+        app_mode = AppMode::MidiMonitor;
+      }
+
       // Pin Footer to bottom of sidebar
       const float footer_h = 98.0f * scale;
       const float remain_y = ImGui::GetContentRegionAvail().y - footer_h;
@@ -955,7 +1314,9 @@ struct AppContext {
         if (selfano::ui::pill_button("-##zoom_dec", selfano::ui::ButtonTone::Secondary,
                                      selfano::ui::IconId::None, 28.0f, 34.0f)) {
           selfano::ui::adjust_ui_zoom(-selfano::ui::kUiZoomStep);
-          last_zoom_toast_ms = now_ms;
+          show_hud_toast(std::format("Zoom {}%",
+                                     static_cast<int>(std::round(selfano::ui::ui_zoom() * 100.0f))),
+                         now_ms);
           persist_profile_now();
         }
         ImGui::SameLine(0.0f, 6.0f * scale);
@@ -963,14 +1324,16 @@ struct AppContext {
         if (selfano::ui::pill_button(pct_lbl.c_str(), selfano::ui::ButtonTone::SoftAccent,
                                      selfano::ui::IconId::None, 28.0f, 64.0f)) {
           selfano::ui::reset_ui_zoom();
-          last_zoom_toast_ms = now_ms;
+          show_hud_toast("Zoom 100%", now_ms);
           persist_profile_now();
         }
         ImGui::SameLine(0.0f, 6.0f * scale);
         if (selfano::ui::pill_button("+##zoom_inc", selfano::ui::ButtonTone::Secondary,
                                      selfano::ui::IconId::None, 28.0f, 34.0f)) {
           selfano::ui::adjust_ui_zoom(+selfano::ui::kUiZoomStep);
-          last_zoom_toast_ms = now_ms;
+          show_hud_toast(std::format("Zoom {}%",
+                                     static_cast<int>(std::round(selfano::ui::ui_zoom() * 100.0f))),
+                         now_ms);
           persist_profile_now();
         }
         selfano::ui::hairline_separator(6.0f);
@@ -1121,6 +1484,7 @@ struct AppContext {
     app_mode = cli.initial_mode;
     free_stage = cli.initial_free_stage;
     dev_subtab = cli.initial_dev_subtab;
+    show_piano_remote_overlay = cli.open_keymap;
 
     if (cli.initial_mode == AppMode::Autopilot) {
       start_autopilot_session(prev_now_ms);
@@ -1228,19 +1592,23 @@ struct AppContext {
           if (event.key.key == SDLK_EQUALS || event.key.key == SDLK_PLUS ||
               event.key.key == SDLK_KP_PLUS) {
             selfano::ui::adjust_ui_zoom(+selfano::ui::kUiZoomStep);
-            last_zoom_toast_ms = now_ms;
+            show_hud_toast(std::format("Zoom {}%", static_cast<int>(std::round(
+                                                       selfano::ui::ui_zoom() * 100.0f))),
+                           now_ms);
             persist_profile_now();
             continue;
           }
           if (event.key.key == SDLK_MINUS || event.key.key == SDLK_KP_MINUS) {
             selfano::ui::adjust_ui_zoom(-selfano::ui::kUiZoomStep);
-            last_zoom_toast_ms = now_ms;
+            show_hud_toast(std::format("Zoom {}%", static_cast<int>(std::round(
+                                                       selfano::ui::ui_zoom() * 100.0f))),
+                           now_ms);
             persist_profile_now();
             continue;
           }
           if (event.key.key == SDLK_0 || event.key.key == SDLK_KP_0) {
             selfano::ui::reset_ui_zoom();
-            last_zoom_toast_ms = now_ms;
+            show_hud_toast("Zoom 100%", now_ms);
             persist_profile_now();
             continue;
           }
@@ -1298,7 +1666,7 @@ struct AppContext {
       }
     }
 
-    process_note_events(frame_events, now_ms);
+    process_note_events(frame_events, now_ms, today_epoch_day);
 
     (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
     chord_grouper.update(now_ms);
@@ -1352,8 +1720,7 @@ struct AppContext {
     }
 
     for (const auto& act : playback_scheduler.update(now_ms)) {
-      dispatch_outbound_note(midi_engine, audio_synth, act.note, act.velocity, act.channel,
-                             act.is_note_on);
+      send_outbound_note_logged(act.note, act.velocity, act.channel, act.is_note_on, now_ms);
     }
 
     ImGui_ImplSDLRenderer3_NewFrame();
@@ -1502,6 +1869,26 @@ struct AppContext {
             draw_stage_body(free_stage, now_ms, today_epoch_day);
           }
           ImGui::EndChild();
+        } else if (app_mode == AppMode::MidiMonitor) {
+          if (ImGui::BeginChild("##midi_monitor_body", ImVec2(0.0f, 0.0f))) {
+            const auto mon_act =
+                midi_monitor_view.draw(midi_engine, audio_synth, now_ms, virtual_events,
+                                       pending_playback, midi_bar_state.status_banner);
+            if (mon_act.panic_triggered) {
+              trigger_panic_all(now_ms);
+            }
+            if (mon_act.open_key_map) {
+              show_piano_remote_overlay = true;
+            }
+            if (mon_act.test_sustain_pulse) {
+              (void)midi_engine.send_control_change(64, 127, mon_act.test_channel);
+              midi_monitor_view.record_outbound_cc(64, 127, mon_act.test_channel, now_ms);
+              (void)midi_engine.send_control_change(64, 0, mon_act.test_channel);
+              midi_monitor_view.record_outbound_cc(64, 0, mon_act.test_channel, now_ms);
+              show_hud_toast("Sent Sustain CC 64 Pulse", now_ms);
+            }
+          }
+          ImGui::EndChild();
         } else {
           // Developer Tools (accessible via Sidebar Footer '...' menu or --tab devtools)
           {
@@ -1570,19 +1957,25 @@ struct AppContext {
       ImGui::EndChild();
       ImGui::PopStyleVar(2);
 
-      // Subtle floating Apple HUD pill when user zooms with Ctrl + = / - / 0
-      const double zoom_age_ms = now_ms - last_zoom_toast_ms;
-      if (zoom_age_ms >= 0.0 && zoom_age_ms < 1400.0) {
-        const float fade = (zoom_age_ms > 1000.0)
-                               ? static_cast<float>(1.0 - (zoom_age_ms - 1000.0) / 400.0)
+      // Piano Remote interactive 88-key Cheat-Sheet Overlay (toggled by A#0 or Key Map button)
+      if (selfano::ui::draw_piano_remote_overlay(show_piano_remote_overlay,
+                                                 midi_bar_state.piano_remote_enabled,
+                                                 active_practice_stage())) {
+        persist_profile_now();
+      }
+
+      // Subtle floating Apple HUD pill for Zoom & Piano Remote feedback
+      const double toast_age_ms = now_ms - hud_toast_ms;
+      if (!hud_toast_text.empty() && toast_age_ms >= 0.0 && toast_age_ms < 1500.0) {
+        const float fade = (toast_age_ms > 1050.0)
+                               ? static_cast<float>(1.0 - (toast_age_ms - 1050.0) / 450.0)
                                : 1.0f;
-        const int pct = static_cast<int>(std::round(selfano::ui::ui_zoom() * 100.0f));
-        const std::string toast = std::format("Zoom {}%", pct);
         ImDrawList* fdl = ImGui::GetForegroundDrawList();
         ImFont* sb = selfano::ui::font_for_style(selfano::ui::TypeStyle::Headline);
         const float fs = selfano::ui::draw_font_size(14.0f);
-        const ImVec2 tsz = (sb != nullptr) ? sb->CalcTextSizeA(fs, FLT_MAX, 0.0f, toast.c_str())
-                                           : ImGui::CalcTextSize(toast.c_str());
+        const ImVec2 tsz = (sb != nullptr)
+                               ? sb->CalcTextSizeA(fs, FLT_MAX, 0.0f, hud_toast_text.c_str())
+                               : ImGui::CalcTextSize(hud_toast_text.c_str());
         const float pad_x = 16.0f * scale;
         const float pad_y = 8.0f * scale;
         const float bw = tsz.x + pad_x * 2.0f;
@@ -1592,13 +1985,13 @@ struct AppContext {
         const ImVec2 bmax(bmin.x + bw, bmin.y + bh);
         const auto& tc = selfano::ui::colors();
         selfano::ui::draw_card_shadow(fdl, bmin, bmax, bh * 0.5f, fade);
-        fdl->AddRectFilled(bmin, bmax, selfano::ui::with_alpha(tc.card_elevated_bg, 0.95f * fade),
+        fdl->AddRectFilled(bmin, bmax, selfano::ui::with_alpha(tc.card_elevated_bg, 0.96f * fade),
                            bh * 0.5f);
         fdl->AddRect(bmin, bmax, selfano::ui::with_alpha(tc.hairline_strong, fade), bh * 0.5f, 0,
                      1.0f);
         if (sb != nullptr) {
           fdl->AddText(sb, fs, ImVec2(std::round(bmin.x + pad_x), std::round(bmin.y + pad_y)),
-                       selfano::ui::with_alpha(tc.text_primary, fade), toast.c_str());
+                       selfano::ui::with_alpha(tc.text_primary, fade), hud_toast_text.c_str());
         }
       }
     }
@@ -1606,7 +1999,7 @@ struct AppContext {
     ImGui::PopStyleVar(2);
 
     if (!virtual_events.empty()) {
-      process_note_events(virtual_events, now_ms);
+      process_note_events(virtual_events, now_ms, today_epoch_day);
       (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
       chord_grouper.update(now_ms);
       for (const auto& chord : chord_grouper.take_completed_chords()) {

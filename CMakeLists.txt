@@ -170,6 +170,8 @@ add_library(piano_ui STATIC
   src/ui/staff_showcase.cpp
   src/ui/virtual_piano.cpp
   src/ui/midi_device_bar.cpp
+  src/ui/midi_monitor_view.cpp
+  src/ui/piano_remote_overlay.cpp
   src/ui/autopilot_chrome.cpp
   src/ui/phase2_sandbox.cpp
   src/ui/warmup_view.cpp

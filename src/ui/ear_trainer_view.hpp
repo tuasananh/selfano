@@ -27,6 +27,7 @@ public:
   void load_progress(core::EarTrainerProgress progress);
   void on_played_chord(const midi::PlayedChord& chord);
   void trigger_replay(double now_ms, std::vector<midi::ScheduledMidiNote>& out_playback);
+  void new_melody(double now_ms, std::vector<midi::ScheduledMidiNote>& out_playback);
 
   [[nodiscard]] std::size_t expected_chord_cardinality() const noexcept { return 1; }
   [[nodiscard]] const core::EarTrainer& engine() const noexcept { return engine_; }

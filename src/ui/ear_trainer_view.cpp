@@ -67,6 +67,13 @@ void EarTrainerView::trigger_replay(double now_ms,
   append_playback(engine_.request_replay(), now_ms, out_playback);
 }
 
+void EarTrainerView::new_melody(double now_ms, std::vector<midi::ScheduledMidiNote>& out_playback) {
+  engine_.next_prompt();
+  last_guess_midi_.reset();
+  append_playback(engine_.build_playback_events(), now_ms, out_playback);
+  status_banner_ = "Listen to the tonic anchor + melody and play it back";
+}
+
 void EarTrainerView::on_played_chord(const midi::PlayedChord& chord) {
   if (chord.notes.empty()) {
     return;

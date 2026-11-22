@@ -21,6 +21,15 @@ public:
   void on_note_on(core::MidiPitch midi, double now_ms, bool& out_chime);
   void update(double now_ms, double dt_ms, bool& out_chime);
   void reset_phrase(double now_ms);
+  [[nodiscard]] bool toggle_timer() noexcept {
+    timer_running_ = !timer_running_;
+    return timer_running_;
+  }
+  [[nodiscard]] std::string next_phrase(double now_ms);
+  [[nodiscard]] bool toggle_chime() noexcept {
+    chime_enabled_ = !chime_enabled_;
+    return chime_enabled_;
+  }
 
   void set_phrases(std::vector<core::RepertoirePhrase> phrases, double now_ms);
   void apply_preferences(double min_dwell_ms, bool chime_enabled) noexcept;

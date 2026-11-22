@@ -29,6 +29,13 @@ public:
   void on_played_chord(const midi::PlayedChord& chord);
   void toggle_play_pause(bool& out_click, bool& out_accent);
   void update(double dt_ms, bool& out_click, bool& out_accent);
+  [[nodiscard]] double adjust_bpm(double delta);
+  void new_passage();
+  [[nodiscard]] core::EtudeTimingMode toggle_timing_mode();
+  [[nodiscard]] bool toggle_metronome() noexcept {
+    metronome_enabled_ = !metronome_enabled_;
+    return metronome_enabled_;
+  }
 
   [[nodiscard]] std::size_t expected_chord_cardinality() const noexcept;
   [[nodiscard]] VirtualPianoHighlights

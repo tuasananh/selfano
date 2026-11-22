@@ -93,6 +93,12 @@ void FlashcardView::update(double now_ms) {
   }
 }
 
+void FlashcardView::skip_card(double now_ms) {
+  engine_.next_card(now_ms);
+  last_feedback_ = NoteFeedback::Neutral;
+  status_banner_ = "Play the displayed shape";
+}
+
 std::size_t FlashcardView::expected_chord_cardinality() const noexcept {
   return engine_.expected_cardinality();
 }
