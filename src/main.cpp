@@ -6,11 +6,14 @@
 #include "midi/midi_scheduler.hpp"
 #include "midi/qwerty_mapper.hpp"
 
+#include "ui/companion_view.hpp"
+#include "ui/ear_trainer_view.hpp"
 #include "ui/etude_view.hpp"
 #include "ui/flashcard_view.hpp"
 #include "ui/font_loader.hpp"
 #include "ui/midi_device_bar.hpp"
 #include "ui/phase2_sandbox.hpp"
+#include "ui/srs_view.hpp"
 #include "ui/staff_showcase.hpp"
 #include "ui/virtual_piano.hpp"
 #include "ui/warmup_view.hpp"
@@ -23,6 +26,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -37,8 +41,11 @@ enum class ActiveTab : std::uint8_t {
   WarmUp = 0,
   Flashcards = 1,
   Etudes = 2,
-  Sandbox = 3,
-  Showcase = 4,
+  Companion = 3,
+  Srs = 4,
+  Ear = 5,
+  Sandbox = 6,
+  Showcase = 7,
 };
 
 struct CliOptions {
@@ -47,6 +54,11 @@ struct CliOptions {
   std::vector<std::uint8_t> inject_notes;
   ActiveTab initial_tab{ActiveTab::WarmUp};
 };
+
+[[nodiscard]] std::int64_t current_epoch_day() noexcept {
+  const auto now = std::chrono::system_clock::now();
+  return std::chrono::floor<std::chrono::days>(now).time_since_epoch().count();
+}
 
 [[nodiscard]] std::optional<int> parse_strict_int(std::string_view token) noexcept {
   if (token.empty()) {
@@ -81,6 +93,15 @@ struct CliOptions {
   }
   if (arg == "etude" || arg == "etudes") {
     return ActiveTab::Etudes;
+  }
+  if (arg == "companion") {
+    return ActiveTab::Companion;
+  }
+  if (arg == "srs") {
+    return ActiveTab::Srs;
+  }
+  if (arg == "ear") {
+    return ActiveTab::Ear;
   }
   if (arg == "sandbox") {
     return ActiveTab::Sandbox;
@@ -246,6 +267,9 @@ int main(int argc, char* argv[]) {
   selfano::ui::WarmUpView warmup_view;
   selfano::ui::FlashcardView flashcard_view;
   selfano::ui::EtudeView etude_view;
+  selfano::ui::CompanionView companion_view;
+  selfano::ui::SrsView srs_view;
+  selfano::ui::EarTrainerView ear_trainer_view;
   selfano::ui::Phase2Sandbox phase2_sandbox;
   selfano::ui::StaffShowcase staff_showcase;
   selfano::ui::VirtualPiano shared_piano_dock;
@@ -285,6 +309,7 @@ int main(int argc, char* argv[]) {
     const auto mm = warmup_view.minor_mode();
     flashcard_view.set_key(k, mm, now_ms);
     etude_view.set_key(k, mm);
+    ear_trainer_view.set_key(k);
   };
 
   auto current_expected_cardinality = [&]() -> std::size_t {
@@ -295,8 +320,12 @@ int main(int argc, char* argv[]) {
       return flashcard_view.expected_chord_cardinality();
     case ActiveTab::Etudes:
       return etude_view.expected_chord_cardinality();
+    case ActiveTab::Ear:
+      return ear_trainer_view.expected_chord_cardinality();
     case ActiveTab::Sandbox:
       return phase2_sandbox.expected_chord_cardinality();
+    case ActiveTab::Companion:
+    case ActiveTab::Srs:
     case ActiveTab::Showcase:
       return 1;
     }
@@ -314,9 +343,14 @@ int main(int argc, char* argv[]) {
     case ActiveTab::Etudes:
       etude_view.on_played_chord(chord);
       break;
+    case ActiveTab::Ear:
+      ear_trainer_view.on_played_chord(chord);
+      break;
     case ActiveTab::Sandbox:
       phase2_sandbox.on_played_chord(chord, now_ms);
       break;
+    case ActiveTab::Companion:
+    case ActiveTab::Srs:
     case ActiveTab::Showcase:
       break;
     }
@@ -331,11 +365,18 @@ int main(int argc, char* argv[]) {
     case ActiveTab::Flashcards:
       preview = flashcard_view.build_current_prompt_preview(now_ms);
       break;
+    case ActiveTab::Companion:
+      companion_view.reset_phrase(now_ms);
+      break;
+    case ActiveTab::Ear:
+      ear_trainer_view.trigger_replay(now_ms, preview);
+      break;
     case ActiveTab::Sandbox:
       phase2_sandbox.on_soft_pedal(now_ms);
       preview = phase2_sandbox.build_prompt_preview(now_ms);
       break;
     case ActiveTab::Etudes:
+    case ActiveTab::Srs:
     case ActiveTab::Showcase:
       break;
     }
@@ -351,6 +392,7 @@ int main(int argc, char* argv[]) {
     const double now_ms = selfano::midi::MidiEngine::now_ms();
     const double dt_ms = std::clamp(now_ms - prev_now_ms, 0.0, 100.0);
     prev_now_ms = now_ms;
+    const std::int64_t today_epoch_day = current_epoch_day();
 
     frame_events.clear();
     virtual_events.clear();
@@ -468,6 +510,14 @@ int main(int argc, char* argv[]) {
           continue;
         }
 
+        if (active_tab == ActiveTab::Companion && ev.is_note_on) {
+          bool chime = false;
+          companion_view.on_note_on(ev.note, now_ms, chime);
+          if (chime) {
+            audio_synth.play_confirmation_chime();
+          }
+        }
+
         chord_grouper.push_event(ev);
 
         if (ev.from_hardware) {
@@ -501,6 +551,12 @@ int main(int argc, char* argv[]) {
       etude_view.update(dt_ms, click, accent);
       if (click) {
         audio_synth.play_metronome_click(accent);
+      }
+    } else if (active_tab == ActiveTab::Companion) {
+      bool chime = false;
+      companion_view.update(now_ms, dt_ms, chime);
+      if (chime) {
+        audio_synth.play_confirmation_chime();
       }
     }
 
@@ -564,10 +620,11 @@ int main(int argc, char* argv[]) {
 
       ImGui::Separator();
 
-      const bool dock_applies = show_piano_dock && (active_tab == ActiveTab::WarmUp ||
-                                                    active_tab == ActiveTab::Flashcards ||
-                                                    active_tab == ActiveTab::Etudes);
-      const float dock_reserve_h = dock_applies ? 132.0f : 0.0f;
+      const bool dock_supported_tab =
+          (active_tab == ActiveTab::WarmUp || active_tab == ActiveTab::Flashcards ||
+           active_tab == ActiveTab::Etudes || active_tab == ActiveTab::Companion ||
+           active_tab == ActiveTab::Srs || active_tab == ActiveTab::Ear);
+      const float dock_reserve_h = (show_piano_dock && dock_supported_tab) ? 132.0f : 0.0f;
 
       if (ImGui::BeginTabBar("##main_tabs")) {
         auto tab_flags = [&](ActiveTab tab) -> ImGuiTabItemFlags {
@@ -576,7 +633,7 @@ int main(int argc, char* argv[]) {
                      : ImGuiTabItemFlags_None;
         };
 
-        if (ImGui::BeginTabItem("Stage 1: Key Warm-Up", nullptr, tab_flags(ActiveTab::WarmUp))) {
+        if (ImGui::BeginTabItem("Stage 1: Warm-Up", nullptr, tab_flags(ActiveTab::WarmUp))) {
           active_tab = ActiveTab::WarmUp;
           if (ImGui::BeginChild("##warmup_scroll", ImVec2(0.0f, -dock_reserve_h))) {
             if (warmup_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback)) {
@@ -587,7 +644,7 @@ int main(int argc, char* argv[]) {
           ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Stage 2A: Adaptive Flashcards", nullptr,
+        if (ImGui::BeginTabItem("Stage 2A: Flashcards", nullptr,
                                 tab_flags(ActiveTab::Flashcards))) {
           active_tab = ActiveTab::Flashcards;
           if (ImGui::BeginChild("##flashcard_scroll", ImVec2(0.0f, -dock_reserve_h))) {
@@ -597,8 +654,7 @@ int main(int argc, char* argv[]) {
           ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Stage 2B: Continuous Etudes", nullptr,
-                                tab_flags(ActiveTab::Etudes))) {
+        if (ImGui::BeginTabItem("Stage 2B: Etudes", nullptr, tab_flags(ActiveTab::Etudes))) {
           active_tab = ActiveTab::Etudes;
           if (ImGui::BeginChild("##etude_scroll", ImVec2(0.0f, -dock_reserve_h))) {
             bool click = false;
@@ -612,15 +668,45 @@ int main(int argc, char* argv[]) {
           ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Phase 2: MIDI Sandbox", nullptr, tab_flags(ActiveTab::Sandbox))) {
+        if (ImGui::BeginTabItem("Stage 3: Companion", nullptr, tab_flags(ActiveTab::Companion))) {
+          active_tab = ActiveTab::Companion;
+          if (ImGui::BeginChild("##companion_scroll", ImVec2(0.0f, -dock_reserve_h))) {
+            bool chime = false;
+            companion_view.draw(fonts->ui_font, now_ms, chime);
+            if (chime) {
+              audio_synth.play_confirmation_chime();
+            }
+          }
+          ImGui::EndChild();
+          ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Stage 4A: SRS Deck", nullptr, tab_flags(ActiveTab::Srs))) {
+          active_tab = ActiveTab::Srs;
+          if (ImGui::BeginChild("##srs_scroll", ImVec2(0.0f, -dock_reserve_h))) {
+            srs_view.draw(today_epoch_day);
+          }
+          ImGui::EndChild();
+          ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Stage 4B: Ear Trainer", nullptr, tab_flags(ActiveTab::Ear))) {
+          active_tab = ActiveTab::Ear;
+          if (ImGui::BeginChild("##ear_scroll", ImVec2(0.0f, -dock_reserve_h))) {
+            ear_trainer_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback);
+          }
+          ImGui::EndChild();
+          ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("MIDI Sandbox", nullptr, tab_flags(ActiveTab::Sandbox))) {
           active_tab = ActiveTab::Sandbox;
           phase2_sandbox.draw(fonts->smufl_font, fonts->ui_font, chord_grouper.held_notes(),
                               midi_bar_state.piano_mode, now_ms, virtual_events, pending_playback);
           ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Phase 1: Staff Showcase", nullptr,
-                                tab_flags(ActiveTab::Showcase))) {
+        if (ImGui::BeginTabItem("Staff Showcase", nullptr, tab_flags(ActiveTab::Showcase))) {
           active_tab = ActiveTab::Showcase;
           staff_showcase.draw_contents(fonts->smufl_font, fonts->ui_font);
           ImGui::EndTabItem();
@@ -630,17 +716,20 @@ int main(int argc, char* argv[]) {
       }
       pending_tab_selection.reset();
 
-      if (show_piano_dock &&
-          (active_tab == ActiveTab::WarmUp || active_tab == ActiveTab::Flashcards ||
-           active_tab == ActiveTab::Etudes)) {
+      if (show_piano_dock && dock_supported_tab) {
         ImGui::Separator();
         selfano::ui::VirtualPianoHighlights hi{};
+        hi.held = chord_grouper.held_notes();
         if (active_tab == ActiveTab::WarmUp) {
           hi = warmup_view.virtual_piano_highlights(chord_grouper.held_notes());
         } else if (active_tab == ActiveTab::Flashcards) {
           hi = flashcard_view.virtual_piano_highlights(chord_grouper.held_notes());
-        } else {
+        } else if (active_tab == ActiveTab::Etudes) {
           hi = etude_view.virtual_piano_highlights(chord_grouper.held_notes());
+        } else if (active_tab == ActiveTab::Companion) {
+          hi = companion_view.virtual_piano_highlights(chord_grouper.held_notes());
+        } else if (active_tab == ActiveTab::Ear) {
+          hi = ear_trainer_view.virtual_piano_highlights(chord_grouper.held_notes());
         }
         shared_piano_dock.draw("##shared_virtual_piano", midi_bar_state.piano_mode, hi, now_ms,
                                virtual_events, 110.0f);
