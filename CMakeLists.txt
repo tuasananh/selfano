@@ -9,6 +9,7 @@ project(selfano
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(SELFANO_BUILD_TESTS "Build Catch2 unit tests" ON)
 if(EMSCRIPTEN)
@@ -64,6 +65,15 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(SDL3 imgui nlohmann_json)
 if(NOT EMSCRIPTEN)
+  if(UNIX AND NOT APPLE AND NOT LIBREMIDI_NO_PIPEWIRE AND NOT TARGET readerwriterqueue)
+    # Provide libremidi's PipeWire dependency before its system package lookup.
+    FetchContent_Declare(
+      rwq
+      GIT_REPOSITORY https://github.com/cameron314/readerwriterqueue
+      GIT_TAG 87b1df19256d68a9e093ca1540a5ef96b69145e8
+    )
+    FetchContent_MakeAvailable(rwq)
+  endif()
   FetchContent_MakeAvailable(libremidi)
 endif()
 

@@ -61,6 +61,15 @@ cmake --build --preset native-release
 ctest --preset native-release --output-on-failure
 ```
 
+### VS Code with clangd
+
+Open the repository root in VS Code and use the `llvm-vs-code-extensions.vscode-clangd`
+extension with `clangd` on your `PATH`. Run `cmake --preset native-debug` from the
+repository root to generate `build/native-debug/compile_commands.json`. The
+project's `.clangd` file points to that directory for C++23 flags and include
+paths. If diagnostics from before configuration are still visible, run
+**clangd: Restart language server** from the Command Palette.
+
 ### Run
 
 ```bash
