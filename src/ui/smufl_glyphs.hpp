@@ -39,6 +39,9 @@ inline constexpr const char* kGlyphAccidentalNatural = "\xEE\x89\xA1";     // U+
 inline constexpr const char* kGlyphAccidentalSharp = "\xEE\x89\xA2";       // U+E262
 inline constexpr const char* kGlyphAccidentalDoubleSharp = "\xEE\x89\xA3"; // U+E263
 inline constexpr const char* kGlyphAccidentalDoubleFlat = "\xEE\x89\xA4";  // U+E264
+inline constexpr const char* kGlyphTimeSig4 = "\xEE\x82\x84";              // U+E084
+inline constexpr const char* kGlyphRestWhole = "\xEE\x93\xA3";             // U+E4E3
+inline constexpr const char* kGlyphRestHalf = "\xEE\x93\xA4";              // U+E4E4
 inline constexpr const char* kGlyphRestQuarter = "\xEE\x93\xA5";           // U+E4E5
 
 [[nodiscard]] constexpr const char* accidental_glyph(core::Accidental accidental) noexcept {

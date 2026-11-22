@@ -1,13 +1,19 @@
+#include "core/weekly_key.hpp"
+
 #include "midi/audio_synth.hpp"
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_engine.hpp"
 #include "midi/midi_scheduler.hpp"
 #include "midi/qwerty_mapper.hpp"
 
+#include "ui/etude_view.hpp"
+#include "ui/flashcard_view.hpp"
 #include "ui/font_loader.hpp"
 #include "ui/midi_device_bar.hpp"
 #include "ui/phase2_sandbox.hpp"
 #include "ui/staff_showcase.hpp"
+#include "ui/virtual_piano.hpp"
+#include "ui/warmup_view.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -27,10 +33,19 @@
 
 namespace {
 
+enum class ActiveTab : std::uint8_t {
+  WarmUp = 0,
+  Flashcards = 1,
+  Etudes = 2,
+  Sandbox = 3,
+  Showcase = 4,
+};
+
 struct CliOptions {
   int smoke_frames{0};
   std::string screenshot_path;
   std::vector<std::uint8_t> inject_notes;
+  ActiveTab initial_tab{ActiveTab::WarmUp};
 };
 
 [[nodiscard]] std::optional<int> parse_strict_int(std::string_view token) noexcept {
@@ -60,6 +75,22 @@ struct CliOptions {
   return notes;
 }
 
+[[nodiscard]] ActiveTab parse_tab_arg(std::string_view arg) noexcept {
+  if (arg == "flashcards") {
+    return ActiveTab::Flashcards;
+  }
+  if (arg == "etude" || arg == "etudes") {
+    return ActiveTab::Etudes;
+  }
+  if (arg == "sandbox") {
+    return ActiveTab::Sandbox;
+  }
+  if (arg == "showcase") {
+    return ActiveTab::Showcase;
+  }
+  return ActiveTab::WarmUp;
+}
+
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]) {
   CliOptions opts{};
   for (int i = 1; i < argc; ++i) {
@@ -72,6 +103,8 @@ struct CliOptions {
       opts.screenshot_path = argv[++i];
     } else if (arg == "--inject-notes" && i + 1 < argc) {
       opts.inject_notes = parse_note_csv(argv[++i]);
+    } else if (arg == "--tab" && i + 1 < argc) {
+      opts.initial_tab = parse_tab_arg(argv[++i]);
     }
   }
   return opts;
@@ -210,8 +243,12 @@ int main(int argc, char* argv[]) {
   selfano::midi::PolyphonicChordGrouper chord_grouper{100.0};
   selfano::midi::QwertyMapper qwerty_mapper;
   selfano::ui::MidiDeviceBarState midi_bar_state;
+  selfano::ui::WarmUpView warmup_view;
+  selfano::ui::FlashcardView flashcard_view;
+  selfano::ui::EtudeView etude_view;
   selfano::ui::Phase2Sandbox phase2_sandbox;
   selfano::ui::StaffShowcase staff_showcase;
+  selfano::ui::VirtualPiano shared_piano_dock;
 
   if (const auto audio_res = audio_synth.init(); !audio_res.has_value()) {
     midi_bar_state.status_banner = audio_res.error();
@@ -232,15 +269,89 @@ int main(int argc, char* argv[]) {
   bool prev_want_text_input = false;
   bool prev_midi_in_open = midi_engine.is_input_open();
   bool soft_pedal_down = false;
-  bool sandbox_tab_active = true;
-  bool prev_sandbox_tab_active = true;
+  bool show_piano_dock = true;
+
+  ActiveTab active_tab = cli.initial_tab;
+  ActiveTab prev_tab = cli.initial_tab;
+  std::optional<ActiveTab> pending_tab_selection = cli.initial_tab;
+  double prev_now_ms = selfano::midi::MidiEngine::now_ms();
 
   std::vector<selfano::midi::MidiNoteEvent> frame_events;
   std::vector<selfano::midi::MidiNoteEvent> virtual_events;
   std::vector<selfano::midi::ScheduledMidiNote> pending_playback;
 
+  auto sync_weekly_key_across_views = [&](double now_ms) {
+    const auto k = warmup_view.key();
+    const auto mm = warmup_view.minor_mode();
+    flashcard_view.set_key(k, mm, now_ms);
+    etude_view.set_key(k, mm);
+  };
+
+  auto current_expected_cardinality = [&]() -> std::size_t {
+    switch (active_tab) {
+    case ActiveTab::WarmUp:
+      return warmup_view.expected_chord_cardinality();
+    case ActiveTab::Flashcards:
+      return flashcard_view.expected_chord_cardinality();
+    case ActiveTab::Etudes:
+      return etude_view.expected_chord_cardinality();
+    case ActiveTab::Sandbox:
+      return phase2_sandbox.expected_chord_cardinality();
+    case ActiveTab::Showcase:
+      return 1;
+    }
+    return 1;
+  };
+
+  auto route_played_chord = [&](const selfano::midi::PlayedChord& chord, double now_ms) {
+    switch (active_tab) {
+    case ActiveTab::WarmUp:
+      warmup_view.on_played_chord(chord);
+      break;
+    case ActiveTab::Flashcards:
+      flashcard_view.on_played_chord(chord, now_ms);
+      break;
+    case ActiveTab::Etudes:
+      etude_view.on_played_chord(chord);
+      break;
+    case ActiveTab::Sandbox:
+      phase2_sandbox.on_played_chord(chord, now_ms);
+      break;
+    case ActiveTab::Showcase:
+      break;
+    }
+  };
+
+  auto trigger_replay_for_active_tab = [&](double now_ms) {
+    std::vector<selfano::midi::ScheduledMidiNote> preview;
+    switch (active_tab) {
+    case ActiveTab::WarmUp:
+      preview = warmup_view.build_current_step_preview(now_ms);
+      break;
+    case ActiveTab::Flashcards:
+      preview = flashcard_view.build_current_prompt_preview(now_ms);
+      break;
+    case ActiveTab::Sandbox:
+      phase2_sandbox.on_soft_pedal(now_ms);
+      preview = phase2_sandbox.build_prompt_preview(now_ms);
+      break;
+    case ActiveTab::Etudes:
+    case ActiveTab::Showcase:
+      break;
+    }
+    if (!preview.empty()) {
+      for (const auto& act : playback_scheduler.panic_all_notes_off()) {
+        dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
+      }
+      playback_scheduler.schedule_batch(preview);
+    }
+  };
+
   while (!done) {
     const double now_ms = selfano::midi::MidiEngine::now_ms();
+    const double dt_ms = std::clamp(now_ms - prev_now_ms, 0.0, 100.0);
+    prev_now_ms = now_ms;
+
     frame_events.clear();
     virtual_events.clear();
     pending_playback.clear();
@@ -278,8 +389,8 @@ int main(int argc, char* argv[]) {
         const auto rel = qwerty_mapper.release_all(now_ms);
         frame_events.insert(frame_events.end(), rel.begin(), rel.end());
         phase2_sandbox.release_virtual_piano(now_ms, frame_events);
+        shared_piano_dock.release_mouse_key(now_ms, frame_events);
       } else if (event.type == SDL_EVENT_KEY_UP) {
-        // Always process KEY_UP so releasing a key during WantTextInput never leaves a stuck note.
         if (const auto qk = sdl_key_to_qwerty(event.key.key); qk.has_value()) {
           if (const auto ev = qwerty_mapper.on_key_up(*qk, now_ms); ev.has_value()) {
             frame_events.push_back(*ev);
@@ -298,6 +409,17 @@ int main(int argc, char* argv[]) {
               qwerty_mapper.shift_octave(-1);
             } else if (event.key.key == SDLK_X) {
               qwerty_mapper.shift_octave(+1);
+            } else if (event.key.key == SDLK_SPACE) {
+              if (active_tab == ActiveTab::Etudes) {
+                bool click = false;
+                bool accent = false;
+                etude_view.toggle_play_pause(click, accent);
+                if (click) {
+                  audio_synth.play_metronome_click(accent);
+                }
+              } else {
+                trigger_replay_for_active_tab(now_ms);
+              }
             }
           }
           if (const auto qk = sdl_key_to_qwerty(event.key.key); qk.has_value()) {
@@ -337,18 +459,11 @@ int main(int argc, char* argv[]) {
     auto process_note_events = [&](const std::vector<selfano::midi::MidiNoteEvent>& events) {
       for (const auto& ev : events) {
         if (ev.is_soft_pedal) {
-          // Rising-edge trigger with 200 ms debounce so continuous half-pedals never spam replays.
           const bool rising_edge = !soft_pedal_down && ev.is_note_on;
           soft_pedal_down = ev.is_note_on;
           if (rising_edge && (now_ms - midi_bar_state.last_soft_pedal_ms) >= 200.0) {
             midi_bar_state.last_soft_pedal_ms = now_ms;
-            if (sandbox_tab_active) {
-              phase2_sandbox.on_soft_pedal(now_ms);
-              for (const auto& act : playback_scheduler.panic_all_notes_off()) {
-                dispatch_outbound_note(midi_engine, audio_synth, act.note, 0, act.channel, false);
-              }
-              playback_scheduler.schedule_batch(phase2_sandbox.build_prompt_preview(now_ms));
-            }
+            trigger_replay_for_active_tab(now_ms);
           }
           continue;
         }
@@ -356,14 +471,11 @@ int main(int argc, char* argv[]) {
         chord_grouper.push_event(ev);
 
         if (ev.from_hardware) {
-          // Hardware MIDI IN monitoring routes strictly to local SDL3 synth (NEVER back to
-          // hardware MIDI OUT, avoiding double-triggering and MIDI feedback loops).
           if (ev.is_note_on) {
             if (midi_bar_state.monitor_midi_in) {
               audio_synth.note_on(ev.note, ev.velocity);
             }
           } else {
-            // Always forward NoteOff to synth so unchecking Monitor mid-note never hangs a voice.
             audio_synth.note_off(ev.note);
           }
         } else {
@@ -374,13 +486,21 @@ int main(int argc, char* argv[]) {
 
     process_note_events(frame_events);
 
-    if (sandbox_tab_active) {
-      (void)chord_grouper.flush_if_cardinality(phase2_sandbox.expected_chord_cardinality(), now_ms);
-    }
+    (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
     chord_grouper.update(now_ms);
     for (const auto& chord : chord_grouper.take_completed_chords()) {
-      if (sandbox_tab_active) {
-        phase2_sandbox.on_played_chord(chord, now_ms);
+      route_played_chord(chord, now_ms);
+    }
+
+    // Update timed stage engines
+    if (active_tab == ActiveTab::Flashcards) {
+      flashcard_view.update(now_ms);
+    } else if (active_tab == ActiveTab::Etudes) {
+      bool click = false;
+      bool accent = false;
+      etude_view.update(dt_ms, click, accent);
+      if (click) {
+        audio_synth.play_metronome_click(accent);
       }
     }
 
@@ -401,12 +521,14 @@ int main(int argc, char* argv[]) {
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-    sandbox_tab_active = false;
     if (ImGui::Begin("SelfanoRoot", nullptr, kRootFlags)) {
       ImGui::TextUnformatted("Selfano - Offline C++23 Piano Trainer");
       ImGui::SameLine();
-      ImGui::TextDisabled("| %.1f FPS | Font: %s", static_cast<double>(io.Framerate),
-                          font_filename.c_str());
+      ImGui::TextDisabled("| %.1f FPS | Font: %s | Weekly Key: %s",
+                          static_cast<double>(io.Framerate), font_filename.c_str(),
+                          selfano::core::format_key_name(warmup_view.key()).c_str());
+      ImGui::SameLine();
+      ImGui::Checkbox("Virtual Piano Dock", &show_piano_dock);
       ImGui::Separator();
 
       const auto bar_actions =
@@ -435,45 +557,113 @@ int main(int argc, char* argv[]) {
         const auto qrel = qwerty_mapper.release_all(now_ms);
         virtual_events.insert(virtual_events.end(), qrel.begin(), qrel.end());
         phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
+        shared_piano_dock.release_mouse_key(now_ms, virtual_events);
         chord_grouper.clear();
         phase2_sandbox.reset_feedback();
       }
 
       ImGui::Separator();
 
+      const bool dock_applies = show_piano_dock && (active_tab == ActiveTab::WarmUp ||
+                                                    active_tab == ActiveTab::Flashcards ||
+                                                    active_tab == ActiveTab::Etudes);
+      const float dock_reserve_h = dock_applies ? 132.0f : 0.0f;
+
       if (ImGui::BeginTabBar("##main_tabs")) {
-        if (ImGui::BeginTabItem("Live MIDI & Virtual Piano Sandbox")) {
-          sandbox_tab_active = true;
+        auto tab_flags = [&](ActiveTab tab) -> ImGuiTabItemFlags {
+          return (pending_tab_selection.has_value() && *pending_tab_selection == tab)
+                     ? ImGuiTabItemFlags_SetSelected
+                     : ImGuiTabItemFlags_None;
+        };
+
+        if (ImGui::BeginTabItem("Stage 1: Key Warm-Up", nullptr, tab_flags(ActiveTab::WarmUp))) {
+          active_tab = ActiveTab::WarmUp;
+          if (ImGui::BeginChild("##warmup_scroll", ImVec2(0.0f, -dock_reserve_h))) {
+            if (warmup_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback)) {
+              sync_weekly_key_across_views(now_ms);
+            }
+          }
+          ImGui::EndChild();
+          ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Stage 2A: Adaptive Flashcards", nullptr,
+                                tab_flags(ActiveTab::Flashcards))) {
+          active_tab = ActiveTab::Flashcards;
+          if (ImGui::BeginChild("##flashcard_scroll", ImVec2(0.0f, -dock_reserve_h))) {
+            flashcard_view.draw(fonts->smufl_font, fonts->ui_font, now_ms, pending_playback);
+          }
+          ImGui::EndChild();
+          ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Stage 2B: Continuous Etudes", nullptr,
+                                tab_flags(ActiveTab::Etudes))) {
+          active_tab = ActiveTab::Etudes;
+          if (ImGui::BeginChild("##etude_scroll", ImVec2(0.0f, -dock_reserve_h))) {
+            bool click = false;
+            bool accent = false;
+            etude_view.draw(fonts->smufl_font, fonts->ui_font, click, accent);
+            if (click) {
+              audio_synth.play_metronome_click(accent);
+            }
+          }
+          ImGui::EndChild();
+          ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Phase 2: MIDI Sandbox", nullptr, tab_flags(ActiveTab::Sandbox))) {
+          active_tab = ActiveTab::Sandbox;
           phase2_sandbox.draw(fonts->smufl_font, fonts->ui_font, chord_grouper.held_notes(),
                               midi_bar_state.piano_mode, now_ms, virtual_events, pending_playback);
           ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Grand Staff Theory Showcase")) {
+
+        if (ImGui::BeginTabItem("Phase 1: Staff Showcase", nullptr,
+                                tab_flags(ActiveTab::Showcase))) {
+          active_tab = ActiveTab::Showcase;
           staff_showcase.draw_contents(fonts->smufl_font, fonts->ui_font);
           ImGui::EndTabItem();
         }
+
         ImGui::EndTabBar();
+      }
+      pending_tab_selection.reset();
+
+      if (show_piano_dock &&
+          (active_tab == ActiveTab::WarmUp || active_tab == ActiveTab::Flashcards ||
+           active_tab == ActiveTab::Etudes)) {
+        ImGui::Separator();
+        selfano::ui::VirtualPianoHighlights hi{};
+        if (active_tab == ActiveTab::WarmUp) {
+          hi = warmup_view.virtual_piano_highlights(chord_grouper.held_notes());
+        } else if (active_tab == ActiveTab::Flashcards) {
+          hi = flashcard_view.virtual_piano_highlights(chord_grouper.held_notes());
+        } else {
+          hi = etude_view.virtual_piano_highlights(chord_grouper.held_notes());
+        }
+        shared_piano_dock.draw("##shared_virtual_piano", midi_bar_state.piano_mode, hi, now_ms,
+                               virtual_events, 110.0f);
       }
     }
     ImGui::End();
 
-    if (prev_sandbox_tab_active && !sandbox_tab_active) {
-      phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
+    if (prev_tab != active_tab) {
+      if (prev_tab == ActiveTab::Sandbox) {
+        phase2_sandbox.release_virtual_piano(now_ms, virtual_events);
+      } else {
+        shared_piano_dock.release_mouse_key(now_ms, virtual_events);
+      }
+      prev_tab = active_tab;
     }
-    prev_sandbox_tab_active = sandbox_tab_active;
 
     // Process mouse Virtual Piano events & scheduled previews produced during UI draw immediately
     if (!virtual_events.empty()) {
       process_note_events(virtual_events);
-      if (sandbox_tab_active) {
-        (void)chord_grouper.flush_if_cardinality(phase2_sandbox.expected_chord_cardinality(),
-                                                 now_ms);
-      }
+      (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
       chord_grouper.update(now_ms);
       for (const auto& chord : chord_grouper.take_completed_chords()) {
-        if (sandbox_tab_active) {
-          phase2_sandbox.on_played_chord(chord, now_ms);
-        }
+        route_played_chord(chord, now_ms);
       }
     }
     if (!pending_playback.empty()) {

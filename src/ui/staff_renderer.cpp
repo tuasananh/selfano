@@ -29,11 +29,22 @@ struct ThemePalette {
   ImU32 incorrect;
   ImU32 badge_bg;
   ImU32 annotation;
+  ImU32 cursor_fill;
+  ImU32 cursor_border;
+  ImU32 playhead;
 };
 
-[[nodiscard]] ThemePalette palette_for(bool light_paper) noexcept {
+[[nodiscard]] ImU32 apply_alpha_scale(ImU32 color, float scale) noexcept {
+  const std::uint32_t a = (color >> IM_COL32_A_SHIFT) & 0xFFU;
+  const std::uint32_t scaled_a =
+      static_cast<std::uint32_t>(std::clamp(static_cast<float>(a) * scale, 0.0f, 255.0f));
+  return (color & ~(0xFFU << IM_COL32_A_SHIFT)) | (scaled_a << IM_COL32_A_SHIFT);
+}
+
+[[nodiscard]] ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
+  ThemePalette pal{};
   if (light_paper) {
-    return ThemePalette{
+    pal = ThemePalette{
         .background = IM_COL32(250, 248, 242, 255),
         .border = IM_COL32(204, 198, 184, 255),
         .staff_line = IM_COL32(58, 62, 70, 225),
@@ -42,18 +53,31 @@ struct ThemePalette {
         .incorrect = IM_COL32(220, 38, 38, 255),
         .badge_bg = IM_COL32(254, 226, 226, 245),
         .annotation = IM_COL32(67, 56, 202, 255),
+        .cursor_fill = IM_COL32(37, 99, 235, 38),
+        .cursor_border = IM_COL32(37, 99, 235, 160),
+        .playhead = IM_COL32(14, 116, 144, 230),
+    };
+  } else {
+    pal = ThemePalette{
+        .background = IM_COL32(24, 27, 34, 255),
+        .border = IM_COL32(64, 70, 86, 255),
+        .staff_line = IM_COL32(138, 148, 168, 210),
+        .ink = IM_COL32(236, 240, 247, 255),
+        .correct = IM_COL32(52, 211, 153, 255),
+        .incorrect = IM_COL32(248, 113, 113, 255),
+        .badge_bg = IM_COL32(69, 24, 30, 240),
+        .annotation = IM_COL32(165, 180, 252, 255),
+        .cursor_fill = IM_COL32(96, 165, 250, 44),
+        .cursor_border = IM_COL32(96, 165, 250, 175),
+        .playhead = IM_COL32(56, 189, 248, 235),
     };
   }
-  return ThemePalette{
-      .background = IM_COL32(24, 27, 34, 255),
-      .border = IM_COL32(64, 70, 86, 255),
-      .staff_line = IM_COL32(138, 148, 168, 210),
-      .ink = IM_COL32(236, 240, 247, 255),
-      .correct = IM_COL32(52, 211, 153, 255),
-      .incorrect = IM_COL32(248, 113, 113, 255),
-      .badge_bg = IM_COL32(69, 24, 30, 240),
-      .annotation = IM_COL32(165, 180, 252, 255),
-  };
+  if (dim_preview) {
+    pal.staff_line = apply_alpha_scale(pal.staff_line, 0.58f);
+    pal.ink = apply_alpha_scale(pal.ink, 0.58f);
+    pal.annotation = apply_alpha_scale(pal.annotation, 0.65f);
+  }
+  return pal;
 }
 
 [[nodiscard]] const char* notehead_glyph(NoteDuration duration) noexcept {
@@ -78,6 +102,29 @@ struct ThemePalette {
     return kNoteheadWholeWidthSpaces;
   }
   return kNoteheadBlackWidthSpaces;
+}
+
+[[nodiscard]] const char* rest_glyph(RestDuration duration) noexcept {
+  switch (duration) {
+  case RestDuration::Quarter:
+    return kGlyphRestQuarter;
+  case RestDuration::Half:
+    return kGlyphRestHalf;
+  case RestDuration::Whole:
+    return kGlyphRestWhole;
+  }
+  return kGlyphRestQuarter;
+}
+
+[[nodiscard]] int rest_anchor_step(RestDuration duration, core::Clef clef) noexcept {
+  switch (duration) {
+  case RestDuration::Quarter:
+  case RestDuration::Half:
+    return core::staff_middle_step(clef);
+  case RestDuration::Whole:
+    return core::staff_bottom_step(clef) + 6;
+  }
+  return core::staff_middle_step(clef);
 }
 
 void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
@@ -118,15 +165,25 @@ void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_a
                      pal.incorrect, text.c_str());
 }
 
+void render_clef_rest(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
+                      float chord_x, float bottom_y, float space, core::Clef clef,
+                      RestDuration rest_dur, const ThemePalette& pal) {
+  const int step = rest_anchor_step(rest_dur, clef);
+  const float ry = core::step_to_y(step, clef, bottom_y, space);
+  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(chord_x + 0.1f * space, ry),
+                   pal.ink, rest_glyph(rest_dur));
+}
+
 void render_clef_chord(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font,
                        float smufl_font_size, float chord_x, float bottom_y, float space,
                        core::Clef clef, std::span<const StaffNote* const> clef_notes,
-                       NoteDuration duration, core::MeasureAccidentalState& acc_state,
+                       NoteDuration default_duration, core::MeasureAccidentalState& acc_state,
                        const ThemePalette& pal) {
   if (clef_notes.empty()) {
     return;
   }
 
+  const NoteDuration duration = clef_notes[0]->duration.value_or(default_duration);
   const float nh_w_spaces = notehead_width_spaces(duration);
   std::vector<core::ChordNoteLayoutInput> inputs;
   inputs.reserve(clef_notes.size());
@@ -226,6 +283,17 @@ void render_clef_chord(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_fon
   }
 }
 
+void draw_4_4_time_signature(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
+                             float timesig_x, float bottom_y, float space, core::Clef clef,
+                             ImU32 color) {
+  const float top_y = core::step_to_y(core::staff_bottom_step(clef) + 6, clef, bottom_y, space);
+  const float bot_y = core::step_to_y(core::staff_bottom_step(clef) + 2, clef, bottom_y, space);
+  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(timesig_x, top_y), color,
+                   kGlyphTimeSig4);
+  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(timesig_x, bot_y), color,
+                   kGlyphTimeSig4);
+}
+
 } // namespace
 
 float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept {
@@ -245,7 +313,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
   const float s = std::max(8.0f, options.staff_space);
   const float total_height = compute_staff_canvas_height(options);
-  const ThemePalette pal = palette_for(options.light_paper_theme);
+  const ThemePalette pal = palette_for(options.light_paper_theme, options.dim_preview);
 
   const ImVec2 canvas_max(origin.x + width, origin.y + total_height);
   draw_list->AddRectFilled(origin, canvas_max, pal.background, 8.0f);
@@ -339,13 +407,28 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     }
   }
 
-  // 5. Measures, chords, and barlines
+  // 4b. Optional 4/4 Time Signature
+  float content_left_x = keysig_x + static_cast<float>(num_keysig) * keysig_step_x +
+                         (num_keysig > 0 ? 1.4f : 0.8f) * s;
+  if (options.show_time_signature_4_4) {
+    const float timesig_x = keysig_x + static_cast<float>(num_keysig) * keysig_step_x +
+                            (num_keysig > 0 ? 1.1f : 0.45f) * s;
+    if (show_treble) {
+      draw_4_4_time_signature(draw_list, smufl_font, smufl_font_size, timesig_x, treble_bottom_y, s,
+                              core::Clef::Treble, pal.ink);
+    }
+    if (show_bass) {
+      draw_4_4_time_signature(draw_list, smufl_font, smufl_font_size, timesig_x, bass_bottom_y, s,
+                              core::Clef::Bass, pal.ink);
+    }
+    content_left_x = timesig_x + 2.4f * s;
+  }
+
+  // 5. Measures, chords, rests, and barlines
   if (measures.empty()) {
     return;
   }
 
-  const float content_left_x = keysig_x + static_cast<float>(num_keysig) * keysig_step_x +
-                               (num_keysig > 0 ? 1.4f : 0.8f) * s;
   const float content_right_x = system_right_x - 0.55f * s;
   if (content_right_x <= content_left_x + 20.0f) {
     return;
@@ -368,13 +451,27 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
       const float pad_right = std::min(1.8f * s, measure_w * 0.12f);
       const float usable_w = std::max(10.0f, measure_w - pad_left - pad_right);
       const float slot_w = usable_w / static_cast<float>(measure.chords.size());
+      const float measure_beats = std::max(1.0f, measure.beats_per_measure);
 
       std::vector<const StaffNote*> treble_notes;
       std::vector<const StaffNote*> bass_notes;
 
       for (std::size_t c = 0; c < measure.chords.size(); ++c) {
         const auto& chord = measure.chords[c];
-        const float chord_x = m_x0 + pad_left + (static_cast<float>(c) + 0.35f) * slot_w;
+        float chord_x = m_x0 + pad_left + (static_cast<float>(c) + 0.35f) * slot_w;
+        if (chord.beat_offset.has_value()) {
+          const float frac = std::clamp(*chord.beat_offset / measure_beats, 0.0f, 1.0f);
+          chord_x = m_x0 + pad_left + frac * usable_w;
+        }
+
+        if (chord.is_active_cursor) {
+          const ImVec2 cur_min(std::round(chord_x - 0.65f * s),
+                               std::round(system_top_y - 0.85f * s));
+          const ImVec2 cur_max(std::round(chord_x + 1.85f * s),
+                               std::round(system_bottom_y + 0.85f * s));
+          draw_list->AddRectFilled(cur_min, cur_max, pal.cursor_fill, 4.0f);
+          draw_list->AddRect(cur_min, cur_max, pal.cursor_border, 4.0f, 0, 1.25f);
+        }
 
         if (ui_font != nullptr && !chord.annotation.empty()) {
           const float ann_size_px = 13.0f;
@@ -398,13 +495,24 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
         }
 
         if (show_treble) {
-          render_clef_chord(draw_list, smufl_font, ui_font, smufl_font_size, chord_x,
-                            treble_bottom_y, s, core::Clef::Treble, treble_notes, chord.duration,
-                            acc_treble, pal);
+          if (!treble_notes.empty()) {
+            render_clef_chord(draw_list, smufl_font, ui_font, smufl_font_size, chord_x,
+                              treble_bottom_y, s, core::Clef::Treble, treble_notes, chord.duration,
+                              acc_treble, pal);
+          } else if (chord.treble_rest.has_value()) {
+            render_clef_rest(draw_list, smufl_font, smufl_font_size, chord_x, treble_bottom_y, s,
+                             core::Clef::Treble, *chord.treble_rest, pal);
+          }
         }
         if (show_bass) {
-          render_clef_chord(draw_list, smufl_font, ui_font, smufl_font_size, chord_x, bass_bottom_y,
-                            s, core::Clef::Bass, bass_notes, chord.duration, acc_bass, pal);
+          if (!bass_notes.empty()) {
+            render_clef_chord(draw_list, smufl_font, ui_font, smufl_font_size, chord_x,
+                              bass_bottom_y, s, core::Clef::Bass, bass_notes, chord.duration,
+                              acc_bass, pal);
+          } else if (chord.bass_rest.has_value()) {
+            render_clef_rest(draw_list, smufl_font, smufl_font_size, chord_x, bass_bottom_y, s,
+                             core::Clef::Bass, *chord.bass_rest, pal);
+          }
         }
       }
     }
@@ -415,13 +523,43 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
       const float bx = std::round(m_x1);
       draw_list->AddLine(ImVec2(bx, system_top_y), ImVec2(bx, system_bottom_y), pal.ink,
                          thin_bar_thickness);
-    } else {
+    } else if (options.show_final_barline) {
       const float thin_x = std::round(system_right_x - 0.50f * s);
       const float thick_x = std::round(system_right_x);
       draw_list->AddLine(ImVec2(thin_x, system_top_y), ImVec2(thin_x, system_bottom_y), pal.ink,
                          thin_bar_thickness);
       draw_list->AddLine(ImVec2(thick_x, system_top_y), ImVec2(thick_x, system_bottom_y), pal.ink,
                          thick_bar_thickness);
+    } else {
+      const float bx = std::round(system_right_x);
+      draw_list->AddLine(ImVec2(bx, system_top_y), ImVec2(bx, system_bottom_y), pal.ink,
+                         thin_bar_thickness);
+    }
+  }
+
+  // 6. Moving playhead cursor (exact beat alignment)
+  if (options.playhead_beat.has_value() && *options.playhead_beat >= 0.0f) {
+    float acc_beats = 0.0f;
+    for (std::size_t m = 0; m < measures.size(); ++m) {
+      const float mb = std::max(1.0f, measures[m].beats_per_measure);
+      if (*options.playhead_beat <= acc_beats + mb || (m + 1 == measures.size())) {
+        if (*options.playhead_beat > acc_beats + mb) {
+          break;
+        }
+        const float beat_in_bar = std::clamp(*options.playhead_beat - acc_beats, 0.0f, mb);
+        const float m_x0 = content_left_x + static_cast<float>(m) * measure_w;
+        const float pad_left = std::min(2.6f * s, measure_w * 0.16f);
+        const float pad_right = std::min(1.8f * s, measure_w * 0.12f);
+        const float usable_w = std::max(10.0f, measure_w - pad_left - pad_right);
+        const float px = std::round(m_x0 + pad_left + (beat_in_bar / mb) * usable_w +
+                                    kNoteheadBlackWidthSpaces * 0.5f * s);
+        const float py0 = system_top_y - 1.35f * s;
+        const float py1 = system_bottom_y + 1.35f * s;
+        draw_list->AddLine(ImVec2(px, py0), ImVec2(px, py1), pal.playhead, 2.5f);
+        draw_list->AddCircleFilled(ImVec2(px, py0), 4.0f, pal.playhead);
+        break;
+      }
+      acc_beats += mb;
     }
   }
 }

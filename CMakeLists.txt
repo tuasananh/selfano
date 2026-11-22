@@ -140,6 +140,9 @@ add_library(piano_ui STATIC
   src/ui/virtual_piano.cpp
   src/ui/midi_device_bar.cpp
   src/ui/phase2_sandbox.cpp
+  src/ui/warmup_view.cpp
+  src/ui/flashcard_view.cpp
+  src/ui/etude_view.cpp
 )
 target_include_directories(piano_ui PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
