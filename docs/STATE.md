@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-22
-- **Active Phase:** Phase 5 — Unified 30-Min Autopilot Session, App Shell & `profile.json` Persistence *(ready to start)*
-- **Last Completed Phase:** Phase 4 — Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer)
+- **Active Phase:** Phase 6 — Emscripten WebAssembly Packaging, WebMIDI, `IDBFS` & Browser Verification *(ready to start)*
+- **Last Completed Phase:** Phase 5 — Unified 30-Min Autopilot Session, App Shell & `profile.json` Persistence
 
 ---
 
@@ -74,6 +74,19 @@
   - `clang-format --dry-run --Werror` clean on all Phase 4 C++ files.
   - Headless smoke runs (`--tab companion --inject-notes 50,57,62`, `--tab srs`, `--tab ear --inject-notes 60`) exited cleanly (`0`) and rendered expected cards, SRS due queue, and ear-trainer hint/hidden staff state.
 
+### Phase 5 — Unified 30-Min Autopilot Session, App Shell & `profile.json` Persistence
+- **Status:** Complete
+- **Artifacts Created:**
+  - Pure C++23 core (`src/core/`): `autopilot.hpp/.cpp` (6-block 30:00 Autopilot orchestrator with non-abrupt bar/phrase transition guard, 3s transition banner, Pause/Resume, Skip, Repeat, End Early, and recap `SessionSummary`), `profile_store.hpp/.cpp` (schema `v1` JSON serialization via isolated `nlohmann/json`, `std::expected` error handling, starter profile pre-seeding, streak & ISO date helpers, atomic `.tmp` + rename desktop persistence)
+  - Catch2 unit tests (`tests/`): `autopilot_tests.cpp`, `profile_store_tests.cpp`
+  - UI & app shell (`src/ui/`, `src/main.cpp`): `home_dashboard.hpp/.cpp` (Home Dashboard landing screen with *"Start Today's Practice (30:00)"*, weekly key card + override, due SRS & repertoire preview, streak/telemetry snapshot, Free Practice quick-launch, and recent practice history), persistent Autopilot runner bar & recap modal, globally toggleable auto-collapsing Virtual Piano dock, secondary **Dev Tools** view for Sandbox/Showcase, and `SDL_GetPrefPath` / `--profile <path>` lifecycle
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with zero warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed 46/46 test cases in 0.14s.
+  - `src/core/` purity checks (`#include` boundary and `steady_clock::now`/`random_device`/`system_clock`) returned 0 matches.
+  - `clang-format --dry-run --Werror` clean on all Phase 5 C++ files.
+  - End-to-end CLI `--profile /tmp/selfano_test.json` round-trip verified starter seeding, custom preferences/repertoire/SRS edits surviving relaunch, and headless smoke runs (`--tab home`, `--tab autopilot`, `--tab devtools`) exited cleanly (`0`).
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -90,10 +103,10 @@
 
 ## Next Concrete Action
 
-Start **Phase 5** by reading [`docs/phases/phase-5-autopilot-and-persistence.md`](./phases/phase-5-autopilot-and-persistence.md) and implementing Slice 5.1 (`autopilot.hpp/.cpp`) and Slice 5.2 (`profile_store.hpp/.cpp`) via TDD.
+Start **Phase 6** by reading [`docs/phases/phase-6-webgui-emscripten.md`](./phases/phase-6-webgui-emscripten.md) and `.agents/skills/midi-emscripten-interop/SKILL.md`, then implement Emscripten CMake/`web/shell.html`/`emscripten_set_main_loop_arg` + `IDBFS` `/persist` sync + `chrome-devtools` live browser verification and `README.md`.
 
 ---
 
 ## Active Handoff / Open Blockers
 
-- None. Phase 4 complete and cleanly committed on `main`.
+- None. Phase 5 complete and cleanly committed on `main`.
