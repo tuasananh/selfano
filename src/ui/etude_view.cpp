@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <format>
 #include <map>
 #include <optional>
@@ -185,6 +186,25 @@ void EtudeView::set_key(core::KeySignature key, core::MinorScaleMode minor_mode)
   cfg.key = key;
   cfg.minor_mode = minor_mode;
   engine_.configure(cfg);
+}
+
+void EtudeView::apply_preferences(bool metronome_enabled, bool light_paper, double bpm,
+                                  core::EtudeHandMode hand_mode) {
+  metronome_enabled_ = metronome_enabled;
+  light_paper_theme_ = light_paper;
+  auto cfg = engine_.config();
+  cfg.bpm = std::clamp(bpm, 40.0, 120.0);
+  cfg.hand_mode = hand_mode;
+  engine_.configure(cfg);
+}
+
+bool EtudeView::is_mid_bar() const noexcept {
+  if (engine_.playback_state() != core::EtudePlaybackState::Playing) {
+    return false;
+  }
+  const double beat = std::max(0.0, engine_.playhead_beat());
+  const double in_bar = std::fmod(beat, 4.0);
+  return in_bar > 0.25 && in_bar < 3.85;
 }
 
 void EtudeView::on_played_chord(const midi::PlayedChord& chord) {

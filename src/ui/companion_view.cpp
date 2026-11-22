@@ -140,6 +140,13 @@ void CompanionView::set_phrases(std::vector<core::RepertoirePhrase> phrases, dou
   load_editor_from_selected(now_ms);
 }
 
+void CompanionView::apply_preferences(double min_dwell_ms, bool chime_enabled) noexcept {
+  auto cfg = matcher_.config();
+  cfg.min_dwell_ms = min_dwell_ms;
+  matcher_.set_config(cfg);
+  chime_enabled_ = chime_enabled;
+}
+
 VirtualPianoHighlights
 CompanionView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) const {
   VirtualPianoHighlights hi{};

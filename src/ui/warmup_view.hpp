@@ -36,6 +36,8 @@ public:
   virtual_piano_highlights(const std::array<bool, 128>& held_notes) const;
 
   [[nodiscard]] const core::WarmUpEngine& engine() const noexcept { return engine_; }
+  void set_light_paper_theme(bool light) noexcept { light_paper_theme_ = light; }
+  [[nodiscard]] bool light_paper_theme() const noexcept { return light_paper_theme_; }
 
   // Returns true if key or minor_mode changed via UI controls.
   bool draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,

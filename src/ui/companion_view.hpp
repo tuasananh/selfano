@@ -23,6 +23,8 @@ public:
   void reset_phrase(double now_ms);
 
   void set_phrases(std::vector<core::RepertoirePhrase> phrases, double now_ms);
+  void apply_preferences(double min_dwell_ms, bool chime_enabled) noexcept;
+  [[nodiscard]] bool is_mid_phrase() const noexcept { return matcher_.current_bar_index() > 0; }
   [[nodiscard]] const std::vector<core::RepertoirePhrase>& phrases() const noexcept {
     return phrases_;
   }

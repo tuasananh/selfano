@@ -22,6 +22,10 @@ public:
   EtudeView();
 
   void set_key(core::KeySignature key, core::MinorScaleMode minor_mode);
+  void apply_preferences(bool metronome_enabled, bool light_paper, double bpm,
+                         core::EtudeHandMode hand_mode);
+  void stop() noexcept { engine_.stop(); }
+  [[nodiscard]] bool is_mid_bar() const noexcept;
   void on_played_chord(const midi::PlayedChord& chord);
   void toggle_play_pause(bool& out_click, bool& out_accent);
   void update(double dt_ms, bool& out_click, bool& out_accent);

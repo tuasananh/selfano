@@ -33,6 +33,7 @@ public:
   [[nodiscard]] const core::EarTrainerProgress& progress() const noexcept {
     return engine_.progress();
   }
+  void set_light_paper_theme(bool light) noexcept { light_paper_theme_ = light; }
 
   [[nodiscard]] VirtualPianoHighlights
   virtual_piano_highlights(const std::array<bool, 128>& held_notes) const;

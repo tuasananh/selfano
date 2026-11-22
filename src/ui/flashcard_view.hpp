@@ -35,6 +35,7 @@ public:
 
   [[nodiscard]] const core::FlashcardEngine& engine() const noexcept { return engine_; }
   [[nodiscard]] core::FlashcardEngine& mutable_engine() noexcept { return engine_; }
+  void set_light_paper_theme(bool light) noexcept { light_paper_theme_ = light; }
 
   void draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
             std::vector<midi::ScheduledMidiNote>& out_playback_notes);
