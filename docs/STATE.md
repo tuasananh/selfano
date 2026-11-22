@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-22
-- **Active Phase:** **MVP Complete (Phases 0–6 Complete)**
-- **Last Completed Phase:** Phase 6 — Emscripten WebAssembly Packaging, WebMIDI, `IDBFS` & Browser Verification
+- **Active Phase:** **Post-MVP Apple HIG UI/UX Redesign Complete (Phases 0–6 + Apple UI Redesign)**
+- **Last Completed Phase:** Post-MVP — Apple HIG UI/UX Redesign (Native Desktop & Emscripten WebGUI)
 
 ---
 
@@ -98,6 +98,20 @@
   - `cmake --build --preset native-debug && ctest --preset native-debug --output-on-failure` compiled with zero warnings under `-Wall -Wextra -Wpedantic` and passed 46/46 test cases in 0.14s.
   - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled all project targets cleanly with zero warnings, emitting `selfano.html`, `selfano.js`, `selfano.wasm`, and `selfano.data`.
   - Live browser verification against `http://localhost:8089/selfano.html` (Chromium 157 + SwiftShader WebGL via CDP) verified **0 console errors, 0 uncaught JS/WASM exceptions, 0 log errors (HTTP 404s eliminated), 0 warnings**, sharp ~61 FPS WebGL canvas + Bravura SMuFL rendering, interactive Virtual Piano/QWERTY red/green feedback, and full `IDBFS` reload persistence (`Weekly Key` `C Major` -> `G Major` persisted in `/persist/profile.json` across `Page.reload({ ignoreCache: true })`).
+
+### Post-MVP — Apple HIG UI/UX Redesign (Desktop & Emscripten WebGUI)
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Curated UI skill & rules: `.agents/skills/apple-hig-imgui/SKILL.md`, `AGENTS.md`
+  - Core preference persistence (`src/core/`): `profile_store.hpp/.cpp` (`dark_ui_theme` backward-compatible `v1` preference) + `tests/profile_store_tests.cpp`
+  - Bundled typography (`assets/fonts/`): static OFL `Inter-Regular.ttf`, `Inter-SemiBold.ttf`, `Inter-OFL.txt` loaded via `font_loader.hpp/.cpp` alongside `Bravura.otf`
+  - Apple HIG foundation (`src/ui/`): `design_system.hpp/.cpp` (dual macOS Light / Dark Studio tokens, Dear ImGui v1.93 dynamic typography scale, soft card shadows, exponential lerp micro-animations), `icons.hpp/.cpp` (DPI-independent SF-style procedural vector icons), `widgets.hpp/.cpp` (elevated cards, pill buttons, icon buttons, animated iOS toggle switches, sliding segmented controls, status pills, circular progress rings, macOS sidebar nav items)
+  - Musical surfaces & app shell (`src/ui/`, `src/main.cpp`, `web/shell.html`): collapsible macOS sidebar + Focus Mode, Audio & MIDI status pill + popover (`midi_device_bar.hpp/.cpp`), 6-segment Autopilot bar + Transition ring + Fitness-style Recap (`autopilot_chrome.hpp/.cpp`), elevated paper/studio `staff_renderer.cpp` with gradient playhead & pill badges, tactile 3D `virtual_piano.cpp` with anodized rail & crimson felt strip, progressive-disclosure redesign of `home_dashboard`, all 6 practice views, Developer Tools, and adaptive Light/Dark `web/shell.html`
+- **Verification:**
+  - `cmake --build --preset native-debug && ctest --preset native-debug --output-on-failure` compiled with zero warnings under `-Wall -Wextra -Wpedantic` and passed 46/46 test cases in 0.20s.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with zero warnings (`selfano.html`, `selfano.js`, `selfano.wasm`, `selfano.data`).
+  - `src/core/` purity check returned 0 matches; `clang-format --dry-run --Werror` clean on all edited/new files.
+  - Visual screenshot verification across Light & Dark themes (`home`, `autopilot`, `warmup`, `flashcards`, `etude`, `companion`, `srs`, `ear`, `devtools`) confirmed crisp Inter + Bravura rendering, Focus Mode, tactile Virtual Piano, and zero clipping/scrollbars.
 
 ---
 
