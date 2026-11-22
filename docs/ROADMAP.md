@@ -26,7 +26,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 3** | Stage 1 (Key Warm-Up) & Stage 2 (Flashcards + Continuous Etudes) | [phase-3-warmup-and-sight-reading.md](./phases/phase-3-warmup-and-sight-reading.md) | `[x] Complete` |
 | **Phase 4** | Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer) | [phase-4-companion-srs-ear-training.md](./phases/phase-4-companion-srs-ear-training.md) | `[x] Complete` |
 | **Phase 5** | Unified 30-Min Autopilot Session & `profile.json` Persistence | [phase-5-autopilot-and-persistence.md](./phases/phase-5-autopilot-and-persistence.md) | `[x] Complete` |
-| **Phase 6** | Emscripten WebAssembly Packaging, WebMIDI & Browser Verification | [phase-6-webgui-emscripten.md](./phases/phase-6-webgui-emscripten.md) | `[ ] Not Started` |
+| **Phase 6** | Emscripten WebAssembly Packaging, WebMIDI & Browser Verification | [phase-6-webgui-emscripten.md](./phases/phase-6-webgui-emscripten.md) | `[x] Complete` |
 
 ---
 

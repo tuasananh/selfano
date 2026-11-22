@@ -201,7 +201,10 @@ if(NOT EMSCRIPTEN)
     COMMENT "Copying assets to runtime directory"
   )
 else()
-  set_target_properties(selfano PROPERTIES SUFFIX ".html")
+  set_target_properties(selfano PROPERTIES
+    SUFFIX ".html"
+    LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
+  )
   target_link_options(selfano PRIVATE
     "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
     "--preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"

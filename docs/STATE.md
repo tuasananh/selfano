@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-22
-- **Active Phase:** Phase 6 — Emscripten WebAssembly Packaging, WebMIDI, `IDBFS` & Browser Verification *(ready to start)*
-- **Last Completed Phase:** Phase 5 — Unified 30-Min Autopilot Session, App Shell & `profile.json` Persistence
+- **Active Phase:** **MVP Complete (Phases 0–6 Complete)**
+- **Last Completed Phase:** Phase 6 — Emscripten WebAssembly Packaging, WebMIDI, `IDBFS` & Browser Verification
 
 ---
 
@@ -87,6 +87,18 @@
   - `clang-format --dry-run --Werror` clean on all Phase 5 C++ files.
   - End-to-end CLI `--profile /tmp/selfano_test.json` round-trip verified starter seeding, custom preferences/repertoire/SRS edits surviving relaunch, and headless smoke runs (`--tab home`, `--tab autopilot`, `--tab devtools`) exited cleanly (`0`).
 
+### Phase 6 — Emscripten WebAssembly Packaging, WebMIDI, `IDBFS` & Browser Verification
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Web packaging & CMake (`CMakeLists.txt`, `web/shell.html`): Emscripten `.html` output with custom dark full-viewport zero-border `<canvas>` shell, loading overlay, inline SVG favicon, preloaded `assets/fonts/Bravura.otf` (`--preload-file`), `-lidbfs.js`, `-sFORCE_FILESYSTEM=1`, `-sALLOW_MEMORY_GROWTH=1`, `-sMAXIMUM_MEMORY=1gb`, and `LINK_DEPENDS` tracking.
+  - Emscripten WebMIDI bridge (`src/midi/midi_engine.cpp`): safe `EM_JS` + `EMSCRIPTEN_KEEPALIVE` WebMIDI wrapper routing messages directly into `SpscQueue<MidiNoteEvent, 1024>`, handling hotplug state changes and missing/denied `requestMIDIAccess` gracefully with Virtual Piano + QWERTY + `AudioSynth` WebAudio fallback.
+  - Unified main loop & IndexedDB persistence (`src/main.cpp`): extracted `AppContext` powering both native desktop loop and `emscripten_set_main_loop_arg` (`requestAnimationFrame`), automatic browser viewport resizing, async `IDBFS` `/persist` startup load guard + coalescing `FS.syncfs(false)` flushes on every profile save and 750 ms dirty check.
+  - Documentation (`README.md`, `docs/ROADMAP.md`, `docs/STATE.md`): setup & build instructions for desktop and Emscripten WebGUI plus Korg LP-380 5-pin DIN MIDI-to-USB crossover wiring guide.
+- **Verification:**
+  - `cmake --build --preset native-debug && ctest --preset native-debug --output-on-failure` compiled with zero warnings under `-Wall -Wextra -Wpedantic` and passed 46/46 test cases in 0.14s.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled all project targets cleanly with zero warnings, emitting `selfano.html`, `selfano.js`, `selfano.wasm`, and `selfano.data`.
+  - Live browser verification against `http://localhost:8089/selfano.html` (Chromium 157 + SwiftShader WebGL via CDP) verified **0 console errors, 0 uncaught JS/WASM exceptions, 0 log errors (HTTP 404s eliminated), 0 warnings**, sharp ~61 FPS WebGL canvas + Bravura SMuFL rendering, interactive Virtual Piano/QWERTY red/green feedback, and full `IDBFS` reload persistence (`Weekly Key` `C Major` -> `G Major` persisted in `/persist/profile.json` across `Page.reload({ ignoreCache: true })`).
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -103,10 +115,11 @@
 
 ## Next Concrete Action
 
-Start **Phase 6** by reading [`docs/phases/phase-6-webgui-emscripten.md`](./phases/phase-6-webgui-emscripten.md) and `.agents/skills/midi-emscripten-interop/SKILL.md`, then implement Emscripten CMake/`web/shell.html`/`emscripten_set_main_loop_arg` + `IDBFS` `/persist` sync + `chrome-devtools` live browser verification and `README.md`.
+- **MVP Complete (Phases 0–6)!** Ready for daily piano practice on Linux/macOS/Windows native or via `http://localhost:8089/selfano.html`. Optional future post-MVP (v2) enhancements live in [`docs/ROADMAP.md`](./ROADMAP.md) (MusicXML / `.mid` importer).
 
 ---
 
 ## Active Handoff / Open Blockers
 
-- None. Phase 5 complete and cleanly committed on `main`.
+- None. All MVP phases complete and verified on `main`.
+- Physical hardware spot-check reminder: Korg LP-380 5-pin DIN MIDI-to-USB hotplug & speaker monitoring check remains open whenever physical hardware is connected.
