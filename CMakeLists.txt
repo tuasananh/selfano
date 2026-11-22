@@ -110,6 +110,7 @@ add_library(piano_core STATIC
   src/core/companion_matcher.cpp
   src/core/srs_deck.cpp
   src/core/ear_trainer.cpp
+  src/core/autopilot.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -209,6 +210,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/companion_tests.cpp
     tests/srs_tests.cpp
     tests/ear_trainer_tests.cpp
+    tests/autopilot_tests.cpp
     tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
