@@ -141,7 +141,7 @@
 
 ## Next Concrete Action
 
-- **MVP Complete (Phases 0–6)!** Ready for daily piano practice on Linux/macOS/Windows native or via `http://localhost:8089/selfano.html`. Optional future post-MVP (v2) enhancements live in [`docs/ROADMAP.md`](./ROADMAP.md) (MusicXML / `.mid` importer).
+- **Phase 7 Spec Locked (Not Yet Started):** Ready to begin **Phase 7 — Guided Lessons Curriculum, Classical Notation & `.musicxml`/`.mxl` Importer** ([phase-7-guided-lessons-curriculum.md](./phases/phase-7-guided-lessons-curriculum.md)), starting with **Slice 7.1** (`LessonScore` core model + classical Grand Staff engraving upgrades) once the user gives the go-ahead.
 
 ---
 

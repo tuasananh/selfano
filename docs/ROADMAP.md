@@ -27,6 +27,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 4** | Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer) | [phase-4-companion-srs-ear-training.md](./phases/phase-4-companion-srs-ear-training.md) | `[x] Complete` |
 | **Phase 5** | Unified 30-Min Autopilot Session & `profile.json` Persistence | [phase-5-autopilot-and-persistence.md](./phases/phase-5-autopilot-and-persistence.md) | `[x] Complete` |
 | **Phase 6** | Emscripten WebAssembly Packaging, WebMIDI & Browser Verification | [phase-6-webgui-emscripten.md](./phases/phase-6-webgui-emscripten.md) | `[x] Complete` |
+| **Phase 7** | Stage 3 Guided Lessons Curriculum, Classical Notation & `.musicxml`/`.mxl` Importer | [phase-7-guided-lessons-curriculum.md](./phases/phase-7-guided-lessons-curriculum.md) | `[ ] Planned` |
 
 ---
 
@@ -44,7 +45,7 @@ Phase 0 (Workflow/Repo)
 
 ---
 
-## Post-MVP (v2 Backlog — Out of Scope for Phases 1–6)
+## Post-MVP (v2 Backlog)
 
-- **Block 2 Hybrid Importer:** Lightweight MusicXML / Standard MIDI File (`.mid`) importer for public-domain collections (*Czerny Op. 599*, *Anna Magdalena Notebook*, *Burgmüller Op. 100*).
-- **Block 3 Bar-by-Bar Score View:** Optional in-app MIDI/MusicXML score view verifying exact bar-by-bar notes alongside Companion Mode.
+- **Phase 7 (Planned — Spec Locked):** Replace Autopilot Stage 3 with a book-anchored **Guided Lessons & Curriculum** engine (6-tier, 28-lesson classical path toward *Chopin Ballade No. 1*, embedded applied theory & Chord Skeleton warm-up, Learn + SM-2 Revise auto-split, Sync Weekly Key by default, full classical notation upgrades, and `.musicxml`/`.mxl` importer), tucking Companion Mode under Tools. See [phase-7-guided-lessons-curriculum.md](./phases/phase-7-guided-lessons-curriculum.md).
+- **Block 2 Hybrid Importer (Future):** Optional `.mid` / MusicXML integration into Stage 2B random sight-reading pool.
