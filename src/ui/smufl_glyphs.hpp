@@ -2,6 +2,8 @@
 
 #include "core/pitch.hpp"
 
+#include <cstdint>
+
 namespace selfano::ui {
 
 // Bravura.otf head.unitsPerEm = 1000, hhea.ascent - hhea.descent = 4024.
@@ -12,6 +14,8 @@ inline constexpr float kBravuraEmToPixelHeightScale = 4024.0f / 1000.0f;
 // Bravura.json engravingDefaults (in staff spaces)
 inline constexpr float kStaffLineThicknessSpaces = 0.13f;
 inline constexpr float kStemThicknessSpaces = 0.12f;
+inline constexpr float kBeamThicknessSpaces = 0.50f;
+inline constexpr float kBeamSpacingSpaces = 0.25f;
 inline constexpr float kLedgerLineThicknessSpaces = 0.16f;
 inline constexpr float kLedgerLineExtensionSpaces = 0.40f;
 inline constexpr float kThinBarlineThicknessSpaces = 0.16f;
@@ -31,18 +35,61 @@ inline constexpr float kBraceHeightAt1EmSpaces = 4.00244f;
 inline constexpr const char* kGlyphBrace = "\xEE\x80\x80";                 // U+E000
 inline constexpr const char* kGlyphGClef = "\xEE\x81\x90";                 // U+E050
 inline constexpr const char* kGlyphFClef = "\xEE\x81\xA2";                 // U+E062
+inline constexpr const char* kGlyphTimeSig0 = "\xEE\x82\x80";              // U+E080
+inline constexpr const char* kGlyphTimeSig1 = "\xEE\x82\x81";              // U+E081
+inline constexpr const char* kGlyphTimeSig2 = "\xEE\x82\x82";              // U+E082
+inline constexpr const char* kGlyphTimeSig3 = "\xEE\x82\x83";              // U+E083
+inline constexpr const char* kGlyphTimeSig4 = "\xEE\x82\x84";              // U+E084
+inline constexpr const char* kGlyphTimeSig5 = "\xEE\x82\x85";              // U+E085
+inline constexpr const char* kGlyphTimeSig6 = "\xEE\x82\x86";              // U+E086
+inline constexpr const char* kGlyphTimeSig7 = "\xEE\x82\x87";              // U+E087
+inline constexpr const char* kGlyphTimeSig8 = "\xEE\x82\x88";              // U+E088
+inline constexpr const char* kGlyphTimeSig9 = "\xEE\x82\x89";              // U+E089
 inline constexpr const char* kGlyphNoteheadWhole = "\xEE\x82\xA2";         // U+E0A2
 inline constexpr const char* kGlyphNoteheadHalf = "\xEE\x82\xA3";          // U+E0A3
 inline constexpr const char* kGlyphNoteheadBlack = "\xEE\x82\xA4";         // U+E0A4
+inline constexpr const char* kGlyphAugmentationDot = "\xEE\x87\xA7";       // U+E1E7
+inline constexpr const char* kGlyphFlag8thUp = "\xEE\x89\x80";             // U+E240
+inline constexpr const char* kGlyphFlag8thDown = "\xEE\x89\x81";           // U+E241
+inline constexpr const char* kGlyphFlag16thUp = "\xEE\x89\x82";            // U+E242
+inline constexpr const char* kGlyphFlag16thDown = "\xEE\x89\x83";          // U+E243
 inline constexpr const char* kGlyphAccidentalFlat = "\xEE\x89\xA0";        // U+E260
 inline constexpr const char* kGlyphAccidentalNatural = "\xEE\x89\xA1";     // U+E261
 inline constexpr const char* kGlyphAccidentalSharp = "\xEE\x89\xA2";       // U+E262
 inline constexpr const char* kGlyphAccidentalDoubleSharp = "\xEE\x89\xA3"; // U+E263
 inline constexpr const char* kGlyphAccidentalDoubleFlat = "\xEE\x89\xA4";  // U+E264
-inline constexpr const char* kGlyphTimeSig4 = "\xEE\x82\x84";              // U+E084
 inline constexpr const char* kGlyphRestWhole = "\xEE\x93\xA3";             // U+E4E3
 inline constexpr const char* kGlyphRestHalf = "\xEE\x93\xA4";              // U+E4E4
 inline constexpr const char* kGlyphRestQuarter = "\xEE\x93\xA5";           // U+E4E5
+inline constexpr const char* kGlyphRest8th = "\xEE\x93\xA6";               // U+E4E6
+inline constexpr const char* kGlyphRest16th = "\xEE\x93\xA7";              // U+E4E7
+
+[[nodiscard]] constexpr const char* time_sig_digit_glyph(std::uint8_t digit) noexcept {
+  switch (digit) {
+  case 0:
+    return kGlyphTimeSig0;
+  case 1:
+    return kGlyphTimeSig1;
+  case 2:
+    return kGlyphTimeSig2;
+  case 3:
+    return kGlyphTimeSig3;
+  case 4:
+    return kGlyphTimeSig4;
+  case 5:
+    return kGlyphTimeSig5;
+  case 6:
+    return kGlyphTimeSig6;
+  case 7:
+    return kGlyphTimeSig7;
+  case 8:
+    return kGlyphTimeSig8;
+  case 9:
+    return kGlyphTimeSig9;
+  default:
+    return kGlyphTimeSig4;
+  }
+}
 
 [[nodiscard]] constexpr const char* accidental_glyph(core::Accidental accidental) noexcept {
   switch (accidental) {

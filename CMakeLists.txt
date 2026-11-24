@@ -168,6 +168,7 @@ add_library(piano_ui STATIC
   src/ui/icons.cpp
   src/ui/widgets.cpp
   src/ui/staff_renderer.cpp
+  src/ui/lesson_staff_adapter.cpp
   src/ui/staff_showcase.cpp
   src/ui/virtual_piano.cpp
   src/ui/midi_device_bar.cpp

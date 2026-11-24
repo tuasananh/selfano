@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
 
 #include <cstdint>
@@ -25,12 +26,16 @@ enum class NoteDuration : std::uint8_t {
   Quarter = 0,
   Half = 1,
   Whole = 2,
+  Eighth = 3,
+  Sixteenth = 4,
 };
 
 enum class RestDuration : std::uint8_t {
   Quarter = 0,
   Half = 1,
   Whole = 2,
+  Eighth = 3,
+  Sixteenth = 4,
 };
 
 struct StaffNote {
@@ -39,6 +44,10 @@ struct StaffNote {
   NoteFeedback feedback{NoteFeedback::Neutral};
   std::string played_label{};
   std::optional<NoteDuration> duration{};
+  bool dotted{false};
+  std::uint8_t finger{0};
+  bool tie_start{false};
+  bool tie_stop{false};
 };
 
 struct StaffChord {
@@ -49,11 +58,24 @@ struct StaffChord {
   std::optional<RestDuration> bass_rest{};
   std::optional<float> beat_offset{};
   bool is_active_cursor{false};
+  bool dotted{false};
+  bool treble_rest_dotted{false};
+  bool bass_rest_dotted{false};
+  std::optional<int> tick_offset{};
+};
+
+struct StaffHarmonicLabel {
+  float beat_offset{0.0f};
+  std::string chord_symbol;
+  std::string roman_numeral;
 };
 
 struct StaffMeasure {
   std::vector<StaffChord> chords;
   float beats_per_measure{4.0f};
+  std::vector<StaffHarmonicLabel> harmony_labels{};
+  std::optional<core::TimeSignature> time_signature{};
+  int measure_ticks{core::kTicksPerQuarter * 4};
 };
 
 enum class StaffViewMode : std::uint8_t {
@@ -72,6 +94,9 @@ struct StaffRenderOptions {
   bool show_final_barline{true};
   bool show_time_signature_4_4{false};
   bool dim_preview{false};
+  std::optional<core::TimeSignature> time_signature{};
+  bool show_fingerings{true};
+  bool show_harmony_labels{false};
 };
 
 [[nodiscard]] float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept;
