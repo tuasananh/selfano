@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-22
-- **Active Phase:** **Post-MVP Apple HIG UI/UX Redesign Complete (Phases 0–6 + Apple UI Redesign)**
-- **Last Completed Phase:** Post-MVP — Apple HIG UI/UX Redesign (Native Desktop & Emscripten WebGUI)
+- **Last Updated:** 2026-11-24
+- **Active Phase:** **Post-MVP Complete (Phases 0–6 + Apple UI Redesign + Stage 1 Guided Key Circuit)**
+- **Last Completed Phase:** Post-MVP — Stage 1 Guided Key Circuit & Adaptive Guided Pulse Warm-Up
 
 ---
 
@@ -112,6 +112,18 @@
   - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with zero warnings (`selfano.html`, `selfano.js`, `selfano.wasm`, `selfano.data`).
   - `src/core/` purity check returned 0 matches; `clang-format --dry-run --Werror` clean on all edited/new files.
   - Visual screenshot verification across Light & Dark themes (`home`, `autopilot`, `warmup`, `flashcards`, `etude`, `companion`, `srs`, `ear`, `devtools`) confirmed crisp Inter + Bravura rendering, Focus Mode, tactile Virtual Piano, and zero clipping/scrollbars.
+
+### Post-MVP — Stage 1 Guided Key Circuit & Adaptive Guided Pulse Warm-Up
+- **Status:** Complete
+- **Artifacts Modified:**
+  - Pure C++23 core (`src/core/`): `warmup_engine.hpp/.cpp` (4-station `FullCircuit`: Parallel Scale → Tonic Arpeggio → Alternating-Hand Triad Inversions → Voice-Led Cadence `I → IV6/4 → V6 → I`; Adaptive 2-Phase Pacing with untimed Pass 1 Explore → 2.5s auto-continue breather → 4-beat count-in → non-punitive Guided Pulse metronome with beat-evenness grading and +8 BPM ladder on clean rounds; safe station-boundary helper `is_mid_station`), `profile_store.hpp/.cpp` (backward-compatible `warmup_key_bpm` per-key BPM persistence clamped `[56, 160]`)
+  - Catch2 unit tests (`tests/`): expanded `warmup_tests.cpp` and `profile_store_tests.cpp` covering all 24 keys, arpeggio & alternating-hand inversion pitches, common-tone voice-leading invariants, Guided Pulse count-in/evenness/BPM ladder, and `profile.json` round-trips
+  - UI & wiring (`src/ui/`, `src/main.cpp`): `warmup_view.hpp/.cpp` (4-station stepper pills, Pass/BPM pill, count-in & transition breather banners, Guided Pulse Options controls, station-aware bar partitioning), `home_dashboard.cpp` (updated Stage 1 subtitle), `main.cpp` (Stage 1 metronome/chime audio hooks, per-key BPM persistence, Autopilot station boundary, Piano Remote pause/skip-transition/metronome bindings)
+- **Verification:**
+  - `cmake --build --preset native-debug && ctest --preset native-debug --output-on-failure` compiled with zero warnings under `-Wall -Wextra -Wpedantic` and passed 52/52 test cases.
+  - `cmake --build --preset web-release` compiled cleanly with zero warnings (`selfano.html`, `selfano.wasm`).
+  - `src/core/` purity check (zero UI/SDL/MIDI/clock/random includes/calls) and `clang-format --dry-run --Werror` clean on all modified files.
+  - Headless Light & Dark visual screenshot verification confirmed crisp 4-station stepper, single-row header, and SMuFL staff alignment.
 
 ---
 
