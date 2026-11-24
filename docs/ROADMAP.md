@@ -27,7 +27,10 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 4** | Stage 3 (Companion Mode) & Stage 4 (SM-2 SRS + Ear Trainer) | [phase-4-companion-srs-ear-training.md](./phases/phase-4-companion-srs-ear-training.md) | `[x] Complete` |
 | **Phase 5** | Unified 30-Min Autopilot Session & `profile.json` Persistence | [phase-5-autopilot-and-persistence.md](./phases/phase-5-autopilot-and-persistence.md) | `[x] Complete` |
 | **Phase 6** | Emscripten WebAssembly Packaging, WebMIDI & Browser Verification | [phase-6-webgui-emscripten.md](./phases/phase-6-webgui-emscripten.md) | `[x] Complete` |
-| **Phase 7** | Stage 3 Guided Lessons Curriculum, Classical Notation & `.musicxml`/`.mxl` Importer | [phase-7-guided-lessons-curriculum.md](./phases/phase-7-guided-lessons-curriculum.md) | `[ ] Planned` |
+| **Phase 7** | Core `LessonScore` Model & Classical Grand Staff Engraving Upgrade | [phase-7-score-model-and-notation.md](./phases/phase-7-score-model-and-notation.md) | `[ ] Planned` |
+| **Phase 8** | Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons) | [phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md) | `[ ] Planned` |
+| **Phase 9** | Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*) | [phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md) | `[ ] Planned` |
+| **Phase 10** | `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web) | [phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md) | `[ ] Planned` |
 
 ---
 
@@ -41,11 +44,19 @@ Phase 0 (Workflow/Repo)
               └─> Phase 4 (Stage 3 Companion Mode + Stage 4 SRS & Ear Trainer)
                     └─> Phase 5 (30-Min Autopilot State Machine + profile.json Persistence)
                           └─> Phase 6 (Emscripten WASM + WebMIDI + IDBFS + Browser Verification)
+                                └─> Phase 7 (LessonScore Model + Classical Grand Staff Engraving)
+                                      └─> Phase 8 (LessonEngine + Stage 3 Autopilot + Apple HIG UI + 6 Starters)
+                                            ├─> Phase 9 (Complete 28-Lesson Classical Curriculum)
+                                            └─> Phase 10 (.musicxml / .mxl Importer — Desktop & Web)
 ```
 
 ---
 
 ## Post-MVP (v2 Backlog)
 
-- **Phase 7 (Planned — Spec Locked):** Replace Autopilot Stage 3 with a book-anchored **Guided Lessons & Curriculum** engine (6-tier, 28-lesson classical path toward *Chopin Ballade No. 1*, embedded applied theory & Chord Skeleton warm-up, Learn + SM-2 Revise auto-split, Sync Weekly Key by default, full classical notation upgrades, and `.musicxml`/`.mxl` importer), tucking Companion Mode under Tools. See [phase-7-guided-lessons-curriculum.md](./phases/phase-7-guided-lessons-curriculum.md).
+- **Phases 7–10 (Planned — Specs Locked):** Replace Autopilot Stage 3 with a book-anchored **Guided Lessons & Curriculum** system (tucking Companion Mode under Tools), split cleanly into four independently verifiable phases:
+  - [Phase 7 — Score Model & Classical Engraving](./phases/phase-7-score-model-and-notation.md)
+  - [Phase 8 — Lesson Engine, Stage 3 Autopilot & UI (6 Starters)](./phases/phase-8-lesson-engine-and-stage3-ui.md)
+  - [Phase 9 — Complete 28-Lesson Classical Curriculum](./phases/phase-9-classical-curriculum-28-lessons.md)
+  - [Phase 10 — `.musicxml` & `.mxl` Importer (Desktop & Web)](./phases/phase-10-musicxml-mxl-importer.md)
 - **Block 2 Hybrid Importer (Future):** Optional `.mid` / MusicXML integration into Stage 2B random sight-reading pool.

@@ -141,7 +141,11 @@
 
 ## Next Concrete Action
 
-- **Phase 7 Spec Locked (Not Yet Started):** Ready to begin **Phase 7 — Guided Lessons Curriculum, Classical Notation & `.musicxml`/`.mxl` Importer** ([phase-7-guided-lessons-curriculum.md](./phases/phase-7-guided-lessons-curriculum.md)), starting with **Slice 7.1** (`LessonScore` core model + classical Grand Staff engraving upgrades) once the user gives the go-ahead.
+- **Phases 7–10 Specs Locked (Not Yet Started):** Split the Stage 3 Guided Lessons & MusicXML roadmap into 4 independently verifiable phases:
+  - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving ([phase-7-score-model-and-notation.md](./phases/phase-7-score-model-and-notation.md)) — *ready to start Slice 7.1 on go-ahead*
+  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons ([phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md))
+  - **Phase 9:** Complete 28-Lesson Classical Curriculum ([phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md))
+  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web ([phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md))
 
 ---
 
