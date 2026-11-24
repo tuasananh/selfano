@@ -252,3 +252,285 @@ TEST_CASE("WarmUpEngine evaluates input, advances automatically, and tracks tele
   REQUIRE(engine.step_feedback(0) == WarmUpStepFeedback::Pending);
   REQUIRE(engine.completed_runs() == 1);
 }
+
+TEST_CASE("WarmUpEngine FullCircuit builds all 4 stations across all 24 keys", "[warmup]") {
+  for (std::size_t k_idx = 0; k_idx < kWeeklyKeyCycle.size(); ++k_idx) {
+    const auto key = weekly_key_at(k_idx);
+    WarmUpEngine engine(WarmUpConfig{
+        .key = key,
+        .octaves = 1,
+        .hand = HandSelection::HandsTogether,
+        .minor_mode = MinorScaleMode::Harmonic,
+        .exercise = WarmUpExerciseKind::FullCircuit,
+    });
+
+    // 1-oct Scale (15) + 1-oct Arpeggio (7) + Alternating Inversions (7 RH + 7 LH = 14) +
+    // Voice-Led Cadence (4) = 40 steps
+    REQUIRE(engine.steps().size() == 40);
+
+    // Verify exact station ordering
+    for (std::size_t i = 0; i < 15; ++i) {
+      REQUIRE(engine.steps()[i].station == WarmUpStation::ParallelScale);
+      REQUIRE(engine.steps()[i].beat_duration == 1);
+    }
+    for (std::size_t i = 15; i < 22; ++i) {
+      REQUIRE(engine.steps()[i].station == WarmUpStation::TonicArpeggio);
+      REQUIRE(engine.steps()[i].beat_duration == 1);
+      REQUIRE(engine.steps()[i].notes.size() == 2);
+      REQUIRE(engine.steps()[i].expected_midi[0] < engine.steps()[i].expected_midi[1]);
+    }
+    for (std::size_t i = 22; i < 29; ++i) {
+      REQUIRE(engine.steps()[i].station == WarmUpStation::TriadInversions);
+      REQUIRE(engine.steps()[i].beat_duration == 2);
+      REQUIRE(engine.steps()[i].notes.size() == 3);
+      for (const auto& n : engine.steps()[i].notes) {
+        REQUIRE(n.clef == Clef::Treble);
+      }
+    }
+    for (std::size_t i = 29; i < 36; ++i) {
+      REQUIRE(engine.steps()[i].station == WarmUpStation::TriadInversions);
+      REQUIRE(engine.steps()[i].beat_duration == 2);
+      REQUIRE(engine.steps()[i].notes.size() == 3);
+      for (const auto& n : engine.steps()[i].notes) {
+        REQUIRE(n.clef == Clef::Bass);
+      }
+    }
+    for (std::size_t i = 36; i < 40; ++i) {
+      REQUIRE(engine.steps()[i].station == WarmUpStation::VoiceLedCadence);
+      REQUIRE(engine.steps()[i].beat_duration == 2);
+      REQUIRE(engine.steps()[i].is_cadence);
+      REQUIRE(engine.steps()[i].notes.size() == 4); // 1 LH bass root + 3 RH voice-led triad
+    }
+  }
+}
+
+TEST_CASE("WarmUpEngine TonicArpeggio and TriadInversions generate exact pitches", "[warmup]") {
+  SECTION("C Major 1-octave and 2-octave Tonic Arpeggio (RightOnly)") {
+    WarmUpEngine arp1(WarmUpConfig{
+        .key = KeySignature{0, Mode::Major},
+        .octaves = 1,
+        .hand = HandSelection::RightOnly,
+        .exercise = WarmUpExerciseKind::ArpeggioOnly,
+    });
+    REQUIRE(arp1.steps().size() == 7);
+    const std::array<MidiPitch, 7> expected_1oct{60, 64, 67, 72, 67, 64, 60};
+    for (std::size_t i = 0; i < expected_1oct.size(); ++i) {
+      REQUIRE(arp1.steps()[i].expected_midi == std::vector<MidiPitch>{expected_1oct[i]});
+    }
+
+    WarmUpEngine arp2(WarmUpConfig{
+        .key = KeySignature{0, Mode::Major},
+        .octaves = 2,
+        .hand = HandSelection::RightOnly,
+        .exercise = WarmUpExerciseKind::ArpeggioOnly,
+    });
+    REQUIRE(arp2.steps().size() == 13);
+    const std::array<MidiPitch, 13> expected_2oct{60, 64, 67, 72, 76, 79, 84,
+                                                  79, 76, 72, 67, 64, 60};
+    for (std::size_t i = 0; i < expected_2oct.size(); ++i) {
+      REQUIRE(arp2.steps()[i].expected_midi == std::vector<MidiPitch>{expected_2oct[i]});
+    }
+  }
+
+  SECTION("C Major Triad Inversions arc Root -> 1st -> 2nd -> Root 8va -> 2nd -> 1st -> Root") {
+    WarmUpEngine inv_rh(WarmUpConfig{
+        .key = KeySignature{0, Mode::Major},
+        .octaves = 1,
+        .hand = HandSelection::RightOnly,
+        .exercise = WarmUpExerciseKind::InversionsOnly,
+    });
+    REQUIRE(inv_rh.steps().size() == 7);
+    REQUIRE(inv_rh.steps()[0].expected_midi == std::vector<MidiPitch>{60, 64, 67});
+    REQUIRE(inv_rh.steps()[1].expected_midi == std::vector<MidiPitch>{64, 67, 72});
+    REQUIRE(inv_rh.steps()[2].expected_midi == std::vector<MidiPitch>{67, 72, 76});
+    REQUIRE(inv_rh.steps()[3].expected_midi == std::vector<MidiPitch>{72, 76, 79});
+    REQUIRE(inv_rh.steps()[4].expected_midi == std::vector<MidiPitch>{67, 72, 76});
+    REQUIRE(inv_rh.steps()[5].expected_midi == std::vector<MidiPitch>{64, 67, 72});
+    REQUIRE(inv_rh.steps()[6].expected_midi == std::vector<MidiPitch>{60, 64, 67});
+  }
+}
+
+TEST_CASE("WarmUpEngine VoiceLedCadence preserves common tones across all 24 keys", "[warmup]") {
+  SECTION("C Major uses smooth I -> IV6/4 -> V6 -> I voicings") {
+    WarmUpEngine cad(WarmUpConfig{
+        .key = KeySignature{0, Mode::Major},
+        .octaves = 1,
+        .hand = HandSelection::RightOnly,
+        .exercise = WarmUpExerciseKind::CadenceOnly,
+    });
+    REQUIRE(cad.steps().size() == 4);
+    REQUIRE(cad.steps()[0].expected_midi == std::vector<MidiPitch>{60, 64, 67}); // C4 E4 G4
+    REQUIRE(cad.steps()[1].expected_midi == std::vector<MidiPitch>{60, 65, 69}); // C4 F4 A4
+    REQUIRE(cad.steps()[2].expected_midi == std::vector<MidiPitch>{59, 62, 67}); // B3 D4 G4
+    REQUIRE(cad.steps()[3].expected_midi == std::vector<MidiPitch>{60, 64, 67}); // C4 E4 G4
+  }
+
+  SECTION("A Minor Harmonic uses smooth i -> iv6/4 -> V6 -> i voicings") {
+    WarmUpEngine cad(WarmUpConfig{
+        .key = KeySignature{0, Mode::Minor},
+        .octaves = 1,
+        .hand = HandSelection::RightOnly,
+        .minor_mode = MinorScaleMode::Harmonic,
+        .exercise = WarmUpExerciseKind::CadenceOnly,
+    });
+    REQUIRE(cad.steps().size() == 4);
+    REQUIRE(cad.steps()[0].expected_midi == std::vector<MidiPitch>{57, 60, 64}); // A3 C4 E4
+    REQUIRE(cad.steps()[1].expected_midi == std::vector<MidiPitch>{57, 62, 65}); // A3 D4 F4
+    REQUIRE(cad.steps()[2].expected_midi == std::vector<MidiPitch>{56, 59, 64}); // G#3 B3 E4
+    REQUIRE(cad.steps()[3].expected_midi == std::vector<MidiPitch>{57, 60, 64}); // A3 C4 E4
+  }
+
+  SECTION("All 24 keys stay tightly voice-led with LH bass strictly below RH triad") {
+    for (std::size_t k_idx = 0; k_idx < kWeeklyKeyCycle.size(); ++k_idx) {
+      WarmUpEngine cad(WarmUpConfig{
+          .key = weekly_key_at(k_idx),
+          .octaves = 1,
+          .hand = HandSelection::HandsTogether,
+          .minor_mode = MinorScaleMode::Harmonic,
+          .exercise = WarmUpExerciseKind::CadenceOnly,
+      });
+      REQUIRE(cad.steps().size() == 4);
+      auto rh_notes = [](const WarmUpStep& s) {
+        std::vector<int> out;
+        for (const auto& n : s.notes) {
+          if (n.clef == Clef::Treble) {
+            out.push_back(static_cast<int>(n.midi));
+          }
+        }
+        std::sort(out.begin(), out.end());
+        return out;
+      };
+      const auto rh0 = rh_notes(cad.steps()[0]);
+      const auto rh1 = rh_notes(cad.steps()[1]);
+      const auto rh2 = rh_notes(cad.steps()[2]);
+      REQUIRE(rh0.size() == 3);
+      REQUIRE(rh1.size() == 3);
+      REQUIRE(rh2.size() == 3);
+      // I -> IV6/4 shares the bottom tonic note
+      REQUIRE(rh0[0] == rh1[0]);
+      // V6 -> I shares the top dominant note
+      REQUIRE(rh2[2] == rh0[2]);
+      // LH bass is strictly below RH lowest note on every cadence step
+      for (const auto& step : cad.steps()) {
+        const auto bass_it = std::find_if(step.notes.begin(), step.notes.end(),
+                                          [](const auto& n) { return n.clef == Clef::Bass; });
+        REQUIRE(bass_it != step.notes.end());
+        for (const auto& n : step.notes) {
+          if (n.clef == Clef::Treble) {
+            REQUIRE(bass_it->midi < n.midi);
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("WarmUpEngine Adaptive 2-Phase Pacing, Guided Pulse evenness, and BPM ladder",
+          "[warmup]") {
+  WarmUpEngine engine(WarmUpConfig{
+      .key = KeySignature{0, Mode::Major},
+      .octaves = 1,
+      .hand = HandSelection::RightOnly,
+      .exercise = WarmUpExerciseKind::CadenceOnly,
+      .start_bpm = 72.0,
+      .auto_continue_passes = true,
+  });
+
+  REQUIRE(engine.pacing_mode() == WarmUpPacingMode::ExploreWait);
+  REQUIRE(engine.phase_state() == WarmUpPhaseState::Playing);
+  REQUIRE(engine.pass_number() == 1);
+  REQUIRE_FALSE(engine.is_mid_station());
+
+  SECTION("Unclean Pass 1 (<90%) repeats ExploreWait after transition breather") {
+    // 1 miss + 4 hits = 80% accuracy (< 90%)
+    (void)engine.submit_played_notes(std::array<MidiPitch, 3>{60, 63, 67});
+    REQUIRE(engine.is_mid_station() == false); // still on step 0
+    for (std::size_t i = 0; i < 4; ++i) {
+      const auto res = engine.submit_played_notes(engine.steps()[i].expected_midi);
+      REQUIRE(res.status == WarmUpEvalStatus::Correct);
+      if (i == 0) {
+        REQUIRE(engine.is_mid_station());
+      }
+    }
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::PassTransition);
+    REQUIRE(engine.last_pass_summary().has_value());
+    REQUIRE(engine.last_pass_summary()->next_pacing_mode == WarmUpPacingMode::ExploreWait);
+
+    // Tick past 2500 ms breather -> restarts Pass 2 in ExploreWait
+    const auto tick = engine.update(2600.0);
+    REQUIRE(tick.pass_started);
+    REQUIRE(engine.pacing_mode() == WarmUpPacingMode::ExploreWait);
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::Playing);
+    REQUIRE(engine.pass_number() == 2);
+  }
+
+  SECTION("Clean Pass 1 enters Guided Pulse with 4-beat count-in, grades evenness, and bumps BPM") {
+    // Complete Pass 1 cleanly (100%)
+    for (std::size_t i = 0; i < 4; ++i) {
+      (void)engine.submit_played_notes(engine.steps()[i].expected_midi);
+    }
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::PassTransition);
+    REQUIRE(engine.last_pass_summary()->next_pacing_mode == WarmUpPacingMode::GuidedPulse);
+    REQUIRE(engine.last_pass_summary()->next_bpm == 72.0);
+
+    // Finish breather -> enters 4-beat CountIn at 72 BPM
+    auto tick = engine.update(2550.0);
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::CountIn);
+    REQUIRE(engine.pacing_mode() == WarmUpPacingMode::GuidedPulse);
+    REQUIRE(tick.metronome_click);
+    REQUIRE(tick.metronome_accent); // Beat 1 of count-in
+
+    // Advance remaining 3 beats of count-in (72 BPM -> 833.333 ms per beat)
+    const double beat_ms = 60000.0 / 72.0;
+    int clicks = 1;
+    for (int step = 0; step < 40 && engine.phase_state() == WarmUpPhaseState::CountIn; ++step) {
+      const auto t = engine.update(beat_ms / 4.0);
+      if (t.metronome_click) {
+        ++clicks;
+      }
+    }
+    REQUIRE(clicks >= 4);
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::Playing);
+    REQUIRE(engine.current_step_index() == 0);
+
+    // Play all 4 cadence chords cleanly on-beat (each cadence chord is beat_duration == 2 beats)
+    for (std::size_t i = 0; i < 4; ++i) {
+      if (i > 0) {
+        (void)engine.update(beat_ms * 2.0);
+      }
+      const auto res = engine.submit_played_notes(engine.steps()[i].expected_midi);
+      REQUIRE(res.status == WarmUpEvalStatus::Correct);
+    }
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::PassTransition);
+    REQUIRE(engine.last_pass_summary()->evenness_ratio >= 0.90);
+    REQUIRE(engine.last_pass_summary()->bpm_increased);
+    REQUIRE(engine.last_pass_summary()->next_bpm == 80.0);
+    REQUIRE(engine.best_clean_bpm().has_value());
+    REQUIRE(*engine.best_clean_bpm() == 72.0);
+  }
+
+  SECTION("Uneven rhythm in Guided Pulse holds BPM steady without bumping") {
+    for (std::size_t i = 0; i < 4; ++i) {
+      (void)engine.submit_played_notes(engine.steps()[i].expected_midi);
+    }
+    (void)engine.update(2550.0);
+    const double beat_ms = 60000.0 / 72.0;
+    for (int step = 0; step < 40 && engine.phase_state() == WarmUpPhaseState::CountIn; ++step) {
+      (void)engine.update(beat_ms / 4.0);
+    }
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::Playing);
+
+    // Play chords way too fast (100 ms apart instead of 2 beats = 1666 ms) -> low evenness
+    for (std::size_t i = 0; i < 4; ++i) {
+      if (i > 0) {
+        (void)engine.update(100.0);
+      }
+      (void)engine.submit_played_notes(engine.steps()[i].expected_midi);
+    }
+    REQUIRE(engine.phase_state() == WarmUpPhaseState::PassTransition);
+    REQUIRE(engine.last_pass_summary()->evenness_ratio < kWarmUpCleanEvennessThreshold);
+    REQUIRE_FALSE(engine.last_pass_summary()->bpm_increased);
+    REQUIRE(engine.last_pass_summary()->next_bpm == 72.0);
+    REQUIRE_FALSE(engine.best_clean_bpm().has_value());
+  }
+}

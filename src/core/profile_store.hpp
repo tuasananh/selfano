@@ -57,6 +57,7 @@ struct UserProfile {
   int schema_version{kProfileSchemaVersion};
   WeeklyKeyState weekly_key{};
   std::map<std::string, ShapeTelemetry> flashcard_telemetry{};
+  std::map<std::string, double> warmup_key_bpm{};
   EarTrainerProgress ear_progress{};
   std::vector<RepertoirePhrase> repertoire_phrases{};
   std::vector<SrsCard> srs_cards{};

@@ -190,6 +190,12 @@ std::string to_json_string(const UserProfile& profile) {
   }
   j["flashcard_telemetry"] = std::move(fc_tel);
 
+  json wu_bpm = json::object();
+  for (const auto& [key_name, bpm] : profile.warmup_key_bpm) {
+    wu_bpm[key_name] = bpm;
+  }
+  j["warmup_key_bpm"] = std::move(wu_bpm);
+
   j["ear_progress"] = {
       {"tier", static_cast<int>(profile.ear_progress.tier)},
       {"consecutive_clean_solves", profile.ear_progress.consecutive_clean_solves},
@@ -307,6 +313,19 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
         return std::unexpected(err);
       }
       p.flashcard_telemetry[shape_id] = tel;
+    }
+  }
+
+  if (root.contains("warmup_key_bpm")) {
+    const auto& wu = root.at("warmup_key_bpm");
+    if (!wu.is_object()) {
+      return std::unexpected("Field 'warmup_key_bpm' must be an object");
+    }
+    for (const auto& [key_name, val] : wu.items()) {
+      if (!val.is_number()) {
+        return std::unexpected("Warm-up key BPM entry must be a number");
+      }
+      p.warmup_key_bpm[key_name] = std::clamp(val.get<double>(), 56.0, 160.0);
     }
   }
 

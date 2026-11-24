@@ -86,6 +86,8 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   profile.preferences.dark_ui_theme = true;
   profile.preferences.ui_zoom = 1.25;
   profile.preferences.piano_remote_enabled = false;
+  profile.warmup_key_bpm["C Major"] = 88.0;
+  profile.warmup_key_bpm["D Minor"] = 80.0;
 
   const std::string json_text = to_json_string(profile);
   const auto parsed = from_json_string(json_text);
@@ -107,6 +109,21 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE_FALSE(res->preferences.dark_ui_theme);
     REQUIRE(res->preferences.ui_zoom == 1.0);
     REQUIRE(res->preferences.piano_remote_enabled);
+    REQUIRE(res->warmup_key_bpm.empty());
+  }
+
+  SECTION("warmup_key_bpm clamps out-of-range values safely on load") {
+    const std::string clamped_json = R"({
+      "schema_version": 1,
+      "warmup_key_bpm": {
+        "C Major": 25.0,
+        "G Major": 240.0
+      }
+    })";
+    const auto res = from_json_string(clamped_json);
+    REQUIRE(res.has_value());
+    REQUIRE(res->warmup_key_bpm.at("C Major") == 56.0);
+    REQUIRE(res->warmup_key_bpm.at("G Major") == 160.0);
   }
 
   SECTION("Corrupt JSON, wrong root type, bad field type, and bad schema_version fail safely") {
