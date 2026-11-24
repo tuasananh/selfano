@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
 
 #include <cstddef>
@@ -86,5 +87,78 @@ struct ChordLayout {
 
 [[nodiscard]] ChordLayout layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
                                        float notehead_width_spaces = kNoteheadBlackWidthSpaces);
+
+struct BeamEventInput {
+  std::size_t event_index{0};
+  int start_tick{0};
+  int duration_ticks{240};
+  NoteBaseDuration base_duration{NoteBaseDuration::Eighth};
+  bool dotted{false};
+  bool is_rest{false};
+  float x_spaces{0.0f};
+  int min_step{28};
+  int max_step{28};
+};
+
+struct SecondaryBeamSegment {
+  float x0_spaces{0.0f};
+  float x1_spaces{0.0f};
+  float y0_spaces{0.0f};
+  float y1_spaces{0.0f};
+  bool is_hook{false};
+};
+
+struct BeamGroupLayout {
+  std::vector<std::size_t> event_indices;
+  StemDirection stem_direction{StemDirection::Up};
+  float start_x_spaces{0.0f};
+  float end_x_spaces{0.0f};
+  float start_y_spaces{0.0f};
+  float end_y_spaces{0.0f};
+  std::vector<float> stem_tip_y_spaces;
+  std::vector<SecondaryBeamSegment> secondary_beams;
+};
+
+[[nodiscard]] std::vector<BeamGroupLayout>
+compute_beam_groups(std::span<const BeamEventInput> events, TimeSignature meter, Clef clef,
+                    float notehead_width_spaces = kNoteheadBlackWidthSpaces);
+
+enum class TieSpanKind : std::uint8_t {
+  Complete = 0,
+  OutgoingHalf = 1,
+  IncomingHalf = 2,
+};
+
+enum class TieDirection : std::uint8_t {
+  Above = 0,
+  Below = 1,
+};
+
+struct TieEndpointRef {
+  std::size_t measure_index{0};
+  std::size_t event_index{0};
+  std::size_t note_index{0};
+  MidiPitch midi{60};
+  int step{28};
+  float x_spaces{0.0f};
+  StemDirection stem_direction{StemDirection::Up};
+  std::size_t chord_note_count{1};
+  std::size_t index_in_chord{0};
+  bool tie_start{false};
+  bool tie_stop{false};
+};
+
+struct TieSpan {
+  TieSpanKind kind{TieSpanKind::Complete};
+  TieDirection direction{TieDirection::Above};
+  int start_step{28};
+  int end_step{28};
+  float start_x_spaces{0.0f};
+  float end_x_spaces{0.0f};
+  std::size_t start_measure_index{0};
+  std::size_t end_measure_index{0};
+};
+
+[[nodiscard]] std::vector<TieSpan> resolve_tie_spans(std::span<const TieEndpointRef> system_notes);
 
 } // namespace selfano::core

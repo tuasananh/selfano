@@ -210,3 +210,97 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
     REQUIRE(low_layout.ledger_line_steps == std::vector<int>{26, 28});
   }
 }
+
+TEST_CASE("compute_beam_groups groups 8th and 16th notes cleanly per meter", "[staff_layout]") {
+  SECTION("4/4 beams in half-bar groups for 8ths and splits on rests") {
+    std::vector<BeamEventInput> evs{
+        {0, 0, 240, NoteBaseDuration::Eighth, false, false, 2.0f, 30, 30},
+        {1, 240, 240, NoteBaseDuration::Eighth, false, false, 5.0f, 31, 31},
+        {2, 480, 240, NoteBaseDuration::Eighth, false, false, 8.0f, 32, 32},
+        {3, 720, 240, NoteBaseDuration::Eighth, false, false, 11.0f, 33, 33},
+        {4, 960, 240, NoteBaseDuration::Eighth, false, true, 14.0f, 34, 34}, // rest breaks group
+        {5, 1200, 240, NoteBaseDuration::Eighth, false, false, 17.0f, 36, 36},
+        {6, 1440, 240, NoteBaseDuration::Eighth, false, false, 20.0f, 35, 35},
+        {7, 1680, 240, NoteBaseDuration::Eighth, false, false, 23.0f, 34, 34},
+    };
+    const auto groups = compute_beam_groups(evs, TimeSignature{4, 4}, Clef::Treble);
+    REQUIRE(groups.size() == 2);
+    REQUIRE(groups[0].event_indices == std::vector<std::size_t>{0, 1, 2, 3});
+    REQUIRE(groups[0].stem_direction == StemDirection::Up);
+    REQUIRE(groups[1].event_indices == std::vector<std::size_t>{5, 6, 7});
+    REQUIRE(groups[1].stem_direction == StemDirection::Down);
+    // Beam slope is tastefully clamped
+    REQUIRE(std::abs(groups[0].end_y_spaces - groups[0].start_y_spaces) <= 2.5f);
+  }
+
+  SECTION("6/8 beams in compound dotted-quarter groups of 3 eighths") {
+    std::vector<BeamEventInput> evs{
+        {0, 0, 240, NoteBaseDuration::Eighth, false, false, 2.0f, 31, 31},
+        {1, 240, 240, NoteBaseDuration::Eighth, false, false, 5.0f, 32, 32},
+        {2, 480, 240, NoteBaseDuration::Eighth, false, false, 8.0f, 33, 33},
+        {3, 720, 240, NoteBaseDuration::Eighth, false, false, 11.0f, 34, 34},
+        {4, 960, 240, NoteBaseDuration::Eighth, false, false, 14.0f, 35, 35},
+        {5, 1200, 240, NoteBaseDuration::Eighth, false, false, 17.0f, 36, 36},
+    };
+    const auto groups = compute_beam_groups(evs, TimeSignature{6, 8}, Clef::Treble);
+    REQUIRE(groups.size() == 2);
+    REQUIRE(groups[0].event_indices == std::vector<std::size_t>{0, 1, 2});
+    REQUIRE(groups[1].event_indices == std::vector<std::size_t>{3, 4, 5});
+  }
+
+  SECTION("3/4 beams within quarter beats when mixing or on beat boundaries") {
+    std::vector<BeamEventInput> evs{
+        {0, 0, 240, NoteBaseDuration::Eighth, false, false, 2.0f, 32, 32},
+        {1, 240, 240, NoteBaseDuration::Eighth, false, false, 5.0f, 33, 33},
+        {2, 480, 240, NoteBaseDuration::Eighth, false, false, 8.0f, 32, 32},
+        {3, 720, 240, NoteBaseDuration::Eighth, false, false, 11.0f, 31, 31},
+        {4, 960, 480, NoteBaseDuration::Quarter, false, false, 14.0f, 30, 30},
+    };
+    const auto groups = compute_beam_groups(evs, TimeSignature{3, 4}, Clef::Treble);
+    REQUIRE(groups.size() == 2);
+    REQUIRE(groups[0].event_indices == std::vector<std::size_t>{0, 1});
+    REQUIRE(groups[1].event_indices == std::vector<std::size_t>{2, 3});
+  }
+
+  SECTION("Secondary 16th beams and dotted-8th + 16th fractional hooks") {
+    std::vector<BeamEventInput> evs{
+        // Beat 1: dotted 8th + lone 16th -> hook
+        {0, 0, 360, NoteBaseDuration::Eighth, true, false, 2.0f, 31, 31},
+        {1, 360, 120, NoteBaseDuration::Sixteenth, false, false, 6.0f, 32, 32},
+        // Beat 2: four 16ths -> full secondary beam
+        {2, 480, 120, NoteBaseDuration::Sixteenth, false, false, 9.0f, 32, 32},
+        {3, 600, 120, NoteBaseDuration::Sixteenth, false, false, 11.5f, 33, 33},
+        {4, 720, 120, NoteBaseDuration::Sixteenth, false, false, 14.0f, 34, 34},
+        {5, 840, 120, NoteBaseDuration::Sixteenth, false, false, 16.5f, 33, 33},
+    };
+    const auto groups = compute_beam_groups(evs, TimeSignature{2, 4}, Clef::Treble);
+    REQUIRE(groups.size() == 2);
+    REQUIRE(groups[0].secondary_beams.size() == 1);
+    REQUIRE(groups[0].secondary_beams[0].is_hook);
+    REQUIRE(groups[1].secondary_beams.size() == 1);
+    REQUIRE_FALSE(groups[1].secondary_beams[0].is_hook);
+  }
+}
+
+TEST_CASE("resolve_tie_spans handles complete, outgoing, incoming ties and orientation",
+          "[staff_layout]") {
+  const std::vector<TieEndpointRef> refs{
+      // Incoming tie from previous system at bar 0
+      TieEndpointRef{0, 0, 0, 62, 29, 2.0f, StemDirection::Up, 1, 0, false, true},
+      // Complete tie from bar 0 to bar 1
+      TieEndpointRef{0, 1, 0, 67, 32, 10.0f, StemDirection::Up, 1, 0, true, false},
+      TieEndpointRef{1, 0, 0, 67, 32, 15.0f, StemDirection::Up, 1, 0, false, true},
+      // Outgoing tie at bar 1 crossing system break
+      TieEndpointRef{1, 1, 0, 72, 35, 22.0f, StemDirection::Down, 1, 0, true, false},
+  };
+
+  const auto spans = resolve_tie_spans(refs);
+  REQUIRE(spans.size() == 3);
+  REQUIRE(spans[0].kind == TieSpanKind::IncomingHalf);
+  REQUIRE(spans[0].direction == TieDirection::Below); // Stem Up -> Tie Below
+  REQUIRE(spans[1].kind == TieSpanKind::Complete);
+  REQUIRE(spans[1].start_measure_index == 0);
+  REQUIRE(spans[1].end_measure_index == 1);
+  REQUIRE(spans[2].kind == TieSpanKind::OutgoingHalf);
+  REQUIRE(spans[2].direction == TieDirection::Above); // Stem Down -> Tie Above
+}
