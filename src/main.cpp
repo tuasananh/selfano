@@ -430,7 +430,12 @@ struct AppContext {
   void apply_weekly_key_to_views(double now_ms) {
     const auto k = selfano::core::weekly_key_at(profile.weekly_key.key_index);
     const auto mm = profile.preferences.minor_scale_mode;
-    warmup_view.set_weekly_key(k, mm);
+    const std::string key_name = selfano::core::format_key_name(k);
+    double saved_bpm = selfano::core::kDefaultWarmUpBpm;
+    if (const auto it = profile.warmup_key_bpm.find(key_name); it != profile.warmup_key_bpm.end()) {
+      saved_bpm = it->second;
+    }
+    warmup_view.set_weekly_key(k, mm, saved_bpm);
     flashcard_view.set_key(k, mm, now_ms);
     etude_view.set_key(k, mm);
     ear_trainer_view.set_key(k);
@@ -443,6 +448,7 @@ struct AppContext {
     midi_bar_state.piano_remote_enabled = profile.preferences.piano_remote_enabled;
     apply_weekly_key_to_views(now_ms);
     warmup_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+    warmup_view.set_metronome_enabled(profile.preferences.metronome_enabled);
     flashcard_view.set_light_paper_theme(profile.preferences.light_paper_staff);
     flashcard_view.mutable_engine().load_telemetry(profile.flashcard_telemetry);
     etude_view.apply_preferences(profile.preferences.metronome_enabled,
@@ -481,6 +487,11 @@ struct AppContext {
 
   void sync_profile_from_views() {
     profile.flashcard_telemetry = flashcard_view.engine().telemetry();
+    if (const auto best_bpm = warmup_view.best_clean_bpm(); best_bpm.has_value()) {
+      const std::string key_name = selfano::core::format_key_name(warmup_view.key());
+      auto& stored = profile.warmup_key_bpm[key_name];
+      stored = std::max(stored, *best_bpm);
+    }
     profile.ear_progress = ear_trainer_view.progress();
     profile.repertoire_phrases = companion_view.phrases();
     profile.srs_cards.assign(srs_view.deck().cards().begin(), srs_view.deck().cards().end());
@@ -536,6 +547,7 @@ struct AppContext {
   }
 
   void cleanup_stage_transitions(double now_ms) {
+    warmup_view.pause_transport();
     etude_view.stop();
     shared_piano_dock.release_mouse_key(now_ms, frame_events);
     phase2_sandbox.release_virtual_piano(now_ms, frame_events);
@@ -693,7 +705,13 @@ struct AppContext {
     }
     switch (*stage) {
     case selfano::core::AutopilotStage::Stage1WarmUp:
-      warmup_view.on_played_chord(chord);
+      warmup_view.resume_transport();
+      if (warmup_view.on_played_chord(chord)) {
+        audio_synth.play_confirmation_chime();
+        if (warmup_view.best_clean_bpm().has_value()) {
+          persist_profile_now();
+        }
+      }
       break;
     case selfano::core::AutopilotStage::Stage2AFlashcards:
       flashcard_view.on_played_chord(chord, now_ms);
@@ -846,7 +864,10 @@ struct AppContext {
       show_hud_toast("Replay / Hear", now_ms);
       break;
     case A::PlayPauseTransport:
-      if (stage == S::Stage2BEtudes) {
+      if (stage == S::Stage1WarmUp) {
+        const bool paused = warmup_view.toggle_pause();
+        show_hud_toast(paused ? "Warm-Up Paused" : "Warm-Up Resumed", now_ms);
+      } else if (stage == S::Stage2BEtudes) {
         bool click = false;
         bool accent = false;
         etude_view.toggle_play_pause(click, accent);
@@ -945,8 +966,13 @@ struct AppContext {
           show_hud_toast(*lbl, now_ms);
         }
       } else if (stage == S::Stage1WarmUp) {
-        warmup_view.reset_pass();
-        show_hud_toast("Warm-Up Pass Reset", now_ms);
+        if (warmup_view.engine().phase_state() == selfano::core::WarmUpPhaseState::PassTransition) {
+          warmup_view.skip_transition_now();
+          show_hud_toast("Starting Next Pass", now_ms);
+        } else {
+          warmup_view.reset_pass();
+          show_hud_toast("Warm-Up Pass Reset", now_ms);
+        }
       } else if (app_mode == AppMode::Home) {
         start_autopilot_session(now_ms);
         show_hud_toast("30-Min Session Started", now_ms);
@@ -979,6 +1005,9 @@ struct AppContext {
       } else if (stage == S::Stage3Companion) {
         const bool ch = companion_view.toggle_chime();
         show_hud_toast(ch ? "Chime On" : "Chime Off", now_ms);
+      } else if (stage == S::Stage1WarmUp) {
+        const bool met = warmup_view.toggle_metronome();
+        show_hud_toast(met ? "Metronome On" : "Metronome Off", now_ms);
       } else {
         const bool met = etude_view.toggle_metronome();
         show_hud_toast(met ? "Metronome On" : "Metronome Off", now_ms);
@@ -1688,7 +1717,9 @@ struct AppContext {
       bool safe_boundary = true;
       if (autopilot.state() == selfano::core::AutopilotState::Running) {
         const auto st = autopilot.current_block().stage;
-        if (st == selfano::core::AutopilotStage::Stage2BEtudes) {
+        if (st == selfano::core::AutopilotStage::Stage1WarmUp) {
+          safe_boundary = !warmup_view.is_mid_station();
+        } else if (st == selfano::core::AutopilotStage::Stage2BEtudes) {
           safe_boundary = !etude_view.is_mid_bar();
         } else if (st == selfano::core::AutopilotStage::Stage3Companion) {
           safe_boundary = !companion_view.is_mid_phrase();
@@ -1711,7 +1742,14 @@ struct AppContext {
     }
 
     if (const auto stage = active_practice_stage(); stage.has_value()) {
-      if (*stage == selfano::core::AutopilotStage::Stage2AFlashcards) {
+      if (*stage == selfano::core::AutopilotStage::Stage1WarmUp) {
+        bool click = false;
+        bool accent = false;
+        warmup_view.update(dt_ms, click, accent);
+        if (click) {
+          audio_synth.play_metronome_click(accent);
+        }
+      } else if (*stage == selfano::core::AutopilotStage::Stage2AFlashcards) {
         flashcard_view.update(now_ms);
       } else if (*stage == selfano::core::AutopilotStage::Stage2BEtudes) {
         bool click = false;

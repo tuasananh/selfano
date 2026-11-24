@@ -409,7 +409,7 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
     core::AutopilotStage stage;
   };
   const std::array<StageCardInfo, 6> stage_cards{{
-      {"##tile_s1", IconId::Scale, c.accent, "Key Warm-Up", "Scales & primary cadences",
+      {"##tile_s1", IconId::Scale, c.accent, "Key Warm-Up", "Scale, arpeggio, inversions & cadence",
        core::AutopilotStage::Stage1WarmUp},
       {"##tile_s2a", IconId::Bolt, c.indigo, "Flashcards", "Adaptive shape recognition",
        core::AutopilotStage::Stage2AFlashcards},

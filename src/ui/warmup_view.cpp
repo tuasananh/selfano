@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <format>
 #include <string_view>
 
@@ -39,17 +40,57 @@ struct PagedStaffBar {
 partition_warmup_bars(std::span<const core::WarmUpStep> steps) {
   std::vector<PagedStaffBar> bars;
   std::size_t i = 0;
-  while (i < steps.size() && !steps[i].is_cadence) {
+  while (i < steps.size()) {
     const std::size_t start = i;
-    while (i < steps.size() && !steps[i].is_cadence && (i - start) < 4U) {
+    const auto station = steps[i].station;
+    const auto hand_clef = steps[i].solo_hand_clef;
+    const std::size_t max_in_bar = (station == core::WarmUpStation::VoiceLedCadence) ? 4U : 4U;
+    while (i < steps.size() && steps[i].station == station &&
+           steps[i].solo_hand_clef == hand_clef && (i - start) < max_in_bar) {
       ++i;
     }
     bars.push_back(PagedStaffBar{.step_start = start, .step_count = i - start});
   }
-  if (i < steps.size()) {
-    bars.push_back(PagedStaffBar{.step_start = i, .step_count = steps.size() - i});
-  }
   return bars;
+}
+
+[[nodiscard]] std::string_view station_banner_heading(const core::WarmUpStep& step) noexcept {
+  switch (step.station) {
+  case core::WarmUpStation::ParallelScale:
+    return "STATION 1  \xC2\xB7  PARALLEL SCALE (ASCENDING & DESCENDING)";
+  case core::WarmUpStation::TonicArpeggio:
+    return "STATION 2  \xC2\xB7  TONIC ARPEGGIO (1 \xE2\x80\x93 3 \xE2\x80\x93 5)";
+  case core::WarmUpStation::TriadInversions:
+    if (step.solo_hand_clef == core::Clef::Bass) {
+      return "STATION 3  \xC2\xB7  TRIAD INVERSIONS (LEFT HAND)";
+    }
+    if (step.solo_hand_clef == core::Clef::Treble) {
+      return "STATION 3  \xC2\xB7  TRIAD INVERSIONS (RIGHT HAND)";
+    }
+    return "STATION 3  \xC2\xB7  TRIAD INVERSIONS";
+  case core::WarmUpStation::VoiceLedCadence:
+    return "STATION 4  \xC2\xB7  VOICE-LED CADENCE (I \xE2\x86\x92 IV \xE2\x86\x92 V \xE2\x86\x92 "
+           "I)";
+  }
+  return "WARM-UP";
+}
+
+[[nodiscard]] const char* exercise_label(core::WarmUpExerciseKind kind) noexcept {
+  switch (kind) {
+  case core::WarmUpExerciseKind::FullCircuit:
+    return "Full Circuit (4 Stations)";
+  case core::WarmUpExerciseKind::ScaleAndCadence:
+    return "Scale + Cadence";
+  case core::WarmUpExerciseKind::ScaleOnly:
+    return "Scale Only";
+  case core::WarmUpExerciseKind::ArpeggioOnly:
+    return "Arpeggio Only";
+  case core::WarmUpExerciseKind::InversionsOnly:
+    return "Triad Inversions Only";
+  case core::WarmUpExerciseKind::CadenceOnly:
+    return "Voice-Led Cadence Only";
+  }
+  return "Full Circuit";
 }
 
 } // namespace
@@ -60,52 +101,100 @@ WarmUpView::WarmUpView()
           .octaves = 1,
           .hand = core::HandSelection::HandsTogether,
           .minor_mode = core::MinorScaleMode::Harmonic,
-          .exercise = core::WarmUpExerciseKind::ScaleAndCadence,
+          .exercise = core::WarmUpExerciseKind::FullCircuit,
+          .start_bpm = core::kDefaultWarmUpBpm,
+          .auto_continue_passes = true,
       }) {
 }
 
-void WarmUpView::set_weekly_key(core::KeySignature key, core::MinorScaleMode minor_mode) {
+void WarmUpView::set_weekly_key(core::KeySignature key, core::MinorScaleMode minor_mode,
+                                double key_bpm) {
   auto cfg = engine_.config();
-  if (cfg.key == key && cfg.minor_mode == minor_mode) {
+  const double clamped_bpm = std::clamp(key_bpm, core::kMinWarmUpBpm, core::kMaxWarmUpBpm);
+  if (cfg.key == key && cfg.minor_mode == minor_mode &&
+      std::abs(cfg.start_bpm - clamped_bpm) < 0.01) {
     return;
   }
   cfg.key = key;
   cfg.minor_mode = minor_mode;
+  cfg.start_bpm = clamped_bpm;
   engine_.configure(cfg);
   last_feedback_ = NoteFeedback::Neutral;
-  status_banner_ = std::format("Key set to {} \xC2\xB7 Play step 1", core::format_key_name(key));
+  status_banner_ =
+      std::format("Key set to {} \xC2\xB7 Pass 1 (Explore)", core::format_key_name(key));
 }
 
-void WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
+bool WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
   if (chord.notes.empty()) {
-    return;
+    return false;
   }
   const auto res = engine_.submit_played_notes(chord.notes);
   const auto key = engine_.config().key;
 
   switch (res.status) {
   case core::WarmUpEvalStatus::Ignored:
-    break;
+    return false;
   case core::WarmUpEvalStatus::AlreadyComplete:
     last_feedback_ = NoteFeedback::Correct;
-    status_banner_ = "Warm-up complete \xC2\xB7 Press Reset to play another pass";
-    break;
+    if (engine_.phase_state() != core::WarmUpPhaseState::PassTransition) {
+      status_banner_ = "Pass complete \xC2\xB7 Press Reset to play another pass";
+    }
+    return false;
   case core::WarmUpEvalStatus::Correct:
     last_feedback_ = NoteFeedback::Correct;
     if (res.exercise_completed) {
-      status_banner_ = std::format("Warm-up complete \xC2\xB7 {:.0f}% accuracy (Run #{})",
-                                   engine_.accuracy_ratio() * 100.0, engine_.completed_runs());
+      if (const auto& sum = engine_.last_pass_summary(); sum.has_value()) {
+        if (sum->next_pacing_mode == core::WarmUpPacingMode::GuidedPulse) {
+          status_banner_ =
+              std::format("Pass {} complete ({:.0f}%) \xC2\xB7 Next: {:.0f} BPM Pulse",
+                          sum->pass_number, sum->pitch_accuracy * 100.0, sum->next_bpm);
+        } else {
+          status_banner_ = std::format("Pass {} complete ({:.0f}%) \xC2\xB7 Repeating Explore pass",
+                                       sum->pass_number, sum->pitch_accuracy * 100.0);
+        }
+      } else {
+        status_banner_ = std::format("Warm-up complete \xC2\xB7 {:.0f}% accuracy (Run #{})",
+                                     engine_.accuracy_ratio() * 100.0, engine_.completed_runs());
+      }
+      return true;
+    }
+    if (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse &&
+        !engine_.last_timing_hint().empty()) {
+      status_banner_ =
+          std::format("Matched {} \xC2\xB7 {}", format_midi_list(res.expected_midi, key),
+                      engine_.last_timing_hint());
     } else {
       status_banner_ = std::format("Matched step {} ({})", res.evaluated_step_index + 1,
                                    format_midi_list(res.expected_midi, key));
     }
-    break;
+    return false;
   case core::WarmUpEvalStatus::Incorrect:
     last_feedback_ = NoteFeedback::Incorrect;
     status_banner_ = std::format("Target: {}  \xE2\x86\x92  Played: {}",
                                  format_midi_list(res.expected_midi, key),
                                  format_midi_list(res.played_midi, key));
-    break;
+    return false;
+  }
+  return false;
+}
+
+void WarmUpView::update(double dt_ms, bool& out_click, bool& out_accent) {
+  out_click = false;
+  out_accent = false;
+  const auto tick = engine_.update(dt_ms);
+  if (metronome_enabled_ && tick.metronome_click) {
+    out_click = true;
+    out_accent = tick.metronome_accent;
+  }
+  if (tick.pass_started) {
+    last_feedback_ = NoteFeedback::Neutral;
+    if (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse) {
+      status_banner_ = std::format("Pass {} \xC2\xB7 Guided Pulse ({:.0f} BPM)",
+                                   engine_.pass_number(), engine_.current_bpm());
+    } else {
+      status_banner_ =
+          std::format("Pass {} \xC2\xB7 Explore (Wait-for-Note)", engine_.pass_number());
+    }
   }
 }
 
@@ -119,6 +208,16 @@ void WarmUpView::reset_pass() {
   status_banner_ = "Warm-up reset \xC2\xB7 Play step 1";
 }
 
+bool WarmUpView::toggle_pause() noexcept {
+  engine_.toggle_pause();
+  return engine_.is_paused();
+}
+
+void WarmUpView::skip_transition_now() noexcept {
+  engine_.skip_transition_now();
+  last_feedback_ = NoteFeedback::Neutral;
+}
+
 int WarmUpView::toggle_octaves() {
   auto cfg = engine_.config();
   cfg.octaves = (cfg.octaves == 2) ? 1 : 2;
@@ -127,6 +226,11 @@ int WarmUpView::toggle_octaves() {
   status_banner_ = std::format("Switched to {} octave{} \xC2\xB7 Play step 1", cfg.octaves,
                                cfg.octaves == 2 ? "s" : "");
   return cfg.octaves;
+}
+
+bool WarmUpView::toggle_metronome() noexcept {
+  metronome_enabled_ = !metronome_enabled_;
+  return metronome_enabled_;
 }
 
 std::vector<midi::ScheduledMidiNote> WarmUpView::build_current_step_preview(double now_ms) const {
@@ -156,7 +260,7 @@ WarmUpView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) co
   hi.held = held_notes;
   const auto steps = engine_.steps();
   const std::size_t idx = engine_.current_step_index();
-  if (idx < steps.size()) {
+  if (idx < steps.size() && engine_.phase_state() != core::WarmUpPhaseState::PassTransition) {
     for (const core::MidiPitch m : steps[idx].expected_midi) {
       if (m < 128U) {
         hi.target[m] = true;
@@ -195,19 +299,30 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Key Warm-Up");
   }
-  ImGui::SameLine(0.0f, 12.0f * scale);
+  ImGui::SameLine(0.0f, 10.0f * scale);
   status_pill(cur_key_name, StatusTone::Accent);
   if (show_piano_key_hints()) {
     ImGui::SameLine(0.0f, 6.0f * scale);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.5f * scale);
     piano_key_hint_badge("C#7 / D#7");
   }
+  ImGui::SameLine(0.0f, 8.0f * scale);
+  const std::string pass_lbl =
+      (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse)
+          ? std::format("Pass {} \xC2\xB7 {:.0f} BPM", engine_.pass_number(), engine_.current_bpm())
+          : std::format("Pass {} \xC2\xB7 Explore", engine_.pass_number());
+  status_pill(pass_lbl,
+              engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse ? StatusTone::Success
+                                                                           : StatusTone::Neutral,
+              IconId::None, true);
 
   // Right-aligned Primary Actions + Options Popover
-  const float right_w = (show_piano_key_hints() ? 302.0f : 276.0f) * scale;
-  const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
-  if (avail_end > right_w + 180.0f * scale) {
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - right_w));
+  const float prev_end_x =
+      ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + ImGui::GetScrollX();
+  const float right_w = (show_piano_key_hints() ? 316.0f : 276.0f) * scale;
+  const float avail_end = ImGui::GetWindowContentRegionMax().x;
+  if (prev_end_x + 12.0f * scale + right_w <= avail_end) {
+    ImGui::SameLine(std::max(prev_end_x + 12.0f * scale, avail_end - right_w));
   }
 
   if (pill_button("Hear Step##wu_hear", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f,
@@ -218,9 +333,7 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   ImGui::SameLine(0.0f, 8.0f * scale);
   if (icon_button("##wu_reset", IconId::Refresh, "Reset / Repeat Pass", false, 32.0f,
                   ButtonTone::Secondary, "G7")) {
-    engine_.reset();
-    last_feedback_ = NoteFeedback::Neutral;
-    status_banner_ = "Warm-up reset \xC2\xB7 Play step 1";
+    reset_pass();
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
   if (pill_button("Options##wu_opts", ButtonTone::Secondary, IconId::Sliders, 32.0f)) {
@@ -229,7 +342,7 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
 
   // Progressive Disclosure Options Popover
   if (ImGui::BeginPopup("##warmup_options_pop")) {
-    const float pop_w = 290.0f * scale;
+    const float pop_w = 300.0f * scale;
     section_kicker("WARM-UP OPTIONS");
     ImGui::Spacing();
 
@@ -270,6 +383,31 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     ImGui::Spacing();
     {
       ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Circuit / Drill");
+    }
+    ImGui::SetNextItemWidth(pop_w);
+    if (ImGui::BeginCombo("##wu_ex_combo", exercise_label(cfg.exercise))) {
+      constexpr std::array<core::WarmUpExerciseKind, 6> kKinds{
+          core::WarmUpExerciseKind::FullCircuit,  core::WarmUpExerciseKind::ScaleOnly,
+          core::WarmUpExerciseKind::ArpeggioOnly, core::WarmUpExerciseKind::InversionsOnly,
+          core::WarmUpExerciseKind::CadenceOnly,  core::WarmUpExerciseKind::ScaleAndCadence,
+      };
+      for (const auto k : kKinds) {
+        const bool sel = (cfg.exercise == k);
+        if (ImGui::Selectable(exercise_label(k), sel)) {
+          cfg.exercise = k;
+          config_changed = true;
+        }
+        if (sel) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
       ImGui::TextColored(c.text_secondary, "Range");
     }
     if (show_piano_key_hints()) {
@@ -295,15 +433,29 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
       config_changed = true;
     }
 
+    hairline_separator(8.0f);
+    section_kicker("GUIDED PULSE PACING");
     ImGui::Spacing();
-    {
-      ScopedFont sub(TypeStyle::Subheadline);
-      ImGui::TextColored(c.text_secondary, "Exercise");
+
+    static constexpr std::array<std::string_view, 2> kPacing{"Explore (Wait)", "Guided Pulse"};
+    int pacing_idx = static_cast<int>(engine_.pacing_mode());
+    if (segmented_control("##wu_pacing_seg", &pacing_idx, kPacing, pop_w / scale, 28.0f)) {
+      engine_.set_pacing_mode(static_cast<core::WarmUpPacingMode>(pacing_idx));
     }
-    static constexpr std::array<std::string_view, 3> kExs{"Scale + Cadence", "Scale", "Cadence"};
-    int ex_idx = static_cast<int>(cfg.exercise);
-    if (segmented_control("##wu_ex_seg", &ex_idx, kExs, pop_w / scale, 28.0f)) {
-      cfg.exercise = static_cast<core::WarmUpExerciseKind>(ex_idx);
+
+    ImGui::Spacing();
+    float bpm_f = static_cast<float>(engine_.current_bpm());
+    ImGui::SetNextItemWidth(pop_w);
+    if (ImGui::SliderFloat("##wu_bpm_slider", &bpm_f, static_cast<float>(core::kMinWarmUpBpm),
+                           static_cast<float>(core::kMaxWarmUpBpm), "Pulse: %.0f BPM")) {
+      engine_.set_bpm(static_cast<double>(bpm_f));
+    }
+
+    ImGui::Spacing();
+    settings_toggle_row("Metronome Click", "##wu_met_sw", &metronome_enabled_);
+    bool auto_cont = cfg.auto_continue_passes;
+    if (settings_toggle_row("Auto-Continue Passes", "##wu_auto_sw", &auto_cont)) {
+      cfg.auto_continue_passes = auto_cont;
       config_changed = true;
     }
 
@@ -319,26 +471,103 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
         std::format("Configured {} \xC2\xB7 Play step 1", core::format_key_name(cfg.key));
   }
 
-  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
-
-  // Calm Progress & Feedback Row
   const auto steps = engine_.steps();
   const std::size_t cur_step = engine_.current_step_index();
+
+  // Compact 4-Station Circuit Stepper (shown when exercise contains multiple stations)
+  if (cfg.exercise == core::WarmUpExerciseKind::FullCircuit ||
+      cfg.exercise == core::WarmUpExerciseKind::ScaleAndCadence) {
+    ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
+    bool first_pill = true;
+    constexpr std::array<core::WarmUpStation, 4> kAllStations{
+        core::WarmUpStation::ParallelScale,
+        core::WarmUpStation::TonicArpeggio,
+        core::WarmUpStation::TriadInversions,
+        core::WarmUpStation::VoiceLedCadence,
+    };
+    const auto active_st = engine_.active_station();
+    int display_num = 1;
+    for (const auto st : kAllStations) {
+      const bool present =
+          std::any_of(steps.begin(), steps.end(), [st](const auto& s) { return s.station == st; });
+      if (!present) {
+        continue;
+      }
+      bool all_done = true;
+      for (std::size_t i = 0; i < steps.size(); ++i) {
+        if (steps[i].station == st &&
+            engine_.step_feedback(i) != core::WarmUpStepFeedback::Correct) {
+          all_done = false;
+          break;
+        }
+      }
+      const bool is_active = (!engine_.is_complete() && active_st.has_value() && *active_st == st);
+      StatusTone tone = StatusTone::Neutral;
+      IconId ico = IconId::None;
+      if (all_done) {
+        tone = StatusTone::Success;
+        ico = IconId::Check;
+      } else if (is_active) {
+        tone = StatusTone::Accent;
+      }
+      if (!first_pill) {
+        ImGui::SameLine(0.0f, 6.0f * scale);
+      }
+      first_pill = false;
+      const std::string pill_lbl =
+          std::format("{}. {}", display_num++, core::warmup_station_name(st));
+      status_pill(pill_lbl, tone, ico, true);
+    }
+  }
+
+  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+
+  // Calm Progress, Count-In, Transition Breather & Feedback Row
   const float progress =
       steps.empty() ? 0.0f : static_cast<float>(cur_step) / static_cast<float>(steps.size());
 
-  StatusTone fb_tone = StatusTone::Neutral;
-  if (last_feedback_ == NoteFeedback::Correct) {
-    fb_tone = StatusTone::Success;
-  } else if (last_feedback_ == NoteFeedback::Incorrect) {
-    fb_tone = StatusTone::Danger;
+  if (engine_.phase_state() == core::WarmUpPhaseState::PassTransition) {
+    const double rem_sec = engine_.transition_remaining_ms() / 1000.0;
+    std::string trans_lbl = std::format("Starting next pass in {:.1f}s", rem_sec);
+    if (const auto& sum = engine_.last_pass_summary(); sum.has_value()) {
+      if (sum->next_pacing_mode == core::WarmUpPacingMode::GuidedPulse) {
+        trans_lbl = std::format("Pass {} ({:.0f}%) \xE2\x86\x92 Pass {} at {:.0f} BPM in {:.1f}s",
+                                sum->pass_number, sum->pitch_accuracy * 100.0, sum->pass_number + 1,
+                                sum->next_bpm, rem_sec);
+      } else {
+        trans_lbl = std::format("Pass {} ({:.0f}%) \xE2\x86\x92 Repeating Explore pass in {:.1f}s",
+                                sum->pass_number, sum->pitch_accuracy * 100.0, rem_sec);
+      }
+    }
+    status_pill(trans_lbl, StatusTone::Success, IconId::Sparkles, true);
+    ImGui::SameLine(0.0f, 8.0f * scale);
+    if (pill_button("Start Now##wu_skip_trans", ButtonTone::SoftAccent, IconId::Play, 26.0f, 0.0f,
+                    true, "C8")) {
+      skip_transition_now();
+    }
+  } else if (engine_.phase_state() == core::WarmUpPhaseState::CountIn) {
+    const std::string ci_lbl =
+        std::format("Count-In: Beat {} / 4  \xC2\xB7  {:.0f} BPM",
+                    std::clamp(engine_.count_in_beat(), 1, 4), engine_.current_bpm());
+    status_pill(ci_lbl, StatusTone::Accent, IconId::Metronome, true);
+  } else {
+    StatusTone fb_tone = StatusTone::Neutral;
+    if (last_feedback_ == NoteFeedback::Correct) {
+      fb_tone = StatusTone::Success;
+    } else if (last_feedback_ == NoteFeedback::Incorrect) {
+      fb_tone = StatusTone::Danger;
+    }
+    status_pill(status_banner_, fb_tone, IconId::None, true);
   }
-  status_pill(status_banner_, fb_tone, IconId::None, true);
 
   ImGui::SameLine(0.0f, 12.0f * scale);
-  const std::string stats_lbl = std::format(
-      "Step {}/{}  \xC2\xB7  Runs: {}  \xC2\xB7  {:.0f}%", std::min(cur_step + 1, steps.size()),
-      steps.size(), engine_.completed_runs(), engine_.accuracy_ratio() * 100.0);
+  std::string stats_lbl = std::format("Step {}/{}  \xC2\xB7  Runs: {}  \xC2\xB7  {:.0f}%",
+                                      std::min(cur_step + 1, steps.size()), steps.size(),
+                                      engine_.completed_runs(), engine_.accuracy_ratio() * 100.0);
+  if (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse &&
+      engine_.pass_evenness_ratio() > 0.0) {
+    stats_lbl += std::format("  \xC2\xB7  Pulse {:.0f}%", engine_.pass_evenness_ratio() * 100.0);
+  }
   {
     ScopedFont sub(TypeStyle::Subheadline);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f * scale);
@@ -348,9 +577,9 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   ImGui::Spacing();
   progress_bar_capsule(engine_.is_complete() ? 1.0f : progress, ImVec2(-1.0f, 5.0f * scale),
                        engine_.is_complete() ? c.success : c.accent);
-  ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+  ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
 
-  // Build paged Grand Staff view (4 bars per page)
+  // Build paged Grand Staff view (4 bars per page, cleanly split by station & hand)
   const auto bars = partition_warmup_bars(steps);
   std::size_t active_bar = 0;
   if (!bars.empty()) {
@@ -393,9 +622,10 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
       }
 
       StaffChord chord{};
-      chord.duration = step.is_cadence ? NoteDuration::Half : NoteDuration::Quarter;
+      chord.duration = (step.beat_duration >= 2) ? NoteDuration::Half : NoteDuration::Quarter;
       chord.annotation = step.label;
-      chord.is_active_cursor = (!engine_.is_complete() && s_idx == cur_step);
+      chord.is_active_cursor = (!engine_.is_complete() && s_idx == cur_step &&
+                                engine_.phase_state() == core::WarmUpPhaseState::Playing);
 
       for (std::size_t n = 0; n < step.notes.size(); ++n) {
         chord.notes.push_back(StaffNote{
@@ -413,10 +643,12 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
 
   {
     ScopedFont cap(TypeStyle::Caption);
-    ImGui::TextColored(c.text_tertiary, "PAGE %zu OF %zu  \xC2\xB7  %s", current_page, total_pages,
-                       (cur_step < steps.size() && steps[cur_step].is_cadence)
-                           ? "PRIMARY TRIAD CADENCE"
-                           : "SCALE (ASCENDING & DESCENDING)");
+    const std::string_view heading =
+        (!steps.empty() && cur_step < steps.size())
+            ? station_banner_heading(steps[cur_step])
+            : (!steps.empty() ? station_banner_heading(steps.back()) : "WARM-UP");
+    ImGui::TextColored(c.text_tertiary, "PAGE %zu OF %zu  \xC2\xB7  %.*s", current_page,
+                       total_pages, static_cast<int>(heading.size()), heading.data());
   }
   ImGui::Spacing();
 

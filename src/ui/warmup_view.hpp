@@ -12,6 +12,8 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
+#include <string>
 #include <vector>
 
 struct ImFont;
@@ -22,15 +24,30 @@ class WarmUpView {
 public:
   WarmUpView();
 
-  void set_weekly_key(core::KeySignature key, core::MinorScaleMode minor_mode);
+  void set_weekly_key(core::KeySignature key, core::MinorScaleMode minor_mode,
+                      double key_bpm = core::kDefaultWarmUpBpm);
   [[nodiscard]] core::KeySignature key() const noexcept { return engine_.config().key; }
   [[nodiscard]] core::MinorScaleMode minor_mode() const noexcept {
     return engine_.config().minor_mode;
   }
 
-  void on_played_chord(const midi::PlayedChord& chord);
+  // Returns true if a pass just completed cleanly (emit confirmation chime + persist best BPM).
+  bool on_played_chord(const midi::PlayedChord& chord);
+  void update(double dt_ms, bool& out_click, bool& out_accent);
   void reset_pass();
+  void pause_transport() noexcept { engine_.set_paused(true); }
+  void resume_transport() noexcept { engine_.set_paused(false); }
+  [[nodiscard]] bool toggle_pause() noexcept;
+  void skip_transition_now() noexcept;
   [[nodiscard]] int toggle_octaves();
+  [[nodiscard]] bool toggle_metronome() noexcept;
+  [[nodiscard]] bool metronome_enabled() const noexcept { return metronome_enabled_; }
+  void set_metronome_enabled(bool enabled) noexcept { metronome_enabled_ = enabled; }
+  [[nodiscard]] bool is_mid_station() const noexcept { return engine_.is_mid_station(); }
+  [[nodiscard]] std::optional<double> best_clean_bpm() const noexcept {
+    return engine_.best_clean_bpm();
+  }
+
   [[nodiscard]] std::size_t expected_chord_cardinality() const noexcept;
   [[nodiscard]] std::vector<midi::ScheduledMidiNote>
   build_current_step_preview(double now_ms) const;
@@ -48,7 +65,8 @@ public:
 private:
   core::WarmUpEngine engine_;
   bool light_paper_theme_{true};
-  std::string status_banner_{"Play the highlighted step on MIDI IN, Virtual Piano, or QWERTY"};
+  bool metronome_enabled_{true};
+  std::string status_banner_{"Play step 1 on MIDI IN, Virtual Piano, or QWERTY"};
   NoteFeedback last_feedback_{NoteFeedback::Neutral};
 };
 
