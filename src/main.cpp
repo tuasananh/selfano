@@ -72,6 +72,7 @@ struct CliOptions {
   AppMode initial_mode{AppMode::Home};
   selfano::core::AutopilotStage initial_free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
   int initial_dev_subtab{0};
+  std::optional<selfano::ui::ShowcasePreset> showcase_preset{};
   std::optional<selfano::ui::AppTheme> theme_override{};
   bool open_keymap{false};
   bool force_key_hints{false};
@@ -193,6 +194,11 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
         opts.theme_override = selfano::ui::AppTheme::Dark;
       } else if (t == "light") {
         opts.theme_override = selfano::ui::AppTheme::Light;
+      }
+    } else if (arg == "--showcase-preset" && i + 1 < argc) {
+      const std::string_view p = argv[++i];
+      if (p == "classical") {
+        opts.showcase_preset = selfano::ui::ShowcasePreset::ClassicalNotationSpecimen;
       }
     } else if (arg == "--keymap") {
       opts.open_keymap = true;
@@ -1523,6 +1529,9 @@ struct AppContext {
     app_mode = cli.initial_mode;
     free_stage = cli.initial_free_stage;
     dev_subtab = cli.initial_dev_subtab;
+    if (cli.showcase_preset.has_value()) {
+      staff_showcase.set_preset(*cli.showcase_preset);
+    }
     show_piano_remote_overlay = cli.open_keymap;
 
     if (cli.initial_mode == AppMode::Autopilot) {

@@ -19,7 +19,7 @@ namespace selfano::ui {
 namespace {
 
 inline constexpr float kTopMarginSpaces = 5.4f;
-inline constexpr float kTopMarginHarmonyExtraSpaces = 2.0f;
+inline constexpr float kTopMarginHarmonyExtraSpaces = 2.8f;
 inline constexpr float kBottomMarginSpaces = 5.0f;
 inline constexpr float kStaffHeightSpaces = 4.0f;
 
@@ -484,7 +484,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
 
   // 2. Render rests, stems, flags, ledger lines, noteheads, dots, fingerings & collect ties
   ImFont* finger_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
-  const float finger_size_px = draw_font_size(10.5f);
+  const float finger_size_px = draw_font_size(9.5f);
 
   for (std::size_t s_idx = 0; s_idx < slots.size(); ++s_idx) {
     const auto& slot = slots[s_idx];
@@ -888,15 +888,20 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
         }
 
         if (ann_font != nullptr && !chord.annotation.empty()) {
-          const float ann_size_px = draw_font_size(12.0f);
+          const float ann_size_px = draw_font_size(11.5f);
           const ImVec2 ann_sz =
               ann_font->CalcTextSizeA(ann_size_px, FLT_MAX, 0.0f, chord.annotation.c_str());
           const float ann_x =
-              chord_x + notehead_width_spaces(chord.duration) * 0.5f * s - ann_sz.x * 0.5f;
+              options.show_harmony_labels
+                  ? (m_x0 + 0.35f * s)
+                  : (chord_x + notehead_width_spaces(chord.duration) * 0.5f * s - ann_sz.x * 0.5f);
           const float ann_y =
-              options.show_harmony_labels ? (system_top_y - 2.3f * s) : (system_top_y - 4.2f * s);
+              options.show_harmony_labels ? (system_top_y - 7.15f * s) : (system_top_y - 4.2f * s);
+          const ImU32 ann_col = options.show_harmony_labels
+                                    ? apply_alpha_scale(pal.annotation, 0.80f)
+                                    : pal.annotation;
           draw_list->AddText(ann_font, ann_size_px, ImVec2(std::round(ann_x), std::round(ann_y)),
-                             pal.annotation, chord.annotation.c_str());
+                             ann_col, chord.annotation.c_str());
         }
       }
     }
@@ -910,12 +915,12 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
         const float hx = inner_m_x0 + pad_left + frac * usable_w;
         if (!hl.chord_symbol.empty()) {
           draw_list->AddText(ann_font, chord_sz_px,
-                             ImVec2(std::round(hx), std::round(system_top_y - 5.9f * s)),
+                             ImVec2(std::round(hx), std::round(system_top_y - 5.45f * s)),
                              pal.harmony_chord, hl.chord_symbol.c_str());
         }
         if (!hl.roman_numeral.empty() && roman_font != nullptr) {
           draw_list->AddText(roman_font, roman_sz_px,
-                             ImVec2(std::round(hx), std::round(system_top_y - 4.45f * s)),
+                             ImVec2(std::round(hx), std::round(system_top_y - 4.05f * s)),
                              pal.annotation, hl.roman_numeral.c_str());
         }
       }
