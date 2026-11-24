@@ -132,6 +132,7 @@ add_library(piano_core STATIC
   src/core/piano_remote.cpp
   src/core/lesson_score.cpp
   src/core/lesson_engine.cpp
+  src/core/lesson_library.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -221,9 +222,10 @@ if(NOT EMSCRIPTEN)
     COMMENT "Copying assets to runtime directory"
   )
 else()
+  file(GLOB SELFANO_LESSON_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/lessons/*.json")
   set_target_properties(selfano PROPERTIES
     SUFFIX ".html"
-    LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
+    LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${SELFANO_LESSON_FILES}"
   )
   target_link_options(selfano PRIVATE
     "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
@@ -258,7 +260,11 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/piano_remote_tests.cpp
     tests/lesson_score_tests.cpp
     tests/lesson_engine_tests.cpp
+    tests/lesson_library_tests.cpp
     tests/midi_tests.cpp
+  )
+  target_compile_definitions(selfano_tests PRIVATE
+    SELFANO_SOURCE_ASSETS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets"
   )
   target_link_libraries(selfano_tests
     PRIVATE

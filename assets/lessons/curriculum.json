@@ -1,0 +1,48 @@
+{
+  "tiers": [
+    {
+      "tier": 1,
+      "title": "Tier 1 - Reading Foundations & Hand Independence",
+      "subtitle": "0-1 Sharp/Flat",
+      "focus": "Landmarks, 5-finger shapes, steady two-hand alignment"
+    },
+    {
+      "tier": 2,
+      "title": "Tier 2 - Accompaniment Patterns & 8th-Note Flow",
+      "subtitle": "Up to 1 Sharp/Flat",
+      "focus": "Alberti bass, waltz LH, dotted rhythms, and barline ties"
+    },
+    {
+      "tier": 3,
+      "title": "Tier 3 - Two-Voice Independence & Romantic Articulation",
+      "subtitle": "Up to 2 Sharps/Flats",
+      "focus": "Baroque counterpoint, 2/4 & 3/4 meters, Romantic phrasing"
+    },
+    {
+      "tier": 4,
+      "title": "Tier 4 - Harmonic Chunking & Classical Form",
+      "subtitle": "2-3 Sharps/Flats",
+      "focus": "Modulations, secondary dominants, 16th-note independence, 6/8 meter"
+    },
+    {
+      "tier": 5,
+      "title": "Tier 5 - Early Chopin & Romantic Voicing",
+      "subtitle": "3-4 Sharps/Flats",
+      "focus": "Cantabile top-note voicing, wide LH stride leaps, chromatic voice-leading"
+    },
+    {
+      "tier": 6,
+      "title": "Tier 6 - Bridge to Chopin Ballade No. 1",
+      "subtitle": "Op. 23 Keys & Idioms",
+      "focus": "Neapolitan 6th (bII6), 6/4 waltz-barcarolle lilt, sharp/flat fluency"
+    }
+  ],
+  "lessons": [
+    "t1_01",
+    "t2_04",
+    "t3_01",
+    "t4_03",
+    "t5_02",
+    "t6_04"
+  ]
+}

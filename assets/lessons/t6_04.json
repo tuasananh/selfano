@@ -1,0 +1,2276 @@
+{
+  "meta": {
+    "id": "t6_04",
+    "tier": 6,
+    "order_in_tier": 4,
+    "title": "Ballade No. 1 - Moderato Theme Study (6/4 Lilt)",
+    "composer_source": "Frederic Chopin, Op. 23 mm. 8-23 Idiom Study",
+    "key": {
+      "fifths": -2,
+      "mode": "minor"
+    },
+    "time_signature": {
+      "numerator": 6,
+      "denominator": 4
+    },
+    "target_bpm": 96.0,
+    "theory": {
+      "summary": "Trains the iconic 6/4 barcarolle-waltz accompaniment and singing G-minor melody of Ballade No. 1.",
+      "pattern_tip": "Hear each 6/4 bar as two graceful three-beat groups: bass on beat 1, warm inner chord on beat 2, breath on beat 3.",
+      "technique_tip": "Keep the left hand light and buoyant on the bass-to-chord leaps so the right-hand cantabile melody floats above.",
+      "ballade_link": "Direct rhythmic, harmonic (i -> iv -> V7/V -> V7 -> bII6 -> i6/4 -> V7 -> i), and textural bridge to Op. 23 mm. 8-23."
+    }
+  },
+  "measures": [
+    {
+      "bar_number": 1,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D4",
+              "midi": 62,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D5",
+              "midi": 74,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Gm",
+          "roman_numeral": "i"
+        }
+      ]
+    },
+    {
+      "bar_number": 2,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": true,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#4",
+              "midi": 66,
+              "finger": 2
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D2",
+              "midi": 38,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A3",
+              "midi": 57,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 4
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "D7",
+          "roman_numeral": "V7"
+        }
+      ]
+    },
+    {
+      "bar_number": 3,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 1
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 4
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Gm",
+          "roman_numeral": "i"
+        }
+      ]
+    },
+    {
+      "bar_number": 4,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "whole",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#4",
+              "midi": 66,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D2",
+              "midi": 38,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A3",
+              "midi": 57,
+              "finger": 2
+            },
+            {
+              "spell": "D4",
+              "midi": 62,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 3
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "D7",
+          "roman_numeral": "V7"
+        }
+      ]
+    },
+    {
+      "bar_number": 5,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D4",
+              "midi": 62,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D5",
+              "midi": 74,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb5",
+              "midi": 75,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 3
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C2",
+              "midi": 36,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Eb4",
+              "midi": 63,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C3",
+              "midi": 48,
+              "finger": 4
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Eb4",
+              "midi": 63,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C3",
+              "midi": 48,
+              "finger": 4
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Cm",
+          "roman_numeral": "iv"
+        }
+      ]
+    },
+    {
+      "bar_number": 6,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": true,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 2
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A2",
+              "midi": 45,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "C#4",
+              "midi": 61,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "E3",
+              "midi": 52,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "C#4",
+              "midi": 61,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A2",
+              "midi": 45,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "A7",
+          "roman_numeral": "V7/V"
+        }
+      ]
+    },
+    {
+      "bar_number": 7,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#4",
+              "midi": 66,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D5",
+              "midi": 74,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 4
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D2",
+              "midi": 38,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A3",
+              "midi": 57,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 4
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "D7",
+          "roman_numeral": "V7"
+        }
+      ]
+    },
+    {
+      "bar_number": 8,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "whole",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 4
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Gm",
+          "roman_numeral": "i"
+        }
+      ]
+    },
+    {
+      "bar_number": 9,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G5",
+              "midi": 79,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F5",
+              "midi": 77,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb5",
+              "midi": 75,
+              "finger": 3
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb2",
+              "midi": 39,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb2",
+              "midi": 46,
+              "finger": 4
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Eb4",
+              "midi": 63,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Eb",
+          "roman_numeral": "VI"
+        }
+      ]
+    },
+    {
+      "bar_number": 10,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": true,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D5",
+              "midi": 74,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 2
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F2",
+              "midi": 41,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A3",
+              "midi": 57,
+              "finger": 2
+            },
+            {
+              "spell": "Eb4",
+              "midi": 63,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C3",
+              "midi": 48,
+              "finger": 4
+            },
+            {
+              "spell": "A3",
+              "midi": 57,
+              "finger": 2
+            },
+            {
+              "spell": "Eb4",
+              "midi": 63,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F2",
+              "midi": 41,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "F7",
+          "roman_numeral": "V7/VI"
+        }
+      ]
+    },
+    {
+      "bar_number": 11,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D5",
+              "midi": 74,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb2",
+              "midi": 46,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F3",
+              "midi": 53,
+              "finger": 2
+            },
+            {
+              "spell": "D4",
+              "midi": 62,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 4
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb2",
+              "midi": 46,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Bb",
+          "roman_numeral": "III"
+        }
+      ]
+    },
+    {
+      "bar_number": 12,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": true,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C3",
+              "midi": 48,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Cm7",
+          "roman_numeral": "iv7"
+        }
+      ]
+    },
+    {
+      "bar_number": 13,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D5",
+              "midi": 74,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb2",
+              "midi": 39,
+              "finger": 5
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Gm",
+          "roman_numeral": "i"
+        }
+      ]
+    },
+    {
+      "bar_number": 14,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Ab4",
+              "midi": 68,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C5",
+              "midi": 72,
+              "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C2",
+              "midi": 36,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
+            },
+            {
+              "spell": "Ab3",
+              "midi": 56,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C3",
+              "midi": 48,
+              "finger": 4
+            },
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
+            },
+            {
+              "spell": "Ab3",
+              "midi": 56,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 2400,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C3",
+              "midi": 48,
+              "finger": 4
+            }
+          ]
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Ab/C",
+          "roman_numeral": "bII6"
+        }
+      ]
+    },
+    {
+      "bar_number": 15,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "Bb4",
+              "midi": 70,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "F#4",
+              "midi": 66,
+              "finger": 1
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D2",
+              "midi": 38,
+              "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 2
+            },
+            {
+              "spell": "Bb3",
+              "midi": 58,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        },
+        {
+          "start_tick": 1440,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
+            },
+            {
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 2
+            },
+            {
+              "spell": "C4",
+              "midi": 60,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Gm/D",
+          "roman_numeral": "i6/4"
+        },
+        {
+          "start_tick": 1440,
+          "chord_symbol": "D7",
+          "roman_numeral": "V7"
+        }
+      ]
+    },
+    {
+      "bar_number": 16,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "whole",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G4",
+              "midi": 67,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "whole",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G2",
+              "midi": 43,
+              "finger": 5
+            },
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 2
+            },
+            {
+              "spell": "G3",
+              "midi": 55,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 1920,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": [
+        {
+          "start_tick": 0,
+          "chord_symbol": "Gm",
+          "roman_numeral": "i"
+        }
+      ]
+    }
+  ],
+  "phrases": [
+    {
+      "label": "Phrase A (Bars 1-4)",
+      "start_bar": 0,
+      "end_bar": 3
+    },
+    {
+      "label": "Phrase B (Bars 5-8)",
+      "start_bar": 4,
+      "end_bar": 7
+    },
+    {
+      "label": "Phrase C (Bars 9-12)",
+      "start_bar": 8,
+      "end_bar": 11
+    },
+    {
+      "label": "Phrase D (Bars 13-16)",
+      "start_bar": 12,
+      "end_bar": 15
+    }
+  ]
+}
