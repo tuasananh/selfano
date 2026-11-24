@@ -54,11 +54,12 @@ TEST_CASE("PianoRemote pauses inside MIDI Monitor and gates Companion Mode on So
     REQUIRE(resolve_piano_remote_action(108, mon) == PianoRemoteAction::None);
   }
 
-  SECTION("Companion Mode requires Soft Pedal (CC 67) held") {
+  SECTION("Companion Mode / Soft-Pedal Guard requires Soft Pedal (CC 67) held") {
     PianoRemoteContext comp{.enabled = true,
                             .in_midi_monitor = false,
-                            .active_stage = AutopilotStage::Stage3Companion,
-                            .soft_pedal_held = false};
+                            .active_stage = std::nullopt,
+                            .soft_pedal_held = false,
+                            .require_soft_pedal_guard = true};
     REQUIRE(resolve_piano_remote_action(103, comp) == PianoRemoteAction::None);
     REQUIRE(resolve_piano_remote_action(21, comp) == PianoRemoteAction::None);
 

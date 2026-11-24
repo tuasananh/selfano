@@ -13,7 +13,7 @@ enum class AutopilotStage : std::uint8_t {
   Stage1WarmUp = 0,
   Stage2AFlashcards = 1,
   Stage2BEtudes = 2,
-  Stage3Companion = 3,
+  Stage3Lessons = 3,
   Stage4ASrs = 4,
   Stage4BEarTrainer = 5,
 };
@@ -29,7 +29,7 @@ inline constexpr std::array<AutopilotBlockSpec, 6> kAutopilotBlocks{{
     {AutopilotStage::Stage1WarmUp, "Stage 1: Key & Harmony Warm-Up", "1/4", 300.0},
     {AutopilotStage::Stage2AFlashcards, "Stage 2A: Adaptive Flashcards", "2/4", 180.0},
     {AutopilotStage::Stage2BEtudes, "Stage 2B: Continuous Etudes", "2/4", 420.0},
-    {AutopilotStage::Stage3Companion, "Stage 3: Companion Mode", "3/4", 600.0},
+    {AutopilotStage::Stage3Lessons, "Stage 3: Guided Lessons", "3/4", 600.0},
     {AutopilotStage::Stage4ASrs, "Stage 4A: Retention SRS Deck", "4/4", 150.0},
     {AutopilotStage::Stage4BEarTrainer, "Stage 4B: Procedural Ear Check", "4/4", 150.0},
 }};
@@ -53,6 +53,9 @@ struct SessionSummary {
   double flashcard_rt_delta_ms{0.0};
   double etude_accuracy{0.0};
   std::uint32_t etude_bars_read{0};
+  std::uint32_t lesson_runs_completed{0};
+  std::uint32_t lesson_revisions_completed{0};
+  std::string active_lesson_title{};
   std::uint32_t companion_reps{0};
   std::uint32_t srs_cards_reviewed{0};
   std::uint32_t ear_melodies_solved{0};

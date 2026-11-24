@@ -15,7 +15,8 @@
 namespace selfano::ui {
 
 bool draw_piano_remote_overlay(bool& is_open, bool& piano_remote_enabled,
-                               std::optional<core::AutopilotStage> active_stage) {
+                               std::optional<core::AutopilotStage> active_stage,
+                               bool soft_pedal_guard_active) {
   if (!is_open) {
     return false;
   }
@@ -95,11 +96,12 @@ bool draw_piano_remote_overlay(bool& is_open, bool& piano_remote_enabled,
       pref_changed = true;
     }
 
-    if (active_stage == core::AutopilotStage::Stage3Companion) {
+    if (soft_pedal_guard_active) {
       ImGui::Spacing();
-      status_pill("Companion Mode Guard Active: Hold Soft Pedal (CC 67) + key to trigger",
+      status_pill("Soft Pedal Guard Active: Hold Soft Pedal (CC 67) + key to trigger",
                   StatusTone::Warning, IconId::Sparkles);
     }
+    (void)active_stage;
 
     hairline_separator(8.0f);
 

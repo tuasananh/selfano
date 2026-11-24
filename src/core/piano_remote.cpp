@@ -7,9 +7,9 @@ PianoRemoteAction resolve_piano_remote_action(MidiPitch midi_note,
   if (!ctx.enabled || ctx.in_midi_monitor || !is_piano_remote_key(midi_note)) {
     return PianoRemoteAction::None;
   }
-  // In Companion Mode, require holding Soft Pedal (CC 67) so expressive high/low repertoire notes
-  // never accidentally trigger app commands.
-  if (ctx.active_stage == AutopilotStage::Stage3Companion && !ctx.soft_pedal_held) {
+  // In Companion Mode or extreme-register lessons (<24 or >=96), require holding Soft Pedal
+  // (CC 67) so expressive high/low repertoire notes never accidentally trigger app commands.
+  if (ctx.require_soft_pedal_guard && !ctx.soft_pedal_held) {
     return PianoRemoteAction::None;
   }
 

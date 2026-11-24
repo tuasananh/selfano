@@ -88,6 +88,25 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   profile.preferences.piano_remote_enabled = false;
   profile.warmup_key_bpm["C Major"] = 88.0;
   profile.warmup_key_bpm["D Minor"] = 80.0;
+  profile.active_lesson_id = "t3_01";
+  profile.lesson_progress["t1_01"] = LessonProgress{
+      .status = LessonMasteryStatus::Mastered,
+      .best_accuracy = 0.96,
+      .best_clean_bpm = 76.0,
+      .ladder_60_clean = true,
+      .ladder_80_clean = true,
+      .ladder_100_clean = true,
+      .added_to_srs = true,
+      .review_interval_days = 6,
+      .review_ease_factor = 2.6,
+      .review_repetitions = 2,
+      .review_due_epoch_day = today + 6,
+      .last_practiced_epoch_day = today,
+  };
+  profile.imported_lesson_ids = {"imp_abc123"};
+  profile.preferences.sync_weekly_key_to_lesson = false;
+  profile.preferences.lesson_show_fingerings = false;
+  profile.preferences.lesson_show_harmony = true;
 
   const std::string json_text = to_json_string(profile);
   const auto parsed = from_json_string(json_text);
@@ -103,12 +122,18 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     const auto res = from_json_string(minimal);
     REQUIRE(res.has_value());
     REQUIRE(res->schema_version == 1);
+    REQUIRE(res->active_lesson_id == "t1_01");
+    REQUIRE(res->lesson_progress.empty());
+    REQUIRE(res->imported_lesson_ids.empty());
     REQUIRE(res->repertoire_phrases.empty());
     REQUIRE(res->srs_cards.empty());
     REQUIRE(res->preferences.default_bpm == 72.0);
     REQUIRE_FALSE(res->preferences.dark_ui_theme);
     REQUIRE(res->preferences.ui_zoom == 1.0);
     REQUIRE(res->preferences.piano_remote_enabled);
+    REQUIRE(res->preferences.sync_weekly_key_to_lesson);
+    REQUIRE(res->preferences.lesson_show_fingerings);
+    REQUIRE(res->preferences.lesson_show_harmony);
     REQUIRE(res->warmup_key_bpm.empty());
   }
 

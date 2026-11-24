@@ -14,6 +14,7 @@ TEST_CASE("kAutopilotBlocks splits 30:00 across all 6 stages accurately", "[auto
   REQUIRE(kAutopilotBlocks[0].duration_sec == 300.0);
   REQUIRE(kAutopilotBlocks[1].duration_sec == 180.0);
   REQUIRE(kAutopilotBlocks[2].duration_sec == 420.0);
+  REQUIRE(kAutopilotBlocks[3].stage == AutopilotStage::Stage3Lessons);
   REQUIRE(kAutopilotBlocks[3].duration_sec == 600.0);
   REQUIRE(kAutopilotBlocks[4].duration_sec == 150.0);
   REQUIRE(kAutopilotBlocks[5].duration_sec == 150.0);

@@ -12,6 +12,7 @@ namespace selfano::ui {
 struct HomeDashboardActions {
   bool start_autopilot{false};
   std::optional<core::AutopilotStage> open_free_stage{};
+  bool open_companion_tool{false};
   bool weekly_key_changed{false};
 };
 

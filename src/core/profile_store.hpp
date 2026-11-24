@@ -4,6 +4,7 @@
 #include "core/ear_trainer.hpp"
 #include "core/etude_engine.hpp"
 #include "core/flashcard_engine.hpp"
+#include "core/lesson_engine.hpp"
 #include "core/srs_deck.hpp"
 #include "core/weekly_key.hpp"
 
@@ -34,6 +35,9 @@ struct UserPreferences {
   bool dark_ui_theme{false};
   double ui_zoom{1.0};
   bool piano_remote_enabled{true};
+  bool sync_weekly_key_to_lesson{true};
+  bool lesson_show_fingerings{true};
+  bool lesson_show_harmony{true};
 
   bool operator==(const UserPreferences&) const = default;
 };
@@ -46,6 +50,9 @@ struct PracticeHistoryEntry {
   double flashcard_accuracy{0.0};
   double flashcard_avg_rt_ms{0.0};
   double etude_accuracy{0.0};
+  std::uint32_t lesson_runs_completed{0};
+  std::uint32_t lesson_revisions_completed{0};
+  std::string active_lesson_title{};
   std::uint32_t companion_reps{0};
   std::uint32_t srs_cards_reviewed{0};
   std::uint32_t ear_melodies_solved{0};
@@ -59,6 +66,9 @@ struct UserProfile {
   std::map<std::string, ShapeTelemetry> flashcard_telemetry{};
   std::map<std::string, double> warmup_key_bpm{};
   EarTrainerProgress ear_progress{};
+  std::string active_lesson_id{"t1_01"};
+  std::map<std::string, LessonProgress> lesson_progress{};
+  std::vector<std::string> imported_lesson_ids{};
   std::vector<RepertoirePhrase> repertoire_phrases{};
   std::vector<SrsCard> srs_cards{};
   std::vector<PracticeHistoryEntry> practice_history{};

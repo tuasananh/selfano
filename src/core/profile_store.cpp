@@ -202,6 +202,28 @@ std::string to_json_string(const UserProfile& profile) {
       {"manual_tier_override", profile.ear_progress.manual_tier_override},
   };
 
+  j["active_lesson_id"] = profile.active_lesson_id;
+
+  json lp_obj = json::object();
+  for (const auto& [lid, lp] : profile.lesson_progress) {
+    lp_obj[lid] = {
+        {"status", static_cast<int>(lp.status)},
+        {"best_accuracy", lp.best_accuracy},
+        {"best_clean_bpm", lp.best_clean_bpm},
+        {"ladder_60_clean", lp.ladder_60_clean},
+        {"ladder_80_clean", lp.ladder_80_clean},
+        {"ladder_100_clean", lp.ladder_100_clean},
+        {"added_to_srs", lp.added_to_srs},
+        {"review_interval_days", lp.review_interval_days},
+        {"review_ease_factor", lp.review_ease_factor},
+        {"review_repetitions", lp.review_repetitions},
+        {"review_due_epoch_day", lp.review_due_epoch_day},
+        {"last_practiced_epoch_day", lp.last_practiced_epoch_day},
+    };
+  }
+  j["lesson_progress"] = std::move(lp_obj);
+  j["imported_lesson_ids"] = profile.imported_lesson_ids;
+
   json rep_arr = json::array();
   for (const auto& phrase : profile.repertoire_phrases) {
     rep_arr.push_back({
@@ -238,6 +260,9 @@ std::string to_json_string(const UserProfile& profile) {
         {"flashcard_accuracy", h.flashcard_accuracy},
         {"flashcard_avg_rt_ms", h.flashcard_avg_rt_ms},
         {"etude_accuracy", h.etude_accuracy},
+        {"lesson_runs_completed", h.lesson_runs_completed},
+        {"lesson_revisions_completed", h.lesson_revisions_completed},
+        {"active_lesson_title", h.active_lesson_title},
         {"companion_reps", h.companion_reps},
         {"srs_cards_reviewed", h.srs_cards_reviewed},
         {"ear_melodies_solved", h.ear_melodies_solved},
@@ -259,6 +284,9 @@ std::string to_json_string(const UserProfile& profile) {
       {"dark_ui_theme", profile.preferences.dark_ui_theme},
       {"ui_zoom", profile.preferences.ui_zoom},
       {"piano_remote_enabled", profile.preferences.piano_remote_enabled},
+      {"sync_weekly_key_to_lesson", profile.preferences.sync_weekly_key_to_lesson},
+      {"lesson_show_fingerings", profile.preferences.lesson_show_fingerings},
+      {"lesson_show_harmony", profile.preferences.lesson_show_harmony},
   };
 
   return j.dump(2);
@@ -345,6 +373,58 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
     p.ear_progress.tier = static_cast<EarDifficultyTier>(tier_int);
   }
 
+  if (!read_string_field(root, "active_lesson_id", p.active_lesson_id, err)) {
+    return std::unexpected(err);
+  }
+  if (p.active_lesson_id.empty()) {
+    p.active_lesson_id = "t1_01";
+  }
+
+  if (root.contains("lesson_progress")) {
+    const auto& lp_obj = root.at("lesson_progress");
+    if (!lp_obj.is_object()) {
+      return std::unexpected("Field 'lesson_progress' must be an object");
+    }
+    for (const auto& [lid, val] : lp_obj.items()) {
+      if (!val.is_object()) {
+        return std::unexpected("Lesson progress entry must be an object");
+      }
+      LessonProgress lp{};
+      int st_int = static_cast<int>(lp.status);
+      if (!read_int_field(val, "status", st_int, err) ||
+          !read_double_field(val, "best_accuracy", lp.best_accuracy, err) ||
+          !read_double_field(val, "best_clean_bpm", lp.best_clean_bpm, err) ||
+          !read_bool_field(val, "ladder_60_clean", lp.ladder_60_clean, err) ||
+          !read_bool_field(val, "ladder_80_clean", lp.ladder_80_clean, err) ||
+          !read_bool_field(val, "ladder_100_clean", lp.ladder_100_clean, err) ||
+          !read_bool_field(val, "added_to_srs", lp.added_to_srs, err) ||
+          !read_int_field(val, "review_interval_days", lp.review_interval_days, err) ||
+          !read_double_field(val, "review_ease_factor", lp.review_ease_factor, err) ||
+          !read_int_field(val, "review_repetitions", lp.review_repetitions, err) ||
+          !read_int_field(val, "review_due_epoch_day", lp.review_due_epoch_day, err) ||
+          !read_int_field(val, "last_practiced_epoch_day", lp.last_practiced_epoch_day, err)) {
+        return std::unexpected(err);
+      }
+      st_int = std::clamp(st_int, 0, 3);
+      lp.status = static_cast<LessonMasteryStatus>(st_int);
+      lp.review_ease_factor = std::clamp(lp.review_ease_factor, kMinEaseFactor, kMaxEaseFactor);
+      p.lesson_progress[lid] = lp;
+    }
+  }
+
+  if (root.contains("imported_lesson_ids")) {
+    const auto& arr = root.at("imported_lesson_ids");
+    if (!arr.is_array()) {
+      return std::unexpected("Field 'imported_lesson_ids' must be an array");
+    }
+    for (const auto& item : arr) {
+      if (!item.is_string()) {
+        return std::unexpected("Imported lesson ID must be a string");
+      }
+      p.imported_lesson_ids.push_back(item.get<std::string>());
+    }
+  }
+
   if (root.contains("repertoire_phrases")) {
     const auto& arr = root.at("repertoire_phrases");
     if (!arr.is_array()) {
@@ -407,6 +487,9 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
           !read_double_field(item, "flashcard_accuracy", h.flashcard_accuracy, err) ||
           !read_double_field(item, "flashcard_avg_rt_ms", h.flashcard_avg_rt_ms, err) ||
           !read_double_field(item, "etude_accuracy", h.etude_accuracy, err) ||
+          !read_int_field(item, "lesson_runs_completed", h.lesson_runs_completed, err) ||
+          !read_int_field(item, "lesson_revisions_completed", h.lesson_revisions_completed, err) ||
+          !read_string_field(item, "active_lesson_title", h.active_lesson_title, err) ||
           !read_int_field(item, "companion_reps", h.companion_reps, err) ||
           !read_int_field(item, "srs_cards_reviewed", h.srs_cards_reviewed, err) ||
           !read_int_field(item, "ear_melodies_solved", h.ear_melodies_solved, err)) {
@@ -436,7 +519,12 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
         !read_bool_field(pref, "light_paper_staff", p.preferences.light_paper_staff, err) ||
         !read_bool_field(pref, "dark_ui_theme", p.preferences.dark_ui_theme, err) ||
         !read_double_field(pref, "ui_zoom", p.preferences.ui_zoom, err) ||
-        !read_bool_field(pref, "piano_remote_enabled", p.preferences.piano_remote_enabled, err)) {
+        !read_bool_field(pref, "piano_remote_enabled", p.preferences.piano_remote_enabled, err) ||
+        !read_bool_field(pref, "sync_weekly_key_to_lesson", p.preferences.sync_weekly_key_to_lesson,
+                         err) ||
+        !read_bool_field(pref, "lesson_show_fingerings", p.preferences.lesson_show_fingerings,
+                         err) ||
+        !read_bool_field(pref, "lesson_show_harmony", p.preferences.lesson_show_harmony, err)) {
       return std::unexpected(err);
     }
     p.preferences.default_bpm = std::clamp(p.preferences.default_bpm, 40.0, 120.0);

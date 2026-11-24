@@ -24,8 +24,8 @@ namespace {
     return "Flashcards";
   case core::AutopilotStage::Stage2BEtudes:
     return "Etudes";
-  case core::AutopilotStage::Stage3Companion:
-    return "Companion";
+  case core::AutopilotStage::Stage3Lessons:
+    return "Lessons";
   case core::AutopilotStage::Stage4ASrs:
     return "SRS";
   case core::AutopilotStage::Stage4BEarTrainer:
@@ -279,7 +279,12 @@ AutopilotRecapActions draw_autopilot_recap(const core::SessionSummary& sum) {
          std::format("Avg {:.0f} ms", sum.flashcard_avg_rt_ms), c.indigo},
         {"ETUDES", std::format("{} bars", sum.etude_bars_read),
          std::format("{:.0f}% accuracy", sum.etude_accuracy * 100.0), c.success},
-        {"COMPANION MODE", std::format("{}", sum.companion_reps), "clean phrase reps", c.accent},
+        {"GUIDED LESSONS", std::format("{}", sum.lesson_runs_completed),
+         sum.lesson_revisions_completed > 0
+             ? std::format("{} revision(s) done", sum.lesson_revisions_completed)
+             : (sum.active_lesson_title.empty() ? std::string("curriculum runs")
+                                                : sum.active_lesson_title),
+         c.accent},
         {"RETENTION DECK", std::format("{}", sum.srs_cards_reviewed), "cards reviewed", c.warning},
         {"EAR TRAINER", std::format("{}", sum.ear_melodies_solved), "melodies solved", c.success},
     }};

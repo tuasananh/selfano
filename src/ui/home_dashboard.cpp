@@ -379,7 +379,7 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
     const bool show_btn_icons = (card_inner_w >= 250.0f * scale);
     if (pill_button("Companion##bento_comp", ButtonTone::Secondary,
                     show_btn_icons ? IconId::Chords : IconId::None, 30.0f)) {
-      actions.open_free_stage = core::AutopilotStage::Stage3Companion;
+      actions.open_companion_tool = true;
     }
     ImGui::SameLine(0.0f, 8.0f * scale);
     if (pill_button("Review##bento_srs", ButtonTone::SoftAccent,
@@ -415,8 +415,8 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
        core::AutopilotStage::Stage2AFlashcards},
       {"##tile_s2b", IconId::MusicNote, c.success, "Continuous Etudes", "Two-system sight-reading",
        core::AutopilotStage::Stage2BEtudes},
-      {"##tile_s3", IconId::Chords, c.accent, "Companion Mode", "Harmony tracking & chord maps",
-       core::AutopilotStage::Stage3Companion},
+      {"##tile_s3", IconId::Chords, c.accent, "Guided Lessons", "Classical curriculum & progress",
+       core::AutopilotStage::Stage3Lessons},
       {"##tile_s4a", IconId::Layers, c.warning, "Retention Deck", "SM-2 spaced repertoire recall",
        core::AutopilotStage::Stage4ASrs},
       {"##tile_s4b", IconId::Headphones, c.success, "Ear Trainer", "Play back melodies by ear",
