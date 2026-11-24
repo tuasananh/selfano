@@ -130,6 +130,7 @@ add_library(piano_core STATIC
   src/core/autopilot.cpp
   src/core/profile_store.cpp
   src/core/piano_remote.cpp
+  src/core/lesson_score.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -253,6 +254,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/autopilot_tests.cpp
     tests/profile_store_tests.cpp
     tests/piano_remote_tests.cpp
+    tests/lesson_score_tests.cpp
     tests/midi_tests.cpp
   )
   target_link_libraries(selfano_tests
