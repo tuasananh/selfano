@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-24
-- **Active Phase:** **Post-MVP Complete (Phases 0–6 + Apple UI Redesign + Stage 1 Guided Key Circuit)**
-- **Last Completed Phase:** Post-MVP — Stage 1 Guided Key Circuit & Adaptive Guided Pulse Warm-Up
+- **Active Phase:** **Phase 8 — Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI**
+- **Last Completed Phase:** Phase 7 — Core `LessonScore` Model & Classical Grand Staff Engraving Upgrade
 
 ---
 
@@ -125,6 +125,18 @@
   - `src/core/` purity check (zero UI/SDL/MIDI/clock/random includes/calls) and `clang-format --dry-run --Werror` clean on all modified files.
   - Headless Light & Dark visual screenshot verification confirmed crisp 4-station stepper, single-row header, and SMuFL staff alignment.
 
+### Phase 7 — Core `LessonScore` Model & Classical Grand Staff Engraving Upgrade
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_score.hpp/.cpp` (`kTicksPerQuarter = 480`, `TimeSignature`, `RhythmicValue`, `LessonNote`, `LessonEvent`, `HarmonicAnnotation`, `LessonMeasure`, `LessonPhrase`, `TheoryLens`, `LessonMetadata`, `LessonScore`, `parse_spelled_note`, `quantize_ticks_to_rhythmic_value`, `validate_lesson_score`, `auto_partition_phrases`, isolated `nlohmann/json` codec), `staff_layout.hpp/.cpp` (`compute_beam_groups` across `4/4`, `3/4`, `2/4`, `6/8`, `6/4` with secondary 16th beams/hooks & slope clamping; `resolve_tie_spans` for same-system and system-break ties)
+  - Catch2 unit tests (`tests/`): `lesson_score_tests.cpp`, expanded `staff_layout_tests.cpp`
+  - UI & engraving (`src/ui/`, `src/main.cpp`): `smufl_glyphs.hpp` (time signature digits `U+E080..E089`, flags `U+E240..E243`, rests `U+E4E6..E4E7`, augmentation dot `U+E1E7`), backward-compatible `staff_renderer.hpp/.cpp` (arbitrary meters, sloped primary/secondary beams, hooks, flags, dots, Bezier ties, fingerings `1–5`, chord/Roman-numeral headers), `lesson_staff_adapter.hpp/.cpp`, `staff_showcase.hpp/.cpp` (`ClassicalNotationSpecimen` + `--showcase-preset classical`)
+- **Verification:**
+  - `cmake --build --preset native-debug && ctest --preset native-debug --output-on-failure` compiled with 0 warnings under `-Wall -Wextra -Wpedantic` and passed 59/59 test cases in 0.18s.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings (`selfano.html`, `selfano.js`, `selfano.wasm`, `selfano.data`).
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 7 files.
+  - Headless Light & Dark screenshots (`--tab showcase --showcase-preset classical`, `--tab warmup`, `--tab etude`) verified crisp `6/8` compound beaming, 16th beams/hooks, flags, dots, barline ties, fingerings `1–5`, harmonic labels, and zero regressions on existing screens.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -142,8 +154,8 @@
 ## Next Concrete Action
 
 - **Phases 7–10 Specs Locked (Not Yet Started):** Split the Stage 3 Guided Lessons & MusicXML roadmap into 4 independently verifiable phases:
-  - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving ([phase-7-score-model-and-notation.md](./phases/phase-7-score-model-and-notation.md)) — *ready to start Slice 7.1 on go-ahead*
-  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons ([phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md))
+  - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving (`[x] Complete`)
+  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons ([phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md)) — *starting Slice 8.1*
   - **Phase 9:** Complete 28-Lesson Classical Curriculum ([phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md))
   - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web ([phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md))
 
