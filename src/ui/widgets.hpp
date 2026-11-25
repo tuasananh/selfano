@@ -83,4 +83,11 @@ void hairline_separator(float vertical_pad = 8.0f);
 // Uppercase tracked Caption label for sidebar/popover section headers.
 void section_kicker(const char* label);
 
+// Full-viewport dimmed modal sheet card (centered, Escape/backdrop-click dismisses).
+// Always pair a `true` return with end_modal_sheet(is_open).
+[[nodiscard]] bool begin_modal_sheet(const char* backdrop_id, const char* window_id, bool& is_open,
+                                     float max_width, float max_height,
+                                     float dark_dim_alpha = 0.56f, float light_dim_alpha = 0.34f);
+void end_modal_sheet(bool& is_open);
+
 } // namespace selfano::ui

@@ -17,19 +17,6 @@ namespace selfano::ui {
 
 namespace {
 
-[[nodiscard]] std::string format_midi_list(std::span<const core::MidiPitch> notes,
-                                           core::KeySignature key) {
-  std::string out;
-  for (std::size_t i = 0; i < notes.size(); ++i) {
-    if (i > 0) {
-      out += " + ";
-    }
-    const auto sp = core::spell_midi_in_key(notes[i], key);
-    out += sp.has_value() ? core::format_note(*sp) : std::to_string(notes[i]);
-  }
-  return out;
-}
-
 [[nodiscard]] const char* category_label(core::FlashcardCategory cat) noexcept {
   switch (cat) {
   case core::FlashcardCategory::All:
@@ -80,8 +67,8 @@ void FlashcardView::on_played_chord(const midi::PlayedChord& chord, double now_m
   case core::FlashcardEvalStatus::Incorrect:
     last_feedback_ = NoteFeedback::Incorrect;
     status_banner_ = std::format("Target: {}  \xE2\x86\x92  Played: {}",
-                                 format_midi_list(res.expected_midi, engine_.key()),
-                                 format_midi_list(res.played_midi, engine_.key()));
+                                 core::format_midi_list(res.expected_midi, engine_.key()),
+                                 core::format_midi_list(res.played_midi, engine_.key()));
     break;
   }
 }
@@ -256,7 +243,7 @@ void FlashcardView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
       fb = NoteFeedback::Correct;
     } else if (s == engine_.substep_index() && last_feedback_ == NoteFeedback::Incorrect) {
       fb = NoteFeedback::Incorrect;
-      played_lbl = format_midi_list(engine_.last_played_midi(), engine_.key());
+      played_lbl = core::format_midi_list(engine_.last_played_midi(), engine_.key());
     }
 
     StaffChord chord{};

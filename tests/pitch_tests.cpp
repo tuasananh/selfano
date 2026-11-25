@@ -68,3 +68,9 @@ TEST_CASE("format_note and format_pitch_class produce expected ASCII strings", "
   REQUIRE(format_pitch_class(NoteLetter::D, Accidental::Natural) == "D");
   REQUIRE(format_pitch_class(NoteLetter::A, Accidental::Flat) == "Ab");
 }
+
+TEST_CASE("normalize_midi_set sorts and deduplicates MIDI pitches", "[pitch]") {
+  REQUIRE(normalize_midi_set(std::array<MidiPitch, 0>{}).empty());
+  REQUIRE(normalize_midi_set(std::array<MidiPitch, 5>{67, 60, 64, 60, 67}) ==
+          std::vector<MidiPitch>{60, 64, 67});
+}

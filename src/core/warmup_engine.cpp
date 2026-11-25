@@ -13,13 +13,6 @@ namespace selfano::core {
 
 namespace {
 
-[[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
-  std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::ranges::sort(out);
-  out.erase(std::ranges::unique(out).begin(), out.end());
-  return out;
-}
-
 [[nodiscard]] std::expected<Triad, std::string_view>
 pick_triad_in_midi_range(KeySignature key, int degree, bool harmonic_dom,
                          std::span<const int> candidate_octaves, int min_root_midi,

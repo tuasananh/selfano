@@ -24,13 +24,6 @@ struct RhythmSlot {
   bool is_rest;
 };
 
-[[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
-  std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::ranges::sort(out);
-  out.erase(std::ranges::unique(out).begin(), out.end());
-  return out;
-}
-
 [[nodiscard]] std::vector<PoolNote> build_diatonic_pool(KeySignature key, int min_midi,
                                                         int max_midi) {
   std::vector<PoolNote> pool;

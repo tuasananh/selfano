@@ -15,59 +15,15 @@ namespace selfano::ui {
 bool draw_piano_remote_overlay(bool& is_open, bool& piano_remote_enabled,
                                std::optional<core::AutopilotStage> active_stage,
                                bool soft_pedal_guard_active) {
-  if (!is_open) {
+  if (!begin_modal_sheet("##pr_dim_backdrop", "##piano_remote_overlay_win", is_open, 760.0f,
+                         550.0f)) {
     return false;
   }
 
   bool pref_changed = false;
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
-  const ImGuiViewport* vp = ImGui::GetMainViewport();
-
-  // Dim backdrop window layered above workspace/sidebar and strictly below the modal card
-  ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
-  ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-  ImGui::PushStyleColor(ImGuiCol_WindowBg,
-                        ImVec4(0.0f, 0.0f, 0.0f, is_dark_theme() ? 0.56f : 0.34f));
-  constexpr auto kDimFlags =
-      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoFocusOnAppearing) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus));
-  if (ImGui::Begin("##pr_dim_backdrop", nullptr, kDimFlags)) {
-    if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-      is_open = false;
-    }
-  }
-  ImGui::End();
-  ImGui::PopStyleColor();
-  ImGui::PopStyleVar(3);
-
-  const float modal_w = std::min(760.0f * scale, vp->WorkSize.x - 48.0f * scale);
-  const float modal_h = std::min(550.0f * scale, vp->WorkSize.y - 48.0f * scale);
-  const ImVec2 modal_pos(vp->WorkPos.x + (vp->WorkSize.x - modal_w) * 0.5f,
-                         vp->WorkPos.y + (vp->WorkSize.y - modal_h) * 0.5f);
-  ImGui::SetNextWindowPos(modal_pos, ImGuiCond_Always);
-  ImGui::SetNextWindowSize(ImVec2(modal_w, modal_h), ImGuiCond_Always);
-
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 18.0f * scale);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f * scale, 20.0f * scale));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, c.card_elevated_bg);
-  ImGui::PushStyleColor(ImGuiCol_Border, c.hairline_strong);
-
-  constexpr auto kOverlayFlags =
-      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoTitleBar) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
-                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings));
-
-  if (ImGui::Begin("##piano_remote_overlay_win", nullptr, kOverlayFlags)) {
+  {
     // Header
     {
       ScopedFont tf(TypeStyle::Title);
@@ -184,15 +140,7 @@ bool draw_piano_remote_overlay(bool& is_open, bool& piano_remote_enabled,
     }
     ImGui::EndChild();
   }
-  ImGui::End();
-
-  ImGui::PopStyleColor(2);
-  ImGui::PopStyleVar(3);
-
-  // Close with Escape
-  if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-    is_open = false;
-  }
+  end_modal_sheet(is_open);
 
   return pref_changed;
 }

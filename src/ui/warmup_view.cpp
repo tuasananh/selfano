@@ -18,19 +18,6 @@ namespace selfano::ui {
 
 namespace {
 
-[[nodiscard]] std::string format_midi_list(std::span<const core::MidiPitch> notes,
-                                           core::KeySignature key) {
-  std::string out;
-  for (std::size_t i = 0; i < notes.size(); ++i) {
-    if (i > 0) {
-      out += " + ";
-    }
-    const auto sp = core::spell_midi_in_key(notes[i], key);
-    out += sp.has_value() ? core::format_note(*sp) : std::to_string(notes[i]);
-  }
-  return out;
-}
-
 struct PagedStaffBar {
   std::size_t step_start{0};
   std::size_t step_count{0};
@@ -161,18 +148,18 @@ bool WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
     if (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse &&
         !engine_.last_timing_hint().empty()) {
       status_banner_ =
-          std::format("Matched {} \xC2\xB7 {}", format_midi_list(res.expected_midi, key),
+          std::format("Matched {} \xC2\xB7 {}", core::format_midi_list(res.expected_midi, key),
                       engine_.last_timing_hint());
     } else {
       status_banner_ = std::format("Matched step {} ({})", res.evaluated_step_index + 1,
-                                   format_midi_list(res.expected_midi, key));
+                                   core::format_midi_list(res.expected_midi, key));
     }
     return false;
   case core::WarmUpEvalStatus::Incorrect:
     last_feedback_ = NoteFeedback::Incorrect;
     status_banner_ = std::format("Target: {}  \xE2\x86\x92  Played: {}",
-                                 format_midi_list(res.expected_midi, key),
-                                 format_midi_list(res.played_midi, key));
+                                 core::format_midi_list(res.expected_midi, key),
+                                 core::format_midi_list(res.played_midi, key));
     return false;
   }
   return false;
@@ -618,7 +605,7 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
       std::string played_lbl;
       if (fb == NoteFeedback::Incorrect && s_idx == cur_step &&
           !engine_.last_played_midi().empty()) {
-        played_lbl = format_midi_list(engine_.last_played_midi(), cfg.key);
+        played_lbl = core::format_midi_list(engine_.last_played_midi(), cfg.key);
       }
 
       StaffChord chord{};

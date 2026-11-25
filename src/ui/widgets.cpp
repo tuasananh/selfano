@@ -636,4 +636,73 @@ void section_kicker(const char* label) {
   ImGui::PopStyleColor();
 }
 
+bool begin_modal_sheet(const char* backdrop_id, const char* window_id, bool& is_open,
+                       float max_width, float max_height, float dark_dim_alpha,
+                       float light_dim_alpha) {
+  if (!is_open) {
+    return false;
+  }
+
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const ImGuiViewport* vp = ImGui::GetMainViewport();
+
+  ImGui::SetNextWindowPos(vp->WorkPos, ImGuiCond_Always);
+  ImGui::SetNextWindowSize(vp->WorkSize, ImGuiCond_Always);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+  ImGui::PushStyleColor(
+      ImGuiCol_WindowBg,
+      ImVec4(0.0f, 0.0f, 0.0f, is_dark_theme() ? dark_dim_alpha : light_dim_alpha));
+  constexpr auto kDimFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoFocusOnAppearing) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus));
+  if (ImGui::Begin(backdrop_id, nullptr, kDimFlags)) {
+    if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+      is_open = false;
+    }
+  }
+  ImGui::End();
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar(3);
+
+  const float modal_w = std::min(max_width * scale, vp->WorkSize.x - 48.0f * scale);
+  const float modal_h = std::min(max_height * scale, vp->WorkSize.y - 48.0f * scale);
+  ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + (vp->WorkSize.x - modal_w) * 0.5f,
+                                 vp->WorkPos.y + (vp->WorkSize.y - modal_h) * 0.5f),
+                          ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(modal_w, modal_h), ImGuiCond_Always);
+
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 18.0f * scale);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f * scale, 20.0f * scale));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, c.card_elevated_bg);
+  ImGui::PushStyleColor(ImGuiCol_Border, c.hairline_strong);
+
+  constexpr auto kModalFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoTitleBar) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings));
+  if (!ImGui::Begin(window_id, nullptr, kModalFlags)) {
+    end_modal_sheet(is_open);
+    return false;
+  }
+  return true;
+}
+
+void end_modal_sheet(bool& is_open) {
+  ImGui::End();
+  ImGui::PopStyleColor(2);
+  ImGui::PopStyleVar(3);
+  if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    is_open = false;
+  }
+}
+
 } // namespace selfano::ui

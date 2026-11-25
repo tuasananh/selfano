@@ -144,3 +144,11 @@ TEST_CASE("spell_midi_in_key handles enharmonics, leading tones, and 128x30 roun
             SpelledNote{NoteLetter::F, Accidental::DoubleSharp, 4}); // G# minor -> F##4
   }
 }
+
+TEST_CASE("format_midi_list spells and joins MIDI pitches in key", "[key_signature]") {
+  const auto g_maj = make_key_signature(1, Mode::Major).value();
+  const std::array<MidiPitch, 3> chord{62, 66, 69};
+  REQUIRE(format_midi_list(chord, g_maj) == "D4 + F#4 + A4");
+  REQUIRE(format_midi_list(chord, g_maj, "+") == "D4+F#4+A4");
+  REQUIRE(format_midi_list(std::span<const MidiPitch>{}, g_maj).empty());
+}

@@ -98,38 +98,6 @@ struct ZipReaderGuard {
   return val;
 }
 
-[[nodiscard]] std::vector<RhythmicValue> split_ticks_to_values(int total_ticks) {
-  std::vector<RhythmicValue> out;
-  int rem = total_ticks;
-  constexpr std::array<RhythmicValue, 10> kDesc{{
-      {.base = NoteBaseDuration::Whole, .dotted = true},
-      {.base = NoteBaseDuration::Whole, .dotted = false},
-      {.base = NoteBaseDuration::Half, .dotted = true},
-      {.base = NoteBaseDuration::Half, .dotted = false},
-      {.base = NoteBaseDuration::Quarter, .dotted = true},
-      {.base = NoteBaseDuration::Quarter, .dotted = false},
-      {.base = NoteBaseDuration::Eighth, .dotted = true},
-      {.base = NoteBaseDuration::Eighth, .dotted = false},
-      {.base = NoteBaseDuration::Sixteenth, .dotted = true},
-      {.base = NoteBaseDuration::Sixteenth, .dotted = false},
-  }};
-  while (rem >= 120) {
-    bool matched = false;
-    for (const auto& rv : kDesc) {
-      if (rv.ticks() <= rem) {
-        out.push_back(rv);
-        rem -= rv.ticks();
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      break;
-    }
-  }
-  return out;
-}
-
 [[nodiscard]] std::optional<NoteLetter> parse_step_letter(std::string_view s) noexcept {
   const std::string t = trim_copy(s);
   if (t.empty()) {

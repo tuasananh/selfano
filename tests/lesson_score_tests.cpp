@@ -276,3 +276,18 @@ TEST_CASE("lesson_score_to_json and lesson_score_from_json round-trip cleanly", 
 
   REQUIRE_FALSE(lesson_score_from_json("{invalid json").has_value());
 }
+
+TEST_CASE("split_ticks_to_values greedily decomposes durations into rhythmic values",
+          "[lesson_score]") {
+  const auto bar_4_4 = split_ticks_to_values(1920);
+  REQUIRE(bar_4_4.size() == 1);
+  REQUIRE(bar_4_4[0] == RhythmicValue{.base = NoteBaseDuration::Whole, .dotted = false});
+
+  const auto bar_5_4 = split_ticks_to_values(2400);
+  REQUIRE(bar_5_4.size() == 2);
+  REQUIRE(bar_5_4[0] == RhythmicValue{.base = NoteBaseDuration::Whole, .dotted = false});
+  REQUIRE(bar_5_4[1] == RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = false});
+
+  REQUIRE(split_ticks_to_values(0).empty());
+  REQUIRE(split_ticks_to_values(60).empty());
+}

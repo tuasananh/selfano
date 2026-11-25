@@ -3,9 +3,11 @@
 #include <array>
 #include <cstdint>
 #include <expected>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace selfano::core {
 
@@ -100,5 +102,6 @@ to_midi(const SpelledNote& note) noexcept {
 
 [[nodiscard]] std::string format_note(const SpelledNote& note);
 [[nodiscard]] std::string format_pitch_class(NoteLetter letter, Accidental accidental);
+[[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes);
 
 } // namespace selfano::core

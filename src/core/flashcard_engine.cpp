@@ -180,13 +180,6 @@ inline constexpr std::array<FlashcardShapeMeta, 40> kShapeBank{{
      .clef = Clef::Bass},
 }};
 
-[[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
-  std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::ranges::sort(out);
-  out.erase(std::ranges::unique(out).begin(), out.end());
-  return out;
-}
-
 [[nodiscard]] bool matches_category(FlashcardShapeKind kind, FlashcardCategory cat) noexcept {
   switch (cat) {
   case FlashcardCategory::All:

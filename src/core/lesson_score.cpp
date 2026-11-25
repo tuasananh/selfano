@@ -15,6 +15,19 @@ namespace {
 
 using json = nlohmann::json;
 
+inline constexpr std::array<RhythmicValue, 10> kRhythmicValuesDesc{{
+    {.base = NoteBaseDuration::Whole, .dotted = true},
+    {.base = NoteBaseDuration::Whole, .dotted = false},
+    {.base = NoteBaseDuration::Half, .dotted = true},
+    {.base = NoteBaseDuration::Half, .dotted = false},
+    {.base = NoteBaseDuration::Quarter, .dotted = true},
+    {.base = NoteBaseDuration::Quarter, .dotted = false},
+    {.base = NoteBaseDuration::Eighth, .dotted = true},
+    {.base = NoteBaseDuration::Eighth, .dotted = false},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = true},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = false},
+}};
+
 [[nodiscard]] std::string_view duration_to_string(NoteBaseDuration base) noexcept {
   switch (base) {
   case NoteBaseDuration::Sixteenth:
@@ -400,24 +413,32 @@ std::expected<SpelledNote, std::string> parse_spelled_note(std::string_view text
 }
 
 std::optional<RhythmicValue> quantize_ticks_to_rhythmic_value(int ticks) noexcept {
-  constexpr std::array<RhythmicValue, 10> kCandidates{{
-      {.base = NoteBaseDuration::Whole, .dotted = true},
-      {.base = NoteBaseDuration::Whole, .dotted = false},
-      {.base = NoteBaseDuration::Half, .dotted = true},
-      {.base = NoteBaseDuration::Half, .dotted = false},
-      {.base = NoteBaseDuration::Quarter, .dotted = true},
-      {.base = NoteBaseDuration::Quarter, .dotted = false},
-      {.base = NoteBaseDuration::Eighth, .dotted = true},
-      {.base = NoteBaseDuration::Eighth, .dotted = false},
-      {.base = NoteBaseDuration::Sixteenth, .dotted = true},
-      {.base = NoteBaseDuration::Sixteenth, .dotted = false},
-  }};
-  for (const auto& rv : kCandidates) {
+  for (const auto& rv : kRhythmicValuesDesc) {
     if (rv.ticks() == ticks) {
       return rv;
     }
   }
   return std::nullopt;
+}
+
+std::vector<RhythmicValue> split_ticks_to_values(int total_ticks) {
+  std::vector<RhythmicValue> out;
+  int rem = total_ticks;
+  while (rem >= 120) {
+    bool matched = false;
+    for (const auto& rv : kRhythmicValuesDesc) {
+      if (rv.ticks() <= rem) {
+        out.push_back(rv);
+        rem -= rv.ticks();
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      break;
+    }
+  }
+  return out;
 }
 
 std::expected<void, std::vector<std::string>> validate_lesson_score(const LessonScore& score) {

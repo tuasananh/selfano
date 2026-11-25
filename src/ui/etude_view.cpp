@@ -45,19 +45,6 @@ namespace {
   return RestDuration::Quarter;
 }
 
-[[nodiscard]] std::string format_midi_list(std::span<const core::MidiPitch> notes,
-                                           core::KeySignature key) {
-  std::string out;
-  for (std::size_t i = 0; i < notes.size(); ++i) {
-    if (i > 0) {
-      out += '+';
-    }
-    const auto sp = core::spell_midi_in_key(notes[i], key);
-    out += sp.has_value() ? core::format_note(*sp) : std::to_string(notes[i]);
-  }
-  return out;
-}
-
 [[nodiscard]] std::vector<StaffMeasure>
 build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key, bool is_active,
                            std::optional<std::size_t> active_wait_idx) {
@@ -110,7 +97,7 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
             } else if (target.status == core::EtudeTargetStatus::Missed) {
               fb = NoteFeedback::Incorrect;
               if (!target.played_midi.empty()) {
-                played_lbl = format_midi_list(target.played_midi, key);
+                played_lbl = core::format_midi_list(target.played_midi, key);
               }
             }
             break;

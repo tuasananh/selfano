@@ -107,4 +107,17 @@ std::expected<SpelledNote, std::string_view> spell_midi_in_key(MidiPitch midi,
   return spell_with_letter_and_accidental(midi, chosen.letter, chosen.accidental);
 }
 
+std::string format_midi_list(std::span<const MidiPitch> notes, KeySignature key,
+                             std::string_view separator) {
+  std::string out;
+  for (std::size_t i = 0; i < notes.size(); ++i) {
+    if (i > 0) {
+      out += separator;
+    }
+    const auto sp = spell_midi_in_key(notes[i], key);
+    out += sp.has_value() ? format_note(*sp) : std::to_string(notes[i]);
+  }
+  return out;
+}
+
 } // namespace selfano::core

@@ -172,6 +172,7 @@ struct LessonScore {
 
 [[nodiscard]] std::expected<SpelledNote, std::string> parse_spelled_note(std::string_view text);
 [[nodiscard]] std::optional<RhythmicValue> quantize_ticks_to_rhythmic_value(int ticks) noexcept;
+[[nodiscard]] std::vector<RhythmicValue> split_ticks_to_values(int total_ticks);
 
 [[nodiscard]] std::expected<void, std::vector<std::string>>
 validate_lesson_score(const LessonScore& score);

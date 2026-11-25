@@ -215,4 +215,7 @@ make_key_signature(int fifths, Mode mode) noexcept {
 [[nodiscard]] std::expected<SpelledNote, std::string_view>
 spell_midi_in_key(MidiPitch midi, KeySignature key) noexcept;
 
+[[nodiscard]] std::string format_midi_list(std::span<const MidiPitch> notes, KeySignature key,
+                                           std::string_view separator = " + ");
+
 } // namespace selfano::core
