@@ -7,7 +7,7 @@
 
 namespace selfano::midi {
 
-// Lock-free, allocation-free, cache-line-aligned single-producer / single-consumer ring buffer.
+// Lock-free, allocation-free, cache-line-padded single-producer / single-consumer ring buffer.
 template <typename T, std::size_t Capacity> class SpscQueue {
   static_assert(Capacity >= 2 && (Capacity & (Capacity - 1)) == 0,
                 "SpscQueue Capacity must be a power of two >= 2");
@@ -55,10 +55,17 @@ public:
 
 private:
   static constexpr std::size_t kMask = Capacity - 1U;
+  static constexpr std::size_t kCacheLineBytes = 64U;
+  static constexpr std::size_t kAtomicPadBytes =
+      (sizeof(std::atomic<std::size_t>) < kCacheLineBytes)
+          ? (kCacheLineBytes - sizeof(std::atomic<std::size_t>))
+          : 1U;
 
-  alignas(64) std::atomic<std::size_t> head_{0};
-  alignas(64) std::atomic<std::size_t> tail_{0};
-  alignas(64) std::array<T, Capacity> buffer_{};
+  std::atomic<std::size_t> head_{0};
+  [[maybe_unused]] std::array<std::byte, kAtomicPadBytes> pad_head_{};
+  std::atomic<std::size_t> tail_{0};
+  [[maybe_unused]] std::array<std::byte, kAtomicPadBytes> pad_tail_{};
+  std::array<T, Capacity> buffer_{};
 };
 
 } // namespace selfano::midi
