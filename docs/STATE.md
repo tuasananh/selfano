@@ -3,7 +3,7 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **All Roadmap Phases (0–10) Complete**
+- **Active Phase:** **Ready for Phase 11** (Phases 0–10 Complete; Phases 11–16 Planned in `docs/phases/`)
 - **Last Completed Phase:** Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)
 
 ---
@@ -201,11 +201,13 @@
 
 ## Next Concrete Action
 
-- **Phases 7–10 Complete:** All planned Phases 0–10 are implemented and verified on `main`:
-  - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving (`[x] Complete`)
-  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons (`[x] Complete`)
-  - **Phase 9:** Complete 28-Lesson Classical Curriculum (`[x] Complete`)
-  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web (`[x] Complete`)
+- **Start Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons** (`docs/phases/phase-11-score-ergonomics-pickups-voicing.md`):
+  - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[ ] Planned`)
+  - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[ ] Planned`)
+  - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
+  - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)
+  - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[ ] Planned`)
+  - **Phase 16:** Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) (`[ ] Planned`)
 
 ---
 
