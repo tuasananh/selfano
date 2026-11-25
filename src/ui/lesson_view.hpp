@@ -30,6 +30,8 @@ enum class LessonViewTab : std::uint8_t {
   Practice = 1,
 };
 
+enum class SmokeCoachSimMode : std::uint8_t { Clean = 0, Imperfect = 1, Virtual = 2 };
+
 struct LessonViewActions {
   bool metronome_click{false};
   bool metronome_accent{false};
@@ -62,7 +64,7 @@ public:
   void request_open_theory_popover_index(std::size_t index) noexcept {
     pending_cli_popover_idx_ = index;
   }
-  void simulate_completed_run_for_smoke(bool clean, core::UserProfile& profile,
+  void simulate_completed_run_for_smoke(SmokeCoachSimMode mode, core::UserProfile& profile,
                                         std::int64_t today_epoch_day);
   void apply_preferences(bool metronome_enabled, bool light_paper, bool show_fingerings,
                          bool show_harmony);
@@ -72,6 +74,10 @@ public:
   [[nodiscard]] bool on_played_chord(const midi::PlayedChord& chord, core::UserProfile& profile,
                                      std::int64_t today_epoch_day, bool& out_chime,
                                      bool& out_just_mastered);
+  void on_note_off(core::MidiPitch midi) noexcept { engine_.on_note_off(midi); }
+  void on_damper_pedal(bool down, bool from_hardware) noexcept {
+    engine_.on_damper_pedal(down, from_hardware);
+  }
 
   void update(double dt_ms, double now_ms, core::UserProfile& profile, std::int64_t today_epoch_day,
               bool& out_click, bool& out_accent, bool& out_chime, bool& out_just_mastered,

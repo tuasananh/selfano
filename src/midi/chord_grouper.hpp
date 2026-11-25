@@ -5,12 +5,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace selfano::midi {
 
 struct PlayedChord {
-  std::vector<std::uint8_t> notes; // Sorted ascending, deduplicated MIDI pitches
+  std::vector<std::uint8_t> notes;      // Sorted ascending, deduplicated MIDI pitches
+  std::vector<std::uint8_t> velocities; // Parallel velocities matching sorted `notes`
   double start_ms{0.0};
   double completed_ms{0.0};
   bool from_hardware{false};
@@ -46,7 +48,7 @@ private:
   bool batch_active_{false};
   double batch_start_ms_{0.0};
   bool batch_from_hardware_{false};
-  std::vector<std::uint8_t> active_notes_;
+  std::vector<std::pair<std::uint8_t, std::uint8_t>> active_notes_;
   std::vector<PlayedChord> completed_chords_;
   std::array<bool, 128> held_notes_{};
 };

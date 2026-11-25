@@ -147,7 +147,8 @@ void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t
   }
 }
 
-void LessonView::simulate_completed_run_for_smoke(bool clean, core::UserProfile& profile,
+void LessonView::simulate_completed_run_for_smoke(SmokeCoachSimMode mode,
+                                                  core::UserProfile& profile,
                                                   std::int64_t today_epoch_day) {
   active_tab_ = LessonViewTab::Practice;
   engine_.set_loop_phrase(false);
@@ -172,6 +173,74 @@ void LessonView::simulate_completed_run_for_smoke(bool clean, core::UserProfile&
   const double ms_per_beat = 60000.0 / std::max(30.0, engine_.effective_bpm());
 
   const auto& targets = engine_.targets();
+  // Gather global pedal down/lift events inside the active bar range from LessonTargets' bars.
+  struct GlobalPedal {
+    double start_tick{0.0};
+    double end_tick{0.0};
+    bool pressed{false};
+    bool released{false};
+  };
+  std::vector<GlobalPedal> slice_pedals;
+  {
+    std::vector<double> bar_start_ticks(measures.size(), -1.0);
+    for (const auto& t : targets) {
+      if (t.bar_index < measures.size() && bar_start_ticks[t.bar_index] < 0.0) {
+        bar_start_ticks[t.bar_index] = static_cast<double>(t.global_tick - t.tick_in_bar);
+      }
+    }
+    for (const auto& ps : engine_.score().pedals) {
+      if (ps.start_bar < measures.size() && ps.end_bar < measures.size() &&
+          bar_start_ticks[ps.start_bar] >= 0.0 && bar_start_ticks[ps.end_bar] >= 0.0) {
+        slice_pedals.push_back(GlobalPedal{
+            .start_tick = bar_start_ticks[ps.start_bar] + static_cast<double>(ps.start_tick),
+            .end_tick = bar_start_ticks[ps.end_bar] + static_cast<double>(ps.end_tick),
+        });
+      }
+    }
+  }
+
+  auto service_pedals = [&](double cur_tick) {
+    if (mode == SmokeCoachSimMode::Virtual) {
+      return;
+    }
+    for (auto& gp : slice_pedals) {
+      if (!gp.pressed && cur_tick + 1e-3 >= gp.start_tick) {
+        gp.pressed = true;
+        engine_.on_damper_pedal(true, true);
+      }
+      if (mode == SmokeCoachSimMode::Clean && !gp.released && cur_tick + 1e-3 >= gp.end_tick) {
+        gp.released = true;
+        engine_.on_damper_pedal(false, true);
+      }
+    }
+  };
+
+  struct HeldSimNote {
+    core::MidiPitch midi{0};
+    double release_tick{0.0};
+    bool released{false};
+  };
+  std::vector<HeldSimNote> held_notes;
+
+  auto service_releases = [&](double cur_tick) {
+    for (auto& hn : held_notes) {
+      if (!hn.released && cur_tick + 1e-3 >= hn.release_tick) {
+        hn.released = true;
+        engine_.on_note_off(hn.midi);
+      }
+    }
+  };
+
+  auto release_all_held = [&]() {
+    for (auto& hn : held_notes) {
+      if (!hn.released) {
+        hn.released = true;
+        engine_.on_note_off(hn.midi);
+      }
+    }
+    held_notes.clear();
+  };
+
   for (std::size_t ti = 0; ti < targets.size(); ++ti) {
     const auto& t = targets[ti];
     const int beat_ticks = std::max(1, engine_.score().meta.time_signature.beat_ticks());
@@ -180,33 +249,90 @@ void LessonView::simulate_completed_run_for_smoke(bool clean, core::UserProfile&
     const double cur_ms = (engine_.elapsed_ticks() / static_cast<double>(beat_ticks)) * ms_per_beat;
     double wait_ms = target_ms - cur_ms;
     while (wait_ms > 20.0 && engine_.playback_state() == core::LessonPlaybackState::Playing) {
-      const double step = std::min(50.0, wait_ms);
+      const double step = std::min(25.0, wait_ms);
       (void)engine_.update(step);
+      service_releases(engine_.elapsed_ticks());
+      service_pedals(engine_.elapsed_ticks());
       wait_ms -= step;
     }
     if (engine_.playback_state() != core::LessonPlaybackState::Playing) {
       break;
     }
-    if (clean) {
-      (void)engine_.submit_played_notes(t.expected_midi);
-    } else if (t.bar_index == partial_bar && t.expected_midi.size() >= 2U) {
-      std::vector<core::MidiPitch> sub(t.expected_midi.begin(), t.expected_midi.end() - 1);
-      (void)engine_.submit_played_notes(sub);
-    } else if (t.bar_index == bad_bar_a || t.bar_index == bad_bar_b) {
-      // Leave unplayed so beat window grades as missed seam trouble spot
-    } else {
-      (void)engine_.submit_played_notes(t.expected_midi);
+    release_all_held();
+    service_pedals(engine_.elapsed_ticks());
+
+    const bool from_hw = (mode != SmokeCoachSimMode::Virtual);
+    auto build_vels = [&](const std::vector<core::MidiPitch>& notes) {
+      std::vector<std::uint8_t> vels;
+      vels.reserve(notes.size());
+      for (const core::MidiPitch p : notes) {
+        if (mode == SmokeCoachSimMode::Virtual) {
+          vels.push_back(96U);
+          continue;
+        }
+        const bool is_mel =
+            !t.treble_midi.empty() &&
+            ((!t.bass_midi.empty() && std::ranges::find(t.treble_midi, p) != t.treble_midi.end()) ||
+             (t.treble_midi.size() >= 2U && p == t.treble_midi.back()));
+        if (mode == SmokeCoachSimMode::Clean) {
+          vels.push_back(is_mel ? 94U : 60U);
+        } else {
+          vels.push_back(is_mel ? 62U : 92U);
+        }
+      }
+      return vels;
+    };
+
+    const std::vector<core::MidiPitch>* to_play = &t.expected_midi;
+    std::vector<core::MidiPitch> sub_buf;
+    if (mode == SmokeCoachSimMode::Imperfect) {
+      if (t.bar_index == partial_bar && t.expected_midi.size() >= 2U) {
+        sub_buf.assign(t.expected_midi.begin(), t.expected_midi.end() - 1);
+        to_play = &sub_buf;
+      } else if (t.bar_index == bad_bar_a || t.bar_index == bad_bar_b) {
+        to_play = nullptr;
+      }
+    }
+
+    if (to_play != nullptr) {
+      const auto vels = build_vels(*to_play);
+      (void)engine_.submit_played_notes(*to_play, vels, from_hw);
+
+      const double hold_frac = (mode == SmokeCoachSimMode::Imperfect) ? 0.25 : 0.90;
+      const double next_gap =
+          (ti + 1U < targets.size())
+              ? std::max(120.0, static_cast<double>(targets[ti + 1U].global_tick - t.global_tick))
+              : 480.0;
+      for (const core::MidiPitch pm : *to_play) {
+        double dur = next_gap;
+        for (const auto& [sm, sdur] : t.sustained_durations) {
+          if (sm == pm) {
+            dur = static_cast<double>(sdur);
+            break;
+          }
+        }
+        held_notes.push_back(HeldSimNote{
+            .midi = pm,
+            .release_tick = engine_.elapsed_ticks() + dur * hold_frac,
+            .released = false,
+        });
+      }
     }
   }
 
   for (int i = 0; i < 400 && engine_.playback_state() == core::LessonPlaybackState::Playing; ++i) {
-    const auto tk = engine_.update(50.0);
+    const auto tk = engine_.update(25.0);
+    service_releases(engine_.elapsed_ticks());
+    service_pedals(engine_.elapsed_ticks());
     if (tk.phrase_completed) {
       bool dummy_chime = false;
       bool dummy_m = false;
       finalize_completed_run(profile, today_epoch_day, dummy_chime, dummy_m);
       break;
     }
+  }
+  if (mode != SmokeCoachSimMode::Virtual) {
+    engine_.on_damper_pedal(false, true);
   }
 }
 
@@ -216,7 +342,7 @@ bool LessonView::on_played_chord(const midi::PlayedChord& chord, core::UserProfi
   if (chord.notes.empty()) {
     return false;
   }
-  const auto res = engine_.submit_played_notes(chord.notes);
+  const auto res = engine_.submit_played_notes(chord.notes, chord.velocities, chord.from_hardware);
   if (res.phrase_completed) {
     finalize_completed_run(profile, today_epoch_day, out_chime, out_just_mastered);
   }
@@ -884,6 +1010,39 @@ void LessonView::draw_post_run_coach(const core::LessonProgress& prog, LessonVie
     pc_wrap(80.0f, 8.0f);
     if (pill_button("Dismiss##lv_coach_dis", ButtonTone::Ghost, IconId::None, 26.0f)) {
       show_post_run_coach_ = false;
+    }
+
+    const auto& mus = sum.musicality;
+    if (mus.voicing_available || mus.sustain_available || mus.pedal_available) {
+      {
+        ScopedFont sf(TypeStyle::Caption);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(c.text_tertiary, "Musicality");
+      }
+      if (mus.voicing_available) {
+        pc_wrap(120.0f, 8.0f);
+        status_pill(std::format("Voicing {:+.0f} vel", mus.voicing_delta),
+                    mus.voicing_balanced ? StatusTone::Success : StatusTone::Warning,
+                    mus.voicing_balanced ? IconId::Check : IconId::Sparkles);
+      }
+      if (mus.sustain_available) {
+        pc_wrap(110.0f, 8.0f);
+        status_pill(std::format("Sustain {:.0f}%", mus.sustain_hold_rate * 100.0),
+                    (mus.sustain_hold_rate >= 0.75) ? StatusTone::Success : StatusTone::Warning,
+                    (mus.sustain_hold_rate >= 0.75) ? IconId::Check : IconId::Sparkles);
+      }
+      if (mus.pedal_available) {
+        pc_wrap(120.0f, 8.0f);
+        status_pill(std::format("Pedal {:.0f}% clean", mus.pedal_clean_rate * 100.0),
+                    (mus.pedal_clean_rate >= 0.75) ? StatusTone::Success : StatusTone::Warning,
+                    (mus.pedal_clean_rate >= 0.75) ? IconId::Check : IconId::Sparkles);
+      }
+      if (!mus.coach_tip.empty()) {
+        pc_wrap(240.0f, 10.0f);
+        ScopedFont sf(TypeStyle::Subheadline);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(c.text_secondary, "%s", mus.coach_tip.c_str());
+      }
     }
   }
   end_card();

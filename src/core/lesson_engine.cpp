@@ -313,6 +313,42 @@ build_chord_skeleton_measures(const LessonScore& score, std::span<const KeySigna
   return skeleton_measures;
 }
 
+[[nodiscard]] int compute_tied_note_duration_ticks(std::span<const LessonMeasure> measures,
+                                                   std::size_t start_bar, int staff_id,
+                                                   int start_tick, MidiPitch midi, int base_ticks,
+                                                   bool tie_start) noexcept {
+  int total = base_ticks;
+  if (!tie_start) {
+    return total;
+  }
+  for (std::size_t b = start_bar; b < measures.size(); ++b) {
+    const auto& evs = (staff_id == 0) ? measures[b].treble_events : measures[b].bass_events;
+    bool found_next = false;
+    bool still_open = false;
+    for (const auto& ev : evs) {
+      if (ev.is_rest || (b == start_bar && ev.start_tick <= start_tick)) {
+        continue;
+      }
+      for (const auto& n : ev.notes) {
+        if (n.midi == midi && n.tie_stop) {
+          total += ev.duration.ticks();
+          found_next = true;
+          still_open = n.tie_start;
+          start_tick = ev.start_tick;
+          break;
+        }
+      }
+      if (found_next && !still_open) {
+        return total;
+      }
+    }
+    if (!still_open) {
+      break;
+    }
+  }
+  return total;
+}
+
 void build_slice_targets(const LessonScore& score, std::span<const LessonMeasure> skeleton_measures,
                          const LessonConfig& config, std::span<const TimeSignature> bar_meters,
                          std::size_t slice_start_bar, std::size_t slice_end_bar,
@@ -349,6 +385,7 @@ void build_slice_targets(const LessonScore& score, std::span<const LessonMeasure
               for (const auto& n : ev.notes) {
                 target.expected_midi.push_back(n.midi);
                 target.expected_spelled.push_back(n.spelled);
+                target.bass_midi.push_back(n.midi);
               }
             }
           }
@@ -360,35 +397,50 @@ void build_slice_targets(const LessonScore& score, std::span<const LessonMeasure
               for (const auto& n : ev.notes) {
                 target.expected_midi.push_back(n.midi);
                 target.expected_spelled.push_back(n.spelled);
+                target.treble_midi.push_back(n.midi);
               }
             }
           }
         }
+        target.treble_midi = normalize_midi_set(target.treble_midi);
+        target.bass_midi = normalize_midi_set(target.bass_midi);
         target.expected_midi = normalize_midi_set(target.expected_midi);
         out_targets.push_back(std::move(target));
       }
     } else {
       const auto& lm = score.measures[b];
-      std::map<int, std::vector<LessonNote>> tick_notes;
-      auto collect = [&](std::span<const LessonEvent> evs) {
+      struct CollectedNote {
+        LessonNote note;
+        int staff_id{0};
+        int total_duration_ticks{480};
+      };
+      std::map<int, std::vector<CollectedNote>> tick_notes;
+      auto collect = [&](std::span<const LessonEvent> evs, int staff_id) {
         for (const auto& ev : evs) {
           if (ev.is_rest) {
             continue;
           }
+          const int ev_ticks = ev.duration.ticks();
           for (const auto& n : ev.notes) {
             if (!n.tie_stop) {
-              tick_notes[ev.start_tick].push_back(n);
+              const int full_dur = compute_tied_note_duration_ticks(
+                  score.measures, b, staff_id, ev.start_tick, n.midi, ev_ticks, n.tie_start);
+              tick_notes[ev.start_tick].push_back(CollectedNote{
+                  .note = n,
+                  .staff_id = staff_id,
+                  .total_duration_ticks = full_dur,
+              });
             }
           }
         }
       };
       if (config.hand_mode == LessonHandMode::RightHand ||
           config.hand_mode == LessonHandMode::HandsTogether) {
-        collect(lm.treble_events);
+        collect(lm.treble_events, 0);
       }
       if (config.hand_mode == LessonHandMode::LeftHand ||
           config.hand_mode == LessonHandMode::HandsTogether) {
-        collect(lm.bass_events);
+        collect(lm.bass_events, 1);
       }
       for (const auto& [tick, notes] : tick_notes) {
         if (notes.empty()) {
@@ -398,10 +450,20 @@ void build_slice_targets(const LessonScore& score, std::span<const LessonMeasure
         target.bar_index = b;
         target.tick_in_bar = tick;
         target.global_tick = acc_ticks + tick;
-        for (const auto& n : notes) {
-          target.expected_midi.push_back(n.midi);
-          target.expected_spelled.push_back(n.spelled);
+        for (const auto& cn : notes) {
+          target.expected_midi.push_back(cn.note.midi);
+          target.expected_spelled.push_back(cn.note.spelled);
+          if (cn.staff_id == 0) {
+            target.treble_midi.push_back(cn.note.midi);
+          } else {
+            target.bass_midi.push_back(cn.note.midi);
+          }
+          if (cn.total_duration_ticks >= kTicksPerQuarter * 2) {
+            target.sustained_durations.emplace_back(cn.note.midi, cn.total_duration_ticks);
+          }
         }
+        target.treble_midi = normalize_midi_set(target.treble_midi);
+        target.bass_midi = normalize_midi_set(target.bass_midi);
         target.expected_midi = normalize_midi_set(target.expected_midi);
         target.pitch_class_mask = midi_pitch_class_mask(target.expected_midi);
         target.pitch_class_match = false;
@@ -548,6 +610,20 @@ void LessonEngine::reset_transport_state() {
   hits_ = 0;
   partial_hits_ = 0;
   misses_ = 0;
+  melody_vel_sum_ = 0;
+  melody_vel_count_ = 0;
+  accomp_vel_sum_ = 0;
+  accomp_vel_count_ = 0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  active_sustained_.clear();
+  sustained_checked_ = 0;
+  sustained_held_ = 0;
+  damper_pedal_used_ = false;
+  last_pedal_up_tick_ = damper_pedal_down_ ? -1e9 : 0.0;
+  next_pedal_check_idx_ = 0;
+  pedal_checked_ = 0;
+  pedal_clean_ = 0;
   scheduled_playback_notes_.clear();
   next_playback_note_idx_ = 0;
   for (auto& t : targets_) {
@@ -564,6 +640,7 @@ void LessonEngine::rebuild_slice_and_targets() {
   slice_bar_start_ticks_.clear();
   slice_bar_ticks_.clear();
   slice_bar_meters_.clear();
+  pedal_check_ticks_.clear();
   total_slice_ticks_ = 0;
   slice_start_bar_ = 0;
   slice_end_bar_ = 0;
@@ -607,6 +684,19 @@ void LessonEngine::rebuild_slice_and_targets() {
   build_slice_targets(score_, skeleton_measures_, config_, bar_meters, slice_start_bar_,
                       slice_end_bar_, slice_bar_start_ticks_, slice_bar_ticks_, slice_bar_meters_,
                       targets_, total_slice_ticks_);
+
+  for (const auto& pd : score_.pedals) {
+    if (pd.end_bar >= slice_start_bar_ && pd.end_bar <= slice_end_bar_) {
+      const std::size_t loc_b = pd.end_bar - slice_start_bar_;
+      if (loc_b < slice_bar_start_ticks_.size()) {
+        const int global_end = slice_bar_start_ticks_[loc_b] + pd.end_tick;
+        if (global_end > 0 && global_end < total_slice_ticks_ - 120) {
+          pedal_check_ticks_.push_back(static_cast<double>(global_end));
+        }
+      }
+    }
+  }
+  std::ranges::sort(pedal_check_ticks_);
 }
 
 namespace {
@@ -1050,6 +1140,34 @@ LessonTickResult LessonEngine::update(double dt_ms) {
   play_beat_accum_ticks_ += dt_ticks;
   emit_due_playback_notes(elapsed_ticks_, out.playback_notes);
 
+  if (!damper_pedal_down_) {
+    last_pedal_up_tick_ = elapsed_ticks_;
+  }
+  for (auto& sn : active_sustained_) {
+    if (sn.finished) {
+      continue;
+    }
+    if (sn.finger_down || damper_pedal_down_) {
+      sn.held_ticks = std::min(sn.target_duration_ticks, sn.held_ticks + dt_ticks);
+    }
+    if (elapsed_ticks_ + 1e-6 >= sn.start_tick + sn.target_duration_ticks) {
+      sn.finished = true;
+      ++sustained_checked_;
+      if (sn.held_ticks >= 0.65 * sn.target_duration_ticks) {
+        ++sustained_held_;
+      }
+    }
+  }
+  while (next_pedal_check_idx_ < pedal_check_ticks_.size() &&
+         elapsed_ticks_ >= pedal_check_ticks_[next_pedal_check_idx_] + 240.0) {
+    const double target_t = pedal_check_ticks_[next_pedal_check_idx_];
+    ++pedal_checked_;
+    if (last_pedal_up_tick_ >= target_t - 240.0) {
+      ++pedal_clean_;
+    }
+    ++next_pedal_check_idx_;
+  }
+
   while (play_beat_accum_ticks_ + 1e-6 >= beat_ticks_d) {
     play_beat_accum_ticks_ -= beat_ticks_d;
     ++current_pulse_in_bar_;
@@ -1079,6 +1197,29 @@ LessonTickResult LessonEngine::update(double dt_ms) {
   }
 
   if (elapsed_ticks_ + 1e-6 >= static_cast<double>(total_slice_ticks_)) {
+    for (auto& sn : active_sustained_) {
+      if (sn.finished) {
+        continue;
+      }
+      const double elapsed_win =
+          std::min(sn.target_duration_ticks, std::max(0.0, elapsed_ticks_ - sn.start_tick));
+      sn.finished = true;
+      if (elapsed_win >= 240.0) {
+        ++sustained_checked_;
+        if (sn.held_ticks >= 0.65 * elapsed_win) {
+          ++sustained_held_;
+        }
+      }
+    }
+    while (next_pedal_check_idx_ < pedal_check_ticks_.size()) {
+      const double target_t = pedal_check_ticks_[next_pedal_check_idx_];
+      ++pedal_checked_;
+      if (last_pedal_up_tick_ >= target_t - 240.0) {
+        ++pedal_clean_;
+      }
+      ++next_pedal_check_idx_;
+    }
+
     while (active_target_index_ < targets_.size()) {
       if (targets_[active_target_index_].status == LessonTargetStatus::Pending) {
         targets_[active_target_index_].status = LessonTargetStatus::Missed;
@@ -1099,6 +1240,9 @@ LessonTickResult LessonEngine::update(double dt_ms) {
       play_beat_accum_ticks_ = static_cast<double>(pickup_offset % beat_ticks) + elapsed_ticks_;
       active_target_index_ = 0;
       next_playback_note_idx_ = 0;
+      active_sustained_.clear();
+      next_pedal_check_idx_ = 0;
+      last_pedal_up_tick_ = damper_pedal_down_ ? -1e9 : elapsed_ticks_;
       emit_due_playback_notes(elapsed_ticks_, out.playback_notes);
       for (auto& t : targets_) {
         t.status = LessonTargetStatus::Pending;
@@ -1115,12 +1259,107 @@ LessonTickResult LessonEngine::update(double dt_ms) {
   return out;
 }
 
+void LessonEngine::on_note_off(MidiPitch midi) noexcept {
+  for (auto& sn : active_sustained_) {
+    if (!sn.finished && sn.midi == midi) {
+      sn.finger_down = false;
+    }
+  }
+}
+
+void LessonEngine::on_damper_pedal(bool down, bool from_hardware) noexcept {
+  if (down && from_hardware && playback_state_ == LessonPlaybackState::Playing) {
+    damper_pedal_used_ = true;
+  }
+  if (!down) {
+    last_pedal_up_tick_ = elapsed_ticks_;
+  }
+  damper_pedal_down_ = down;
+}
+
 LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi) {
+  return submit_played_notes(played_midi, {}, false);
+}
+
+LessonSubmitResult
+LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
+                                  std::span<const std::uint8_t> played_velocities,
+                                  bool from_hardware) {
   LessonSubmitResult res{};
   const auto normalized = normalize_midi_set(played_midi);
   if (normalized.empty() || targets_.empty()) {
     return res;
   }
+
+  auto record_musicality = [&](const LessonTarget& tgt) {
+    if (from_hardware && played_velocities.size() == played_midi.size()) {
+      auto lookup_vel = [&](MidiPitch p) -> std::optional<std::uint8_t> {
+        for (std::size_t i = 0; i < played_midi.size(); ++i) {
+          if (played_midi[i] == p) {
+            return played_velocities[i];
+          }
+        }
+        return std::nullopt;
+      };
+      for (const std::uint8_t v : played_velocities) {
+        hw_min_vel_ = std::min(hw_min_vel_, v);
+        hw_max_vel_ = std::max(hw_max_vel_, v);
+      }
+      if (!tgt.treble_midi.empty() && !tgt.bass_midi.empty()) {
+        const MidiPitch mel_pitch = tgt.treble_midi.back();
+        if (const auto mv = lookup_vel(mel_pitch); mv.has_value()) {
+          melody_vel_sum_ += *mv;
+          ++melody_vel_count_;
+        }
+        for (std::size_t k = 0; k + 1U < tgt.treble_midi.size(); ++k) {
+          if (tgt.treble_midi[k] == mel_pitch) {
+            continue;
+          }
+          if (const auto av = lookup_vel(tgt.treble_midi[k]); av.has_value()) {
+            accomp_vel_sum_ += *av;
+            ++accomp_vel_count_;
+          }
+        }
+        for (const MidiPitch bp : tgt.bass_midi) {
+          if (bp == mel_pitch) {
+            continue;
+          }
+          if (const auto av = lookup_vel(bp); av.has_value()) {
+            accomp_vel_sum_ += *av;
+            ++accomp_vel_count_;
+          }
+        }
+      } else if (tgt.treble_midi.size() >= 2U) {
+        const MidiPitch mel_pitch = tgt.treble_midi.back();
+        if (const auto mv = lookup_vel(mel_pitch); mv.has_value()) {
+          melody_vel_sum_ += *mv;
+          ++melody_vel_count_;
+        }
+        for (std::size_t k = 0; k + 1U < tgt.treble_midi.size(); ++k) {
+          if (const auto av = lookup_vel(tgt.treble_midi[k]); av.has_value()) {
+            accomp_vel_sum_ += *av;
+            ++accomp_vel_count_;
+          }
+        }
+      }
+    }
+
+    if (config_.practice_mode == LessonPracticeMode::SteadyPulse &&
+        !tgt.sustained_durations.empty()) {
+      for (const auto& [smidi, dur_ticks] : tgt.sustained_durations) {
+        if (std::ranges::find(normalized, smidi) != normalized.end()) {
+          active_sustained_.push_back(ActiveSustainedNote{
+              .midi = smidi,
+              .start_tick = elapsed_ticks_,
+              .target_duration_ticks = static_cast<double>(dur_ticks),
+              .held_ticks = 0.0,
+              .finger_down = true,
+              .finished = false,
+          });
+        }
+      }
+    }
+  };
 
   auto matches_target = [&](const LessonTarget& tgt) noexcept {
     if (tgt.pitch_class_match) {
@@ -1170,6 +1409,7 @@ LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> 
       tgt.played_midi = normalized;
       tgt.missed_midi.clear();
       ++hits_;
+      record_musicality(tgt);
       while (active_target_index_ < targets_.size() &&
              targets_[active_target_index_].status != LessonTargetStatus::Pending) {
         ++active_target_index_;
@@ -1195,6 +1435,7 @@ LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> 
           }
         }
         ++partial_hits_;
+        record_musicality(tgt);
         while (active_target_index_ < targets_.size() &&
                targets_[active_target_index_].status != LessonTargetStatus::Pending) {
           ++active_target_index_;
@@ -1224,6 +1465,7 @@ LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> 
     tgt.status = LessonTargetStatus::Hit;
     tgt.played_midi = normalized;
     ++hits_;
+    record_musicality(tgt);
     ++active_target_index_;
     res.matched = true;
     if (active_target_index_ >= targets_.size()) {
@@ -1408,6 +1650,47 @@ LessonRunSummary LessonEngine::build_run_summary() const {
       diagnostics.push_back(diag);
     }
   }
+  MusicalityMetrics mus{};
+  if (melody_vel_count_ >= 2U && accomp_vel_count_ >= 2U && hw_max_vel_ > hw_min_vel_) {
+    mus.voicing_available = true;
+    mus.melody_avg_velocity =
+        static_cast<double>(melody_vel_sum_) / static_cast<double>(melody_vel_count_);
+    mus.accomp_avg_velocity =
+        static_cast<double>(accomp_vel_sum_) / static_cast<double>(accomp_vel_count_);
+    mus.voicing_delta = mus.melody_avg_velocity - mus.accomp_avg_velocity;
+    mus.voicing_balanced = (mus.voicing_delta >= 6.0);
+  }
+  if (sustained_checked_ > 0U) {
+    mus.sustain_available = true;
+    mus.sustained_notes_checked = sustained_checked_;
+    mus.sustained_notes_held = sustained_held_;
+    mus.sustain_hold_rate =
+        static_cast<double>(sustained_held_) / static_cast<double>(sustained_checked_);
+  }
+  if (damper_pedal_used_ && pedal_checked_ > 0U) {
+    mus.pedal_available = true;
+    mus.pedal_changes_checked = pedal_checked_;
+    mus.pedal_changes_clean = pedal_clean_;
+    mus.pedal_clean_rate = static_cast<double>(pedal_clean_) / static_cast<double>(pedal_checked_);
+  }
+
+  std::vector<std::string> tips;
+  if (mus.voicing_available && !mus.voicing_balanced) {
+    tips.push_back("Soften LH accompaniment so the melody sings");
+  }
+  if (mus.sustain_available && mus.sustain_hold_rate < 0.75) {
+    tips.push_back("Hold half and tied notes longer");
+  }
+  if (mus.pedal_available && mus.pedal_clean_rate < 0.75) {
+    tips.push_back("Lift the damper pedal cleanly on chord changes");
+  }
+  for (std::size_t i = 0; i < tips.size(); ++i) {
+    if (i > 0U) {
+      mus.coach_tip += " · ";
+    }
+    mus.coach_tip += tips[i];
+  }
+
   return LessonRunSummary{
       .lesson_id = score_.meta.id,
       .practice_mode = config_.practice_mode,
@@ -1420,6 +1703,7 @@ LessonRunSummary LessonEngine::build_run_summary() const {
       .phrase_index = config_.phrase_index,
       .partial_hits = partial_hits_,
       .bar_diagnostics = std::move(diagnostics),
+      .musicality = std::move(mus),
   };
 }
 

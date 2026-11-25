@@ -1,6 +1,6 @@
 # Phase 16: Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal Sensing)
 
-**Status:** `[ ] Planned` (Depends on Phase 14 & Phase 15)  
+**Status:** `[x] Complete` (Depends on Phase 14 & Phase 15)  
 **Goal:** Elevate Selfano from pitch-and-rhythm verification to genuine pianistic coaching by analyzing MIDI velocity balance (melody projection vs. accompaniment), sustained/tied note hold duration (`NoteOff`), and damper pedal (`CC 64`) cleanliness—surfaced as calm, non-punitive feedback that never penalizes non-velocity virtual/QWERTY keyboards.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `midi-emscripten-interop`, `apple-hig-imgui`, `verification-and-review`

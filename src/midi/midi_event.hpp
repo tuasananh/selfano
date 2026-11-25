@@ -35,6 +35,9 @@ struct MidiNoteEvent {
   [[nodiscard]] constexpr bool is_control_change() const noexcept {
     return kind == MidiMessageKind::ControlChange || is_soft_pedal;
   }
+  [[nodiscard]] constexpr bool is_damper_pedal() const noexcept {
+    return kind == MidiMessageKind::ControlChange && data1 == 64U;
+  }
 };
 
 // Pure, allocation-free, lock-free MIDI 1.0 channel message parser safe for RT callbacks.

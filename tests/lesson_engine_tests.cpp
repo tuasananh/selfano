@@ -919,3 +919,204 @@ TEST_CASE("LessonEngine build_demo_playback applies dynamics, staccato, accent, 
   REQUIRE_THAT(notes[4].start_ms, WithinAbs(1070.0, 1.0));
   REQUIRE(notes[4].duration_ms < notes[2].duration_ms);
 }
+
+namespace {
+
+LessonNote ln_tied(NoteLetter letter, Accidental acc, int octave, bool tie_start, bool tie_stop) {
+  auto n = ln(letter, acc, octave);
+  n.tie_start = tie_start;
+  n.tie_stop = tie_stop;
+  return n;
+}
+
+LessonScore make_phase16_two_hand_score() {
+  LessonScore s{};
+  s.meta = LessonMetadata{
+      .id = "p16_voicing",
+      .tier = 2,
+      .order_in_tier = 1,
+      .title = "Voicing & Pedal Test",
+      .composer_source = "Unit",
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+      .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
+      .target_bpm = 120.0,
+      .tempo_marking = "Moderato",
+  };
+  LessonMeasure m1{};
+  m1.bar_number = 1;
+  m1.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .notes = {ln_tied(NoteLetter::G, Accidental::Natural, 5, true, false)}},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .notes = {ln_tied(NoteLetter::G, Accidental::Natural, 5, false, true)}},
+  };
+  m1.bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .notes = {ln(NoteLetter::C, Accidental::Natural, 3)}},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .notes = {ln(NoteLetter::G, Accidental::Natural, 3)}},
+  };
+  s.measures.push_back(std::move(m1));
+  return s;
+}
+
+void advance_past_count_in(LessonEngine& eng) {
+  for (int i = 0; i < 40 && eng.playback_state() == LessonPlaybackState::CountIn; ++i) {
+    (void)eng.update(200.0);
+  }
+}
+
+} // namespace
+
+TEST_CASE(
+    "Phase 16: Full 2-bar voicing, sustain hold, damper pedal cleanliness & non-punitive guarantee",
+    "[lesson_engine][phase16]") {
+  auto score = make_phase16_two_hand_score();
+  score.measures.push_back(score.measures.front());
+  score.measures[1].bar_number = 2;
+  score.pedals = {
+      PedalSpan{.start_bar = 0, .start_tick = 0, .end_bar = 0, .end_tick = 1440},
+      PedalSpan{.start_bar = 1, .start_tick = 0, .end_bar = 1, .end_tick = 1440},
+  };
+
+  LessonEngine engine;
+  engine.load_score(score, LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                                        .hand_mode = LessonHandMode::HandsTogether,
+                                        .tempo_step = TempoLadderStep::Target100});
+
+  auto run_once = [&](bool hw, std::uint8_t mel_vel, std::uint8_t acc_vel, bool hold_long,
+                      bool lift_pedal_cleanly, bool use_pedal) {
+    (void)engine.start();
+    advance_past_count_in(engine);
+    bool completed = false;
+    std::vector<MidiPitch> active_notes;
+    for (std::size_t ti = 0; ti < engine.targets().size(); ++ti) {
+      const auto& t = engine.targets()[ti];
+      const double target_tick = static_cast<double>(t.global_tick);
+      while (engine.elapsed_ticks() + 1e-3 < target_tick &&
+             engine.playback_state() == LessonPlaybackState::Playing) {
+        (void)engine.update(25.0);
+      }
+      if (use_pedal && t.tick_in_bar == 0) {
+        engine.on_damper_pedal(true, hw);
+      }
+      // Release notes that were NOT tied across this boundary; tied notes stay down when hold_long!
+      for (const auto p : active_notes) {
+        if (!hold_long || std::ranges::find(t.expected_midi, p) != t.expected_midi.end()) {
+          engine.on_note_off(p);
+        }
+      }
+      std::vector<std::uint8_t> vels;
+      for (const auto p : t.expected_midi) {
+        const bool is_rh = std::ranges::find(t.treble_midi, p) != t.treble_midi.end();
+        vels.push_back(is_rh ? mel_vel : acc_vel);
+      }
+      const auto sr = engine.submit_played_notes(t.expected_midi, vels, hw);
+      REQUIRE(sr.matched);
+      active_notes = t.expected_midi;
+
+      // Advance ~1650 ticks (~1700ms at 120bpm) for whole tied notes vs ~120 ticks for chopped
+      const int hold_steps = hold_long ? 34 : 3;
+      for (int k = 0; k < hold_steps && engine.playback_state() == LessonPlaybackState::Playing;
+           ++k) {
+        (void)engine.update(25.0);
+        if (use_pedal && lift_pedal_cleanly &&
+            ((engine.elapsed_ticks() >= 1420.0 && engine.elapsed_ticks() <= 1520.0) ||
+             (engine.elapsed_ticks() >= 3340.0 && engine.elapsed_ticks() <= 3450.0))) {
+          engine.on_damper_pedal(false, hw);
+        }
+      }
+      if (!hold_long) {
+        for (const auto p : active_notes) {
+          engine.on_note_off(p);
+        }
+        active_notes.clear();
+      } else {
+        // Release half notes in bass while keeping tied whole G5 down if we are still in beat 1->3
+        for (const auto p : t.bass_midi) {
+          engine.on_note_off(p);
+        }
+      }
+    }
+    for (int i = 0; i < 200 && engine.playback_state() == LessonPlaybackState::Playing; ++i) {
+      const auto tk = engine.update(25.0);
+      if (use_pedal && lift_pedal_cleanly &&
+          ((engine.elapsed_ticks() >= 1420.0 && engine.elapsed_ticks() <= 1520.0) ||
+           (engine.elapsed_ticks() >= 3340.0 && engine.elapsed_ticks() <= 3450.0))) {
+        engine.on_damper_pedal(false, hw);
+      }
+      if (tk.phrase_completed) {
+        completed = true;
+        break;
+      }
+    }
+    for (const auto p : active_notes) {
+      engine.on_note_off(p);
+    }
+    if (use_pedal) {
+      engine.on_damper_pedal(false, hw);
+    }
+    REQUIRE(completed);
+    return engine.build_run_summary();
+  };
+
+  // A. Balanced expressive hardware performance + clean sustain + clean pedal
+  const auto clean = run_once(true, 96U, 60U, true, true, true);
+  REQUIRE_THAT(clean.accuracy, WithinAbs(1.0, 1e-6));
+  REQUIRE(clean.musicality.voicing_available);
+  REQUIRE(clean.musicality.voicing_balanced);
+  REQUIRE(clean.musicality.voicing_delta >= 30.0);
+  REQUIRE(clean.musicality.sustain_available);
+  REQUIRE(clean.musicality.sustain_hold_rate >= 0.75);
+  REQUIRE(clean.musicality.pedal_available);
+  REQUIRE(clean.musicality.pedal_clean_rate >= 0.75);
+  REQUIRE(clean.musicality.coach_tip.empty());
+
+  // B. Inverted voicing (LH louder than RH) + smeared pedal -> NEVER punishes accuracy/mastery!
+  const auto rough = run_once(true, 62U, 95U, true, false, true);
+  REQUIRE_THAT(rough.accuracy, WithinAbs(1.0, 1e-6));
+  REQUIRE(rough.musicality.voicing_available);
+  REQUIRE(!rough.musicality.voicing_balanced);
+  REQUIRE(rough.musicality.voicing_delta < 0.0);
+  REQUIRE(rough.musicality.pedal_available);
+  REQUIRE(rough.musicality.pedal_clean_rate < 0.75);
+  REQUIRE(!rough.musicality.coach_tip.empty());
+
+  // C. Chopped dry sustain (no damper pedal compensating) -> drops sustain rate, stays non-punitive
+  const auto chopped_dry = run_once(true, 96U, 60U, false, false, false);
+  REQUIRE_THAT(chopped_dry.accuracy, WithinAbs(1.0, 1e-6));
+  REQUIRE(!chopped_dry.musicality.pedal_available);
+  REQUIRE(chopped_dry.musicality.sustain_available);
+  REQUIRE(chopped_dry.musicality.sustain_hold_rate < 0.75);
+  REQUIRE(!chopped_dry.musicality.coach_tip.empty());
+
+  LessonProgress prog_clean{};
+  LessonProgress prog_rough{};
+  LessonProgress prog_chop{};
+  const auto upd_clean = apply_run_to_progress(prog_clean, clean, score.meta.target_bpm, 20000);
+  const auto upd_rough = apply_run_to_progress(prog_rough, rough, score.meta.target_bpm, 20000);
+  const auto upd_chop = apply_run_to_progress(prog_chop, chopped_dry, score.meta.target_bpm, 20000);
+  REQUIRE(upd_rough.just_mastered == upd_clean.just_mastered);
+  REQUIRE(upd_rough.suggested_rating == upd_clean.suggested_rating);
+  REQUIRE(upd_chop.just_mastered == upd_clean.just_mastered);
+  REQUIRE(upd_chop.suggested_rating == upd_clean.suggested_rating);
+  REQUIRE(prog_rough == prog_clean);
+  REQUIRE(prog_chop == prog_clean);
+
+  // D. Virtual keyboard (from_hardware = false, flat velocity, no pedal): gracefully omits voicing
+  // & pedal
+  const auto virt = run_once(false, 96U, 96U, true, false, false);
+  REQUIRE_THAT(virt.accuracy, WithinAbs(1.0, 1e-6));
+  REQUIRE(!virt.musicality.voicing_available);
+  REQUIRE(!virt.musicality.pedal_available);
+  REQUIRE(virt.musicality.sustain_available);
+  REQUIRE(virt.musicality.sustain_hold_rate >= 0.75);
+}

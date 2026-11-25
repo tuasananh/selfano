@@ -354,6 +354,11 @@ void AppController::process_note_events(const std::vector<midi::MidiNoteEvent>& 
       continue;
     }
 
+    if (ev.is_damper_pedal()) {
+      lesson_view_.on_damper_pedal(ev.is_note_on, ev.from_hardware);
+      continue;
+    }
+
     if (!ev.is_note_message()) {
       continue;
     }
@@ -361,6 +366,9 @@ void AppController::process_note_events(const std::vector<midi::MidiNoteEvent>& 
     if (!ev.is_note_on && ev.note < 128U && remote_suppressed_notes_[ev.note]) {
       remote_suppressed_notes_[ev.note] = false;
       continue;
+    }
+    if (!ev.is_note_on) {
+      lesson_view_.on_note_off(ev.note);
     }
 
     if (ev.is_note_on && ev.note < 128U) {
@@ -587,9 +595,14 @@ bool AppController::init(const CliOptions& cli_opts) {
     lesson_view_.mutable_engine().set_custom_bar_range(cli_.bar_range_override);
     lesson_view_.mutable_engine().set_loop_phrase(true);
   }
-  if (cli_.simulate_coach_clean.has_value()) {
-    lesson_view_.simulate_completed_run_for_smoke(*cli_.simulate_coach_clean, profile_,
-                                                  boot_epoch_day);
+  if (cli_.simulate_coach.has_value()) {
+    ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
+    if (*cli_.simulate_coach == SmokeCoachMode::Imperfect) {
+      sim_mode = ui::SmokeCoachSimMode::Imperfect;
+    } else if (*cli_.simulate_coach == SmokeCoachMode::Virtual) {
+      sim_mode = ui::SmokeCoachSimMode::Virtual;
+    }
+    lesson_view_.simulate_completed_run_for_smoke(sim_mode, profile_, boot_epoch_day);
   }
 
   if (cli_.initial_mode == AppMode::Autopilot) {

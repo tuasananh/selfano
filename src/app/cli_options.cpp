@@ -160,9 +160,11 @@ CliOptions parse_cli(int argc, char* argv[]) {
     } else if (arg == "--simulate-coach" && i + 1 < argc) {
       const std::string_view mode = argv[++i];
       if (mode == "clean") {
-        opts.simulate_coach_clean = true;
+        opts.simulate_coach = SmokeCoachMode::Clean;
       } else if (mode == "imperfect") {
-        opts.simulate_coach_clean = false;
+        opts.simulate_coach = SmokeCoachMode::Imperfect;
+      } else if (mode == "virtual") {
+        opts.simulate_coach = SmokeCoachMode::Virtual;
       }
     }
   }

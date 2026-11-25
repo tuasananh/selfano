@@ -22,6 +22,8 @@ enum class AppMode : std::uint8_t {
   DevTools = 5,
 };
 
+enum class SmokeCoachMode : std::uint8_t { Clean = 0, Imperfect = 1, Virtual = 2 };
+
 struct CliOptions {
   int smoke_frames{0};
   std::string screenshot_path;
@@ -43,7 +45,7 @@ struct CliOptions {
   std::optional<core::LessonHandMode> lesson_hand_override;
   bool start_lesson_demo{false};
   std::optional<std::pair<std::size_t, std::size_t>> bar_range_override;
-  std::optional<bool> simulate_coach_clean;
+  std::optional<SmokeCoachMode> simulate_coach;
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

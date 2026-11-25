@@ -94,6 +94,9 @@ struct LessonTarget {
   int global_tick{0};
   std::vector<MidiPitch> expected_midi;
   std::vector<SpelledNote> expected_spelled;
+  std::vector<MidiPitch> treble_midi{};
+  std::vector<MidiPitch> bass_midi{};
+  std::vector<std::pair<MidiPitch, int>> sustained_durations{};
   std::uint16_t pitch_class_mask{0};
   bool pitch_class_match{false};
   LessonTargetStatus status{LessonTargetStatus::Pending};
@@ -153,6 +156,28 @@ struct TroubleSpot {
   bool operator==(const TroubleSpot&) const = default;
 };
 
+struct MusicalityMetrics {
+  bool voicing_available{false};
+  double melody_avg_velocity{0.0};
+  double accomp_avg_velocity{0.0};
+  double voicing_delta{0.0};
+  bool voicing_balanced{false};
+
+  bool sustain_available{false};
+  std::uint32_t sustained_notes_checked{0};
+  std::uint32_t sustained_notes_held{0};
+  double sustain_hold_rate{0.0};
+
+  bool pedal_available{false};
+  std::uint32_t pedal_changes_checked{0};
+  std::uint32_t pedal_changes_clean{0};
+  double pedal_clean_rate{0.0};
+
+  std::string coach_tip{};
+
+  bool operator==(const MusicalityMetrics&) const = default;
+};
+
 struct LessonRunSummary {
   std::string lesson_id;
   LessonPracticeMode practice_mode{LessonPracticeMode::WaitForNote};
@@ -165,6 +190,7 @@ struct LessonRunSummary {
   std::optional<std::size_t> phrase_index{};
   std::uint32_t partial_hits{0};
   std::vector<BarDiagnostic> bar_diagnostics{};
+  MusicalityMetrics musicality{};
 };
 
 struct GuidedPracticeStep {
@@ -238,6 +264,11 @@ public:
   void stop();
   LessonTickResult update(double dt_ms);
   LessonSubmitResult submit_played_notes(std::span<const MidiPitch> played_midi);
+  LessonSubmitResult submit_played_notes(std::span<const MidiPitch> played_midi,
+                                         std::span<const std::uint8_t> played_velocities,
+                                         bool from_hardware);
+  void on_note_off(MidiPitch midi) noexcept;
+  void on_damper_pedal(bool down, bool from_hardware) noexcept;
 
   [[nodiscard]] std::vector<MidiPitch> active_demo_midi_notes() const;
   [[nodiscard]] std::vector<LessonPlaybackNote> build_demo_playback() const;
@@ -284,6 +315,15 @@ private:
     std::uint8_t channel{0};
   };
 
+  struct ActiveSustainedNote {
+    MidiPitch midi{60};
+    double start_tick{0.0};
+    double target_duration_ticks{960.0};
+    double held_ticks{0.0};
+    bool finger_down{true};
+    bool finished{false};
+  };
+
   void rebuild_slice_and_targets();
   void reset_transport_state();
   void clamp_custom_bar_range() noexcept;
@@ -324,6 +364,26 @@ private:
   std::uint32_t partial_hits_{0};
   std::uint32_t misses_{0};
   std::uint32_t completed_runs_{0};
+
+  // Musicality telemetry (non-punitive)
+  std::uint64_t melody_vel_sum_{0};
+  std::uint32_t melody_vel_count_{0};
+  std::uint64_t accomp_vel_sum_{0};
+  std::uint32_t accomp_vel_count_{0};
+  std::uint8_t hw_min_vel_{255};
+  std::uint8_t hw_max_vel_{0};
+
+  std::vector<ActiveSustainedNote> active_sustained_;
+  std::uint32_t sustained_checked_{0};
+  std::uint32_t sustained_held_{0};
+
+  bool damper_pedal_down_{false};
+  bool damper_pedal_used_{false};
+  double last_pedal_up_tick_{-1e9};
+  std::vector<double> pedal_check_ticks_;
+  std::size_t next_pedal_check_idx_{0};
+  std::uint32_t pedal_checked_{0};
+  std::uint32_t pedal_clean_{0};
 };
 
 } // namespace selfano::core

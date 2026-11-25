@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-26
-- **Active Phase:** **Ready for Phase 16** (Phases 0–15 Complete; Phase 16 Planned in `docs/phases/`)
-- **Last Completed Phase:** Phase 15 — Expressive Classical Notation & Two-Voice Polyphony
+- **Active Phase:** **Complete (Phases 0–16)** — Conservatory Pedagogy & Reading Upgrade Complete
+- **Last Completed Phase:** Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)
 
 ---
 
@@ -254,6 +254,20 @@
   - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean across all modified C++ files.
   - Headless Light & Dark screenshots inspected (`t3_01`, `t5_02`, `t6_02`, `t6_03`, `t6_04`, `--tab showcase --showcase-preset classical`) and live headless Chromium CDP verification on `build/web-release` (`http://127.0.0.1:8766/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors** and sharp 1360x717 WebGL rendering.
 
+### Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Lock-Free MIDI & Routing (`src/midi/`, `src/app/`): added `MidiNoteEvent::is_damper_pedal()` (`CC 64` in `midi_event.hpp`), parallel sorted `velocities` vector on `PlayedChord` (`chord_grouper.hpp/.cpp`), and non-blocking `on_damper_pedal` / `on_note_off` forwarding in `app_controller.cpp` (keeping native `libremidi` and WebMIDI `0xB0 64` lock-free SPSC callbacks allocation-free)
+  - Pure C++23 Core (`src/core/`): added `MusicalityMetrics`, `LessonTarget::treble_midi`/`bass_midi`/`sustained_durations`, `LessonEngine::submit_played_notes(notes, velocities, from_hardware)`, `on_note_off`, `on_damper_pedal`, tie-aware sustain duration tracking (`>= 65%` via finger hold or damper pedal), `PedalSpan` release cleanliness (`±240` ticks), melody-over-accompaniment voicing balance (gated on hardware MIDI variance), non-punitive constructive `coach_tip`, and graceful omission of velocity/pedal metrics on virtual/QWERTY input (`lesson_engine.hpp/.cpp`)
+  - Catch2 Suite (`tests/`): expanded `midi_tests.cpp` (`CC 64` damper pedal parsing and `PlayedChord::velocities`) and `lesson_engine_tests.cpp` (hardware voicing balance vs. inverted LH, finger/pedal tie sustain hold vs. early chop, damper pedal lift cleanliness vs. smear, non-punitive mastery equality, and virtual-keyboard fallback)
+  - UI & CLI (`src/ui/`, `src/app/`): added two-row **Musicality Row** inside `LessonView::draw_post_run_coach` (`Voicing`, `Sustain`, `Pedal` pills + constructive tips, cleanly omitted when unavailable) and `--simulate-coach clean|imperfect|virtual` (`cli_options.hpp/.cpp`, `lesson_view.hpp/.cpp`, `app_controller.cpp`)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with **0 warnings** under `-Wall -Wextra -Wpedantic -Werror`.
+  - `ctest --preset native-debug --output-on-failure` passed **90/90** test cases (100%).
+  - `cmake --build --preset web-release` compiled cleanly with **0 warnings**.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean across all modified C++ files.
+  - Headless Light & Dark screenshots inspected (`t5_02 --bar-range 0-3 --simulate-coach clean`, `t5_02 --bar-range 0-3 --simulate-coach imperfect`, `t1_01 --simulate-coach virtual`) and live headless Chromium CDP verification on `build/web-release` (`http://127.0.0.1:8767/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors** with crisp 1360x717 WebGL rendering.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -270,13 +284,13 @@
 
 ## Next Concrete Action
 
-- **Start Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)** (`docs/phases/phase-16-pianistic-musicality-coaching.md`):
+- **All Phases (0–16) Complete:**
   - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
   - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
   - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[x] Complete`)
   - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[x] Complete`)
   - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[x] Complete`)
-  - **Phase 16:** Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) (`[ ] Planned`)
+  - **Phase 16:** Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) (`[x] Complete`)
 
 ---
 
