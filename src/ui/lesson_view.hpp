@@ -2,6 +2,7 @@
 
 #include "core/lesson_engine.hpp"
 #include "core/lesson_library.hpp"
+#include "core/musicxml_importer.hpp"
 #include "core/profile_store.hpp"
 
 #include "midi/chord_grouper.hpp"
@@ -32,6 +33,9 @@ struct LessonViewActions {
   bool add_to_srs_requested{false};
   std::string add_to_srs_lesson_id{};
   std::optional<std::string> next_lesson_id{};
+  bool request_import_file_dialog{false};
+  std::optional<core::LessonScore> save_imported_lesson{};
+  std::optional<std::string> delete_imported_lesson_id{};
 };
 
 class LessonView {
@@ -81,6 +85,13 @@ public:
                                        core::UserProfile& profile, std::int64_t today_epoch_day);
 
   void open_curriculum_browser() noexcept { curriculum_open_ = true; }
+  void open_my_books_tab() noexcept {
+    curriculum_open_ = true;
+    curriculum_tab_ = 1;
+  }
+  void open_import_preview(core::MusicXmlImportResult result);
+  void open_edit_imported_lesson(const core::LessonScore& score);
+  void set_import_error(std::string message);
   void dismiss_mastery_banner() noexcept { just_mastered_banner_ = false; }
 
 private:
@@ -88,6 +99,7 @@ private:
                               bool& out_chime, bool& out_just_mastered);
   void draw_curriculum_modal(const core::LessonLibrary& library, const core::UserProfile& profile,
                              std::int64_t today_epoch_day, LessonViewActions& actions);
+  void draw_import_modal(LessonViewActions& actions);
 
   core::LessonEngine engine_{};
   bool metronome_enabled_{true};
@@ -97,6 +109,16 @@ private:
   bool theory_expanded_{false};
   bool curriculum_open_{false};
   int curriculum_tab_{0}; // 0 = Tiers 1-6, 1 = My Books
+  bool import_modal_open_{false};
+  bool import_is_editing_{false};
+  core::LessonScore import_draft_{};
+  std::vector<std::string> import_warnings_{};
+  std::string import_error_{};
+  std::array<char, 160> import_title_buf_{};
+  std::array<char, 160> import_composer_buf_{};
+  float import_bpm_buf_{84.0f};
+  std::vector<std::string> import_bar_chords_{};
+  bool import_harmony_expanded_{false};
   bool just_mastered_banner_{false};
   bool is_revision_mode_{false};
   std::string revision_lesson_id_{};

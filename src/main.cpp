@@ -1,5 +1,6 @@
 #include "core/autopilot.hpp"
 #include "core/lesson_library.hpp"
+#include "core/musicxml_importer.hpp"
 #include "core/piano_remote.hpp"
 #include "core/profile_store.hpp"
 #include "core/weekly_key.hpp"
@@ -46,6 +47,7 @@
 #include <format>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -73,6 +75,7 @@ struct CliOptions {
   std::vector<std::uint8_t> inject_notes;
   std::string profile_path;
   std::string lesson_id_override;
+  std::string import_lesson_path;
   AppMode initial_mode{AppMode::Home};
   selfano::core::AutopilotStage initial_free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
   int initial_dev_subtab{0};
@@ -130,6 +133,35 @@ struct SessionBaselines {
   }
   return std::filesystem::path("profile.json");
 #endif
+}
+
+[[nodiscard]] std::filesystem::path
+resolve_imported_lessons_dir(const std::filesystem::path& profile_path) {
+#ifdef __EMSCRIPTEN__
+  (void)profile_path;
+  return std::filesystem::path("/persist/lessons");
+#else
+  if (profile_path.has_parent_path()) {
+    return profile_path.parent_path() / "lessons";
+  }
+  return std::filesystem::path("lessons");
+#endif
+}
+
+[[nodiscard]] bool has_musicxml_extension(std::string_view filename) noexcept {
+  auto ends_ci = [&](std::string_view ext) noexcept {
+    if (filename.size() < ext.size()) {
+      return false;
+    }
+    const auto tail = filename.substr(filename.size() - ext.size());
+    for (std::size_t i = 0; i < ext.size(); ++i) {
+      if (std::tolower(static_cast<unsigned char>(tail[i])) != ext[i]) {
+        return false;
+      }
+    }
+    return true;
+  };
+  return ends_ci(".musicxml") || ends_ci(".xml") || ends_ci(".mxl");
 }
 
 [[nodiscard]] std::optional<int> parse_strict_int(std::string_view token) noexcept {
@@ -212,6 +244,8 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
       opts.profile_path = argv[++i];
     } else if (arg == "--lesson" && i + 1 < argc) {
       opts.lesson_id_override = argv[++i];
+    } else if (arg == "--import-lesson" && i + 1 < argc) {
+      opts.import_lesson_path = argv[++i];
     } else if (arg == "--tab" && i + 1 < argc) {
       parse_tab_arg(argv[++i], opts);
     } else if (arg == "--theme" && i + 1 < argc) {
@@ -371,6 +405,112 @@ extern "C" EMSCRIPTEN_KEEPALIVE void selfano_on_idbfs_loaded(int ok) {
   g_idbfs_load_done.store(true, std::memory_order_release);
 }
 
+struct WebImportedFile {
+  std::string filename;
+  std::vector<std::uint8_t> bytes;
+};
+
+std::mutex g_web_import_mutex;
+std::vector<WebImportedFile> g_web_import_queue;
+std::vector<std::vector<std::uint8_t>> g_web_staging_buffers;
+
+extern "C" EMSCRIPTEN_KEEPALIVE void* selfano_alloc_bytes(int size) {
+  if (size <= 0) {
+    return nullptr;
+  }
+  std::lock_guard lock(g_web_import_mutex);
+  g_web_staging_buffers.emplace_back(static_cast<std::size_t>(size));
+  return g_web_staging_buffers.back().data();
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE void selfano_free_bytes(void* ptr) {
+  if (ptr == nullptr) {
+    return;
+  }
+  std::lock_guard lock(g_web_import_mutex);
+  std::erase_if(g_web_staging_buffers,
+                [ptr](const std::vector<std::uint8_t>& buf) { return buf.data() == ptr; });
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE void selfano_on_imported_file(const char* filename,
+                                                              const std::uint8_t* data, int len) {
+  if (filename == nullptr || data == nullptr || len <= 0) {
+    return;
+  }
+  std::lock_guard lock(g_web_import_mutex);
+  WebImportedFile item;
+  item.filename = filename;
+  item.bytes.assign(data, data + len);
+  g_web_import_queue.push_back(std::move(item));
+}
+
+// clang-format off
+EM_JS(void, selfano_web_open_file_picker, (), {
+  if (typeof document === "undefined") {
+    return;
+  }
+  let input = document.getElementById("selfano-musicxml-picker");
+  if (!input) {
+    input = document.createElement("input");
+    input.id = "selfano-musicxml-picker";
+    input.type = "file";
+    input.accept = ".musicxml,.xml,.mxl";
+    input.style.display = "none";
+    document.body.appendChild(input);
+    input.addEventListener("change", function(evt) {
+      const files = evt.target && evt.target.files;
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      file.arrayBuffer().then(function(buf) {
+        const bytes = new Uint8Array(buf);
+        const nameLen = Module.lengthBytesUTF8(file.name) + 1;
+        const namePtr = Module._selfano_alloc_bytes(nameLen);
+        const dataPtr = Module._selfano_alloc_bytes(bytes.length);
+        if (namePtr && dataPtr) {
+          Module.stringToUTF8(file.name, namePtr, nameLen);
+          Module.HEAPU8.set(bytes, dataPtr);
+          Module._selfano_on_imported_file(namePtr, dataPtr, bytes.length);
+        }
+        if (namePtr) Module._selfano_free_bytes(namePtr);
+        if (dataPtr) Module._selfano_free_bytes(dataPtr);
+      });
+      input.value = "";
+    });
+  }
+  input.click();
+});
+
+EM_JS(void, selfano_web_install_drop_zone, (), {
+  if (typeof document === "undefined" || globalThis.__selfanoDropInstalled) {
+    return;
+  }
+  globalThis.__selfanoDropInstalled = true;
+  const target = document.getElementById("canvas") || document.body;
+  target.addEventListener("dragover", function(e) {
+    e.preventDefault();
+  });
+  target.addEventListener("drop", function(e) {
+    e.preventDefault();
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    file.arrayBuffer().then(function(buf) {
+      const bytes = new Uint8Array(buf);
+      const nameLen = Module.lengthBytesUTF8(file.name) + 1;
+      const namePtr = Module._selfano_alloc_bytes(nameLen);
+      const dataPtr = Module._selfano_alloc_bytes(bytes.length);
+      if (namePtr && dataPtr) {
+        Module.stringToUTF8(file.name, namePtr, nameLen);
+        Module.HEAPU8.set(bytes, dataPtr);
+        Module._selfano_on_imported_file(namePtr, dataPtr, bytes.length);
+      }
+      if (namePtr) Module._selfano_free_bytes(namePtr);
+      if (dataPtr) Module._selfano_free_bytes(dataPtr);
+    });
+  });
+});
+// clang-format on
+
 #endif // __EMSCRIPTEN__
 
 struct AppContext {
@@ -402,10 +542,15 @@ struct AppContext {
   selfano::ui::VirtualPiano shared_piano_dock;
 
   std::filesystem::path profile_path;
+  std::filesystem::path imported_lessons_dir;
   std::string profile_path_str;
   selfano::core::UserProfile profile{};
   std::string last_saved_json;
   double last_autosave_check_ms{0.0};
+
+  std::mutex import_dialog_mutex;
+  std::vector<std::string> pending_import_paths;
+  std::string pending_import_error;
 
   double prev_now_ms{0.0};
 
@@ -507,6 +652,132 @@ struct AppContext {
       persist_profile_now();
     }
     return true;
+  }
+
+  void save_and_activate_imported_lesson(const selfano::core::LessonScore& score, double now_ms) {
+    const auto saved = lesson_library.save_imported_lesson(imported_lessons_dir, score);
+    if (!saved.has_value()) {
+      lesson_view.set_import_error(saved.error());
+      return;
+    }
+    if (std::find(profile.imported_lesson_ids.begin(), profile.imported_lesson_ids.end(),
+                  score.meta.id) == profile.imported_lesson_ids.end()) {
+      profile.imported_lesson_ids.push_back(score.meta.id);
+    }
+    (void)select_active_lesson(score.meta.id, now_ms, true);
+    show_hud_toast("Saved to My Books: " + score.meta.title, now_ms);
+  }
+
+  void delete_imported_lesson(std::string_view lesson_id, double now_ms) {
+    const auto del = lesson_library.delete_imported_lesson_file(imported_lessons_dir, lesson_id);
+    if (!del.has_value()) {
+      lesson_view.set_import_error(del.error());
+      return;
+    }
+    std::erase(profile.imported_lesson_ids, lesson_id);
+    profile.lesson_progress.erase(std::string(lesson_id));
+    if (profile.active_lesson_id == lesson_id) {
+      if (!select_active_lesson("t1_01", now_ms, false) &&
+          !lesson_library.built_in_lessons().empty()) {
+        (void)select_active_lesson(lesson_library.built_in_lessons().front()->meta.id, now_ms,
+                                   false);
+      }
+    }
+    persist_profile_now();
+    show_hud_toast("Removed from My Books", now_ms);
+  }
+
+  static void SDLCALL on_open_file_dialog(void* userdata, const char* const* filelist, int filter) {
+    (void)filter;
+    auto* ctx = static_cast<AppContext*>(userdata);
+    if (ctx == nullptr) {
+      return;
+    }
+    std::lock_guard lock(ctx->import_dialog_mutex);
+    if (filelist == nullptr) {
+      ctx->pending_import_error = SDL_GetError();
+      return;
+    }
+    if (*filelist != nullptr) {
+      ctx->pending_import_paths.emplace_back(*filelist);
+    }
+  }
+
+  void request_musicxml_file_dialog() {
+#ifdef __EMSCRIPTEN__
+    selfano_web_open_file_picker();
+#else
+    static const SDL_DialogFileFilter kFilters[] = {
+        {"MusicXML Scores", "musicxml;xml;mxl"},
+        {"All Files", "*"},
+    };
+    SDL_ShowOpenFileDialog(on_open_file_dialog, this, window, kFilters, 2, nullptr, false);
+#endif
+  }
+
+  void handle_imported_file_path(const std::filesystem::path& path, double now_ms,
+                                 bool auto_save_immediate = false) {
+    const auto res = selfano::core::import_musicxml_file(path);
+    if (!res.has_value()) {
+      lesson_view.set_import_error(res.error());
+      app_mode = AppMode::FreePractice;
+      free_stage = selfano::core::AutopilotStage::Stage3Lessons;
+      return;
+    }
+    app_mode = AppMode::FreePractice;
+    free_stage = selfano::core::AutopilotStage::Stage3Lessons;
+    if (auto_save_immediate) {
+      save_and_activate_imported_lesson(res->score, now_ms);
+    } else {
+      lesson_view.open_import_preview(*res);
+    }
+  }
+
+  void drain_pending_imports(double now_ms) {
+    std::vector<std::string> paths;
+    std::string dlg_err;
+    {
+      std::lock_guard lock(import_dialog_mutex);
+      paths.swap(pending_import_paths);
+      dlg_err.swap(pending_import_error);
+    }
+    if (!dlg_err.empty()) {
+      lesson_view.set_import_error("File dialog error: " + dlg_err);
+    }
+    for (const auto& p : paths) {
+      handle_imported_file_path(std::filesystem::path(p), now_ms, false);
+    }
+
+#ifdef __EMSCRIPTEN__
+    std::vector<WebImportedFile> web_files;
+    {
+      std::lock_guard lock(g_web_import_mutex);
+      web_files.swap(g_web_import_queue);
+    }
+    for (const auto& item : web_files) {
+      selfano::core::MusicXmlImportOptions opts{};
+      const std::filesystem::path fp(item.filename);
+      if (fp.has_stem()) {
+        opts.fallback_title = fp.stem().string();
+      }
+      auto res = (selfano::core::is_mxl_zip_bytes(item.bytes) ||
+                  (item.filename.size() >= 4U && has_musicxml_extension(item.filename) &&
+                   (item.filename.back() == 'l' || item.filename.back() == 'L')))
+                     ? selfano::core::import_mxl_bytes(item.bytes, opts)
+                     : selfano::core::import_musicxml_string(
+                           std::string_view(reinterpret_cast<const char*>(item.bytes.data()),
+                                            item.bytes.size()),
+                           opts);
+      if (!res.has_value()) {
+        lesson_view.set_import_error(res.error());
+      } else {
+        res->score.meta.source_filename = fp.filename().string();
+        lesson_view.open_import_preview(*res);
+      }
+      app_mode = AppMode::FreePractice;
+      free_stage = selfano::core::AutopilotStage::Stage3Lessons;
+    }
+#endif
   }
 
   void promote_lesson_to_srs(std::string_view lesson_id, std::int64_t today_epoch_day,
@@ -1381,6 +1652,15 @@ struct AppContext {
       if (lv_act.add_to_srs_requested) {
         promote_lesson_to_srs(lv_act.add_to_srs_lesson_id, today_epoch_day, now_ms);
       }
+      if (lv_act.request_import_file_dialog) {
+        request_musicxml_file_dialog();
+      }
+      if (lv_act.save_imported_lesson.has_value()) {
+        save_and_activate_imported_lesson(*lv_act.save_imported_lesson, now_ms);
+      }
+      if (lv_act.delete_imported_lesson_id.has_value()) {
+        delete_imported_lesson(*lv_act.delete_imported_lesson_id, now_ms);
+      }
       if (lv_act.profile_dirty) {
         warmup_view.set_metronome_enabled(profile.preferences.metronome_enabled);
         warmup_view.set_light_paper_theme(profile.preferences.light_paper_staff);
@@ -1749,6 +2029,7 @@ struct AppContext {
     }
 
     profile_path = resolve_profile_path(cli.profile_path);
+    imported_lessons_dir = resolve_imported_lessons_dir(profile_path);
     profile_path_str = profile_path.string();
     const std::int64_t boot_epoch_day = current_epoch_day();
 
@@ -1763,6 +2044,7 @@ struct AppContext {
 #ifdef __EMSCRIPTEN__
     idbfs_hydrated = false;
     selfano_idbfs_mount_and_load();
+    selfano_web_install_drop_zone();
 #else
     bool profile_loaded_cleanly = false;
     if (std::filesystem::exists(profile_path)) {
@@ -1776,6 +2058,8 @@ struct AppContext {
       }
     }
     profile.weekly_key = selfano::core::sync_weekly_key(profile.weekly_key, boot_epoch_day);
+    (void)lesson_library.load_imported_lessons_from_directory(imported_lessons_dir,
+                                                              profile.imported_lesson_ids);
     try_open_preferred_midi_ports();
 #endif
 
@@ -1800,6 +2084,9 @@ struct AppContext {
     }
     show_piano_remote_overlay = cli.open_keymap;
 
+    if (!cli.import_lesson_path.empty()) {
+      handle_imported_file_path(std::filesystem::path(cli.import_lesson_path), prev_now_ms, true);
+    }
     if (!cli.lesson_id_override.empty()) {
       (void)select_active_lesson(cli.lesson_id_override, prev_now_ms, false);
     }
@@ -1841,6 +2128,8 @@ struct AppContext {
         if (loaded.has_value()) {
           profile = *loaded;
           profile.weekly_key = selfano::core::sync_weekly_key(profile.weekly_key, today_epoch_day);
+          (void)lesson_library.load_imported_lessons_from_directory(imported_lessons_dir,
+                                                                    profile.imported_lesson_ids);
           apply_profile_to_views(now_ms);
           try_open_preferred_midi_ports();
           last_saved_json = selfano::core::to_json_string(profile);
@@ -1963,8 +2252,15 @@ struct AppContext {
           audio_synth.resume();
           audio_unlocked_by_gesture = true;
         }
+      } else if (event.type == SDL_EVENT_DROP_FILE) {
+        if (event.drop.data != nullptr && has_musicxml_extension(event.drop.data)) {
+          std::lock_guard lock(import_dialog_mutex);
+          pending_import_paths.emplace_back(event.drop.data);
+        }
       }
     }
+
+    drain_pending_imports(now_ms);
 
     midi_engine.drain_input_events(frame_events);
 
