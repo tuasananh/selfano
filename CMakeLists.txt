@@ -49,11 +49,11 @@ if(NOT EMSCRIPTEN)
   set(LIBREMIDI_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(LIBREMIDI_TESTS OFF CACHE BOOL "" FORCE)
   set(LIBREMIDI_NO_BOOST ON CACHE BOOL "" FORCE)
+  # Pin past v5.4.3 to pick up upstream's MSVC 14.52 system_error2.hpp fix (1f62921ad0) and C++23 cleanup.
   FetchContent_Declare(
     libremidi
     GIT_REPOSITORY https://github.com/celtera/libremidi.git
-    GIT_TAG v5.4.3
-    GIT_SHALLOW TRUE
+    GIT_TAG bac20b60133516fe1ad0c09e94c310079939d622
   )
 endif()
 

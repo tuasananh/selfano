@@ -47,7 +47,7 @@ namespace {
 
 [[nodiscard]] std::vector<StaffMeasure>
 build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key, bool is_active,
-                           std::optional<std::size_t> active_wait_idx) {
+                           const std::optional<std::size_t>& active_wait_idx) {
   std::vector<StaffMeasure> measures;
   measures.reserve(4);
 
@@ -447,11 +447,11 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
                  ? StaffViewMode::BassOnly
                  : StaffViewMode::GrandStaff);
 
-  const std::optional<std::size_t> wait_cursor =
-      (engine_.config().timing_mode == core::EtudeTimingMode::WaitForNote &&
-       cur_state == core::EtudePlaybackState::Playing)
-          ? std::optional<std::size_t>(engine_.wait_target_index())
-          : std::nullopt;
+  std::optional<std::size_t> wait_cursor;
+  if (engine_.config().timing_mode == core::EtudeTimingMode::WaitForNote &&
+      cur_state == core::EtudePlaybackState::Playing) {
+    wait_cursor = engine_.wait_target_index();
+  }
 
   const float avail_y = ImGui::GetContentRegionAvail().y;
   const float staves_spaces = (view_mode == StaffViewMode::GrandStaff) ? (8.0f + 5.2f) : 4.0f;

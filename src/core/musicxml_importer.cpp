@@ -71,14 +71,68 @@ namespace {
   if (t.empty()) {
     return std::nullopt;
   }
-  double val = 0.0;
-  const char* begin = t.data();
-  const char* end = t.data() + t.size();
-  const auto [ptr, ec] = std::from_chars(begin, end, val);
-  if (ec != std::errc{} || ptr != end || !std::isfinite(val)) {
+
+  std::size_t idx = 0;
+  bool negative = false;
+  if (t[idx] == '-' || t[idx] == '+') {
+    negative = (t[idx] == '-');
+    ++idx;
+  }
+
+  double value = 0.0;
+  std::size_t digit_count = 0;
+  while (idx < t.size() && std::isdigit(static_cast<unsigned char>(t[idx])) != 0) {
+    value = value * 10.0 + static_cast<double>(t[idx] - '0');
+    ++idx;
+    ++digit_count;
+  }
+
+  if (idx < t.size() && t[idx] == '.') {
+    ++idx;
+    double frac_scale = 0.1;
+    while (idx < t.size() && std::isdigit(static_cast<unsigned char>(t[idx])) != 0) {
+      value += static_cast<double>(t[idx] - '0') * frac_scale;
+      frac_scale *= 0.1;
+      ++idx;
+      ++digit_count;
+    }
+  }
+
+  if (digit_count == 0) {
     return std::nullopt;
   }
-  return val;
+
+  if (idx < t.size() && (t[idx] == 'e' || t[idx] == 'E')) {
+    ++idx;
+    bool exp_negative = false;
+    if (idx < t.size() && (t[idx] == '-' || t[idx] == '+')) {
+      exp_negative = (t[idx] == '-');
+      ++idx;
+    }
+    std::size_t exp_digits = 0;
+    int exp_val = 0;
+    while (idx < t.size() && std::isdigit(static_cast<unsigned char>(t[idx])) != 0) {
+      if (exp_val < 10000) {
+        exp_val = exp_val * 10 + (t[idx] - '0');
+      }
+      ++idx;
+      ++exp_digits;
+    }
+    if (exp_digits == 0) {
+      return std::nullopt;
+    }
+    if (exp_negative) {
+      exp_val = -exp_val;
+    }
+    if (value != 0.0) {
+      value *= std::pow(10.0, static_cast<double>(exp_val));
+    }
+  }
+
+  if (idx != t.size() || !std::isfinite(value)) {
+    return std::nullopt;
+  }
+  return negative ? -value : value;
 }
 
 [[nodiscard]] std::optional<NoteLetter> parse_step_letter(std::string_view s) noexcept {

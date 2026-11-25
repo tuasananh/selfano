@@ -293,7 +293,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends ninja-build zip
 
       - name: Setup Emscripten SDK
-        uses: emscripten-core/setup-emsdk@v15
+        uses: emscripten-core/setup-emsdk@v16
         with:
           version: latest
           actions-cache-folder: emsdk-cache
@@ -339,7 +339,7 @@ jobs:
 
       - name: Upload GitHub Pages artifact
         if: needs.prepare.outputs.should_deploy_pages == 'true'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist/web
 
@@ -388,7 +388,8 @@ jobs:
       always() &&
       needs.prepare.outputs.should_deploy_pages == 'true' &&
       needs.build-web.result == 'success' &&
-      (needs.publish-release.result == 'success' || needs.publish-release.result == 'skipped')
+      (needs.publish-release.result == 'success' ||
+       (needs.prepare.outputs.should_publish_release != 'true' && needs.publish-release.result == 'skipped'))
     runs-on: ubuntu-24.04
     permissions:
       pages: write
@@ -402,4 +403,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
