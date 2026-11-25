@@ -609,13 +609,96 @@ void LessonEngine::rebuild_slice_and_targets() {
                       targets_, total_slice_ticks_);
 }
 
+namespace {
+
+struct ExpressiveEventShape {
+  std::uint8_t velocity{86};
+  double gate_scale{1.0};
+  bool rolled{false};
+};
+
+[[nodiscard]] DynamicLevel initial_dynamic_before(const LessonScore& score,
+                                                  std::size_t slice_start_bar) noexcept {
+  DynamicLevel dyn = DynamicLevel::MF;
+  const std::size_t limit = std::min(slice_start_bar, score.measures.size());
+  for (std::size_t b = 0; b < limit; ++b) {
+    int best_tick = -1;
+    for (const auto& d : score.measures[b].dynamics) {
+      if (d.start_tick >= best_tick) {
+        best_tick = d.start_tick;
+        dyn = d.level;
+      }
+    }
+  }
+  return dyn;
+}
+
+[[nodiscard]] ExpressiveEventShape compute_expressive_shape(const LessonMeasure& score_meas,
+                                                            const LessonEvent& ev, int staff_id,
+                                                            bool is_accomp,
+                                                            DynamicLevel base_dyn) noexcept {
+  DynamicLevel active = base_dyn;
+  int best_dyn_tick = -1;
+  for (const auto& d : score_meas.dynamics) {
+    if (d.start_tick <= ev.start_tick && d.start_tick >= best_dyn_tick) {
+      best_dyn_tick = d.start_tick;
+      active = d.level;
+    }
+  }
+
+  int vel = static_cast<int>(dynamic_level_velocity(active));
+  for (const auto& hp : score_meas.hairpins) {
+    if (ev.start_tick >= hp.start_tick && ev.start_tick <= hp.end_tick &&
+        hp.end_tick > hp.start_tick) {
+      const double t = static_cast<double>(ev.start_tick - hp.start_tick) /
+                       static_cast<double>(hp.end_tick - hp.start_tick);
+      const int delta = static_cast<int>(std::lround(10.0 * t));
+      vel += (hp.kind == HairpinKind::Crescendo) ? delta : -delta;
+      break;
+    }
+  }
+
+  if (staff_id == 1) {
+    vel -= 10;
+  }
+  if (is_accomp) {
+    const double base_ref = (staff_id == 1) ? 76.0 : 86.0;
+    const double target_ref = (staff_id == 1) ? 64.0 : 66.0;
+    vel = static_cast<int>(std::lround(static_cast<double>(vel) * (target_ref / base_ref)));
+  }
+
+  double gate_scale = 1.0;
+  if (has_articulation(ev.articulations, ArticulationFlag::Accent)) {
+    vel += 16;
+  }
+  if (has_articulation(ev.articulations, ArticulationFlag::Tenuto)) {
+    vel += 5;
+    gate_scale = 0.98;
+  }
+  if (has_articulation(ev.articulations, ArticulationFlag::Staccato)) {
+    gate_scale = 0.45;
+  }
+
+  const int max_vel = is_accomp ? 92 : 124;
+  return ExpressiveEventShape{
+      .velocity = static_cast<std::uint8_t>(std::clamp(vel, 32, max_vel)),
+      .gate_scale = gate_scale,
+      .rolled = has_articulation(ev.articulations, ArticulationFlag::Arpeggiate),
+  };
+}
+
+} // namespace
+
 std::vector<LessonEngine::ScheduledTickNote>
 LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
-                                     std::uint8_t treble_vel, std::uint8_t bass_vel) const {
+                                     std::uint8_t treble_vel, std::uint8_t /*bass_vel*/) const {
   std::vector<ScheduledTickNote> out;
   if (score_.measures.empty() || slice_bar_meters_.empty()) {
     return out;
   }
+
+  const bool is_accomp = (treble_vel < 75U);
+  DynamicLevel bar_dyn = initial_dynamic_before(score_, slice_start_bar_);
 
   struct OpenTie {
     int staff_id{0};
@@ -623,6 +706,7 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
     std::uint8_t velocity{84};
     int start_tick{0};
     int duration_ticks{0};
+    double start_offset_ms{0.0};
   };
   std::vector<OpenTie> open_ties;
 
@@ -634,9 +718,10 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
   for (std::size_t local_b = 0; local_b < slice_bar_meters_.size(); ++local_b) {
     const std::size_t b = slice_start_bar_ + local_b;
     const auto& lm = source_measures[b];
+    const auto& expr_lm = score_.measures[b];
     const TimeSignature meter = slice_bar_meters_[local_b];
 
-    auto process_staff = [&](std::span<const LessonEvent> evs, int staff_id, std::uint8_t vel) {
+    auto process_staff = [&](std::span<const LessonEvent> evs, int staff_id) {
       std::vector<const LessonEvent*> ordered;
       ordered.reserve(evs.size());
       for (const auto& ev : evs) {
@@ -649,21 +734,33 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
       });
 
       for (const LessonEvent* ev : ordered) {
+        const auto shape = compute_expressive_shape(expr_lm, *ev, staff_id, is_accomp, bar_dyn);
         const int ev_start_tick = bar_start_tick + ev->start_tick;
-        const int ev_dur_ticks = std::max(1, ev->duration.ticks());
-        for (const auto& n : ev->notes) {
+        const int raw_dur_ticks = std::max(1, ev->duration.ticks());
+        const int gated_dur_ticks = std::max(
+            40,
+            static_cast<int>(std::lround(static_cast<double>(raw_dur_ticks) * shape.gate_scale)));
+        std::vector<LessonNote> notes = ev->notes;
+        if (shape.rolled && notes.size() > 1U) {
+          std::ranges::sort(
+              notes, [](const LessonNote& a, const LessonNote& c) { return a.midi < c.midi; });
+        }
+        for (std::size_t ni = 0; ni < notes.size(); ++ni) {
+          const auto& n = notes[ni];
+          const double roll_off_ms = shape.rolled ? (static_cast<double>(ni) * 35.0) : 0.0;
           if (n.tie_stop) {
             auto it = std::ranges::find_if(open_ties, [&](const OpenTie& ot) {
               return ot.staff_id == staff_id && ot.midi == n.midi;
             });
             if (it != open_ties.end()) {
-              it->duration_ticks += ev_dur_ticks;
+              it->duration_ticks += gated_dur_ticks;
               if (!n.tie_start) {
                 out.push_back(ScheduledTickNote{
                     .midi = it->midi,
                     .velocity = it->velocity,
                     .start_tick = it->start_tick,
                     .duration_ticks = it->duration_ticks,
+                    .start_offset_ms = it->start_offset_ms,
                     .channel = 0,
                 });
                 open_ties.erase(it);
@@ -676,16 +773,18 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
             open_ties.push_back(OpenTie{
                 .staff_id = staff_id,
                 .midi = n.midi,
-                .velocity = vel,
+                .velocity = shape.velocity,
                 .start_tick = ev_start_tick,
-                .duration_ticks = ev_dur_ticks,
+                .duration_ticks = gated_dur_ticks,
+                .start_offset_ms = roll_off_ms,
             });
           } else {
             out.push_back(ScheduledTickNote{
                 .midi = n.midi,
-                .velocity = vel,
+                .velocity = shape.velocity,
                 .start_tick = ev_start_tick,
-                .duration_ticks = ev_dur_ticks,
+                .duration_ticks = gated_dur_ticks,
+                .start_offset_ms = roll_off_ms,
                 .channel = 0,
             });
           }
@@ -694,12 +793,19 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
     };
 
     if (include_treble) {
-      process_staff(lm.treble_events, 0, treble_vel);
+      process_staff(lm.treble_events, 0);
     }
     if (include_bass) {
-      process_staff(lm.bass_events, 1, bass_vel);
+      process_staff(lm.bass_events, 1);
     }
 
+    int last_tick = -1;
+    for (const auto& d : expr_lm.dynamics) {
+      if (d.start_tick >= last_tick) {
+        last_tick = d.start_tick;
+        bar_dyn = d.level;
+      }
+    }
     bar_start_tick += effective_measure_ticks(lm, meter);
   }
 
@@ -709,6 +815,7 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
         .velocity = ot.velocity,
         .start_tick = ot.start_tick,
         .duration_ticks = ot.duration_ticks,
+        .start_offset_ms = ot.start_offset_ms,
         .channel = 0,
     });
   }
@@ -716,6 +823,9 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
   std::ranges::sort(out, [](const ScheduledTickNote& a, const ScheduledTickNote& b) {
     if (a.start_tick != b.start_tick) {
       return a.start_tick < b.start_tick;
+    }
+    if (a.start_offset_ms != b.start_offset_ms) {
+      return a.start_offset_ms < b.start_offset_ms;
     }
     return a.midi < b.midi;
   });
@@ -759,8 +869,9 @@ void LessonEngine::emit_due_playback_notes(double up_to_tick,
     out.push_back(LessonPlaybackNote{
         .midi = n.midi,
         .velocity = n.velocity,
-        .start_ms = 0.0,
-        .duration_ms = slice_ticks_to_ms(n.start_tick, n.duration_ticks),
+        .start_ms = n.start_offset_ms,
+        .duration_ms =
+            std::max(40.0, slice_ticks_to_ms(n.start_tick, n.duration_ticks) - n.start_offset_ms),
         .channel = n.channel,
     });
     ++next_playback_note_idx_;
@@ -1158,14 +1269,16 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
                                     ? skeleton_measures_
                                     : score_.measures;
 
+  DynamicLevel bar_dyn = initial_dynamic_before(score_, slice_start_bar_);
   double bar_start_ms = 0.0;
   for (std::size_t local_b = 0; local_b < slice_bar_meters_.size(); ++local_b) {
     const std::size_t b = slice_start_bar_ + local_b;
     const auto& lm = source_measures[b];
+    const auto& expr_lm = score_.measures[b];
     const TimeSignature meter = slice_bar_meters_[local_b];
     const double ms_per_tick = ms_per_beat / static_cast<double>(std::max(1, meter.beat_ticks()));
 
-    auto process_staff = [&](std::span<const LessonEvent> evs, int staff_id, std::uint8_t vel) {
+    auto process_staff = [&](std::span<const LessonEvent> evs, int staff_id) {
       std::vector<const LessonEvent*> ordered;
       ordered.reserve(evs.size());
       for (const auto& ev : evs) {
@@ -1178,15 +1291,26 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
       });
 
       for (const LessonEvent* ev : ordered) {
+        const auto shape = compute_expressive_shape(expr_lm, *ev, staff_id, false, bar_dyn);
         const double ev_start_ms = bar_start_ms + static_cast<double>(ev->start_tick) * ms_per_tick;
-        const double ev_dur_ms = static_cast<double>(ev->duration.ticks()) * ms_per_tick;
-        for (const auto& n : ev->notes) {
+        const double raw_dur_ms = static_cast<double>(ev->duration.ticks()) * ms_per_tick;
+        const double gated_dur_ms = std::max(40.0, raw_dur_ms * shape.gate_scale);
+        std::vector<LessonNote> notes = ev->notes;
+        if (shape.rolled && notes.size() > 1U) {
+          std::ranges::sort(
+              notes, [](const LessonNote& a, const LessonNote& c) { return a.midi < c.midi; });
+        }
+        for (std::size_t ni = 0; ni < notes.size(); ++ni) {
+          const auto& n = notes[ni];
+          const double roll_off_ms = shape.rolled ? (static_cast<double>(ni) * 35.0) : 0.0;
+          const double note_start_ms = ev_start_ms + roll_off_ms;
+          const double note_dur_ms = std::max(45.0, gated_dur_ms - roll_off_ms);
           if (n.tie_stop) {
             auto it = std::ranges::find_if(open_ties, [&](const OpenTie& ot) {
               return ot.staff_id == staff_id && ot.midi == n.midi;
             });
             if (it != open_ties.end()) {
-              it->duration_ms += ev_dur_ms;
+              it->duration_ms += raw_dur_ms;
               if (!n.tie_start) {
                 out.push_back(LessonPlaybackNote{
                     .midi = it->midi,
@@ -1205,16 +1329,16 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
             open_ties.push_back(OpenTie{
                 .staff_id = staff_id,
                 .midi = n.midi,
-                .velocity = vel,
-                .start_ms = ev_start_ms,
-                .duration_ms = ev_dur_ms,
+                .velocity = shape.velocity,
+                .start_ms = note_start_ms,
+                .duration_ms = note_dur_ms,
             });
           } else {
             out.push_back(LessonPlaybackNote{
                 .midi = n.midi,
-                .velocity = vel,
-                .start_ms = ev_start_ms,
-                .duration_ms = std::max(40.0, ev_dur_ms),
+                .velocity = shape.velocity,
+                .start_ms = note_start_ms,
+                .duration_ms = note_dur_ms,
                 .channel = 0,
             });
           }
@@ -1224,13 +1348,20 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
 
     if (config_.hand_mode == LessonHandMode::RightHand ||
         config_.hand_mode == LessonHandMode::HandsTogether) {
-      process_staff(lm.treble_events, 0, 92);
+      process_staff(lm.treble_events, 0);
     }
     if (config_.hand_mode == LessonHandMode::LeftHand ||
         config_.hand_mode == LessonHandMode::HandsTogether) {
-      process_staff(lm.bass_events, 1, 78);
+      process_staff(lm.bass_events, 1);
     }
 
+    int last_tick = -1;
+    for (const auto& d : expr_lm.dynamics) {
+      if (d.start_tick >= last_tick) {
+        last_tick = d.start_tick;
+        bar_dyn = d.level;
+      }
+    }
     bar_start_ms += static_cast<double>(effective_measure_ticks(lm, meter)) * ms_per_tick;
   }
 

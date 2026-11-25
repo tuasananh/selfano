@@ -61,6 +61,10 @@ void StaffShowcase::rebuild_measures() {
   options_.time_signature.reset();
   options_.show_harmony_labels = false;
   options_.show_fingerings = true;
+  options_.tempo_marking.clear();
+  options_.slurs.clear();
+  options_.pedals.clear();
+  options_.reserve_pedal_lane = false;
   const auto key = options_.key;
 
   if (preset_ == ShowcasePreset::Phase1Overview) {
@@ -293,6 +297,7 @@ void StaffShowcase::rebuild_measures() {
     options_.time_signature = core::TimeSignature{.numerator = 6, .denominator = 8};
     options_.show_harmony_labels = true;
     options_.show_fingerings = true;
+    options_.tempo_marking = "Moderato espressivo";
 
     auto ln = [](core::NoteLetter l, core::Accidental a, int oct, std::uint8_t f = 0,
                  bool ts = false, bool tp = false) {
@@ -310,11 +315,14 @@ void StaffShowcase::rebuild_measures() {
     core::LessonMeasure m1{};
     m1.bar_number = 1;
     m1.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
+    m1.dynamics = {{.start_tick = 0, .level = core::DynamicLevel::MP}};
+    m1.hairpins = {{.start_tick = 480, .end_tick = 1440, .kind = core::HairpinKind::Crescendo}};
     m1.treble_events = {
         {.start_tick = 0,
          .duration = {.base = D::Eighth, .dotted = true},
          .is_rest = false,
          .voice = 0,
+         .articulations = core::articulation_bit(core::ArticulationFlag::Tenuto),
          .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 3)}},
         {.start_tick = 360,
          .duration = {.base = D::Sixteenth, .dotted = false},
@@ -340,7 +348,19 @@ void StaffShowcase::rebuild_measures() {
          .duration = {.base = D::Eighth, .dotted = false},
          .is_rest = false,
          .voice = 0,
+         .articulations = core::articulation_bit(core::ArticulationFlag::Staccato),
          .notes = {ln(core::NoteLetter::A, core::Accidental::Natural, 4, 2)}},
+        // True 2-voice inner alto line (voice 1, stems down)
+        {.start_tick = 0,
+         .duration = {.base = D::Quarter, .dotted = true},
+         .is_rest = false,
+         .voice = 1,
+         .notes = {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 2)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Quarter, .dotted = true},
+         .is_rest = false,
+         .voice = 1,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 4, 1)}},
     };
     m1.bass_events = {
         {.start_tick = 0,
@@ -368,6 +388,8 @@ void StaffShowcase::rebuild_measures() {
     core::LessonMeasure m2{};
     m2.bar_number = 2;
     m2.harmony = {{.start_tick = 0, .chord_symbol = "Ab/C", .roman_numeral = "bII6"}};
+    m2.dynamics = {{.start_tick = 0, .level = core::DynamicLevel::F}};
+    m2.hairpins = {{.start_tick = 720, .end_tick = 1440, .kind = core::HairpinKind::Diminuendo}};
     m2.treble_events = {
         {.start_tick = 0,
          .duration = {.base = D::Sixteenth, .dotted = false},
@@ -459,6 +481,7 @@ void StaffShowcase::rebuild_measures() {
     core::LessonMeasure m4{};
     m4.bar_number = 4;
     m4.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
+    m4.dynamics = {{.start_tick = 0, .level = core::DynamicLevel::P}};
     m4.treble_events = {
         {.start_tick = 0,
          .duration = {.base = D::Eighth, .dotted = false},
@@ -479,13 +502,21 @@ void StaffShowcase::rebuild_measures() {
          .duration = {.base = D::Quarter, .dotted = true},
          .is_rest = false,
          .voice = 0,
-         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 2)}},
+         .articulations = core::articulation_bit(core::ArticulationFlag::Accent) |
+                          core::articulation_bit(core::ArticulationFlag::Arpeggiate),
+         .notes =
+             {
+                 ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1),
+                 ln(core::NoteLetter::B, core::Accidental::Flat, 4, 3),
+                 ln(core::NoteLetter::D, core::Accidental::Natural, 5, 5),
+             }},
     };
     m4.bass_events = {
         {.start_tick = 0,
          .duration = {.base = D::Half, .dotted = true},
          .is_rest = false,
          .voice = 0,
+         .articulations = core::articulation_bit(core::ArticulationFlag::Arpeggiate),
          .notes =
              {
                  ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5),
@@ -496,6 +527,17 @@ void StaffShowcase::rebuild_measures() {
 
     const std::array<core::LessonMeasure, 4> spec{m1, m2, m3, m4};
     measures_ = build_lesson_staff_measures(spec, 0, *options_.time_signature, true, true);
+    const std::array<core::SlurSpan, 2> slurs{{
+        {.start_bar = 0, .start_tick = 0, .end_bar = 0, .end_tick = 1200, .treble = true},
+        {.start_bar = 1, .start_tick = 0, .end_bar = 1, .end_tick = 1200, .treble = true},
+    }};
+    const std::array<core::PedalSpan, 2> pedals{{
+        {.start_bar = 1, .start_tick = 0, .end_bar = 1, .end_tick = 1320},
+        {.start_bar = 3, .start_tick = 0, .end_bar = 3, .end_tick = 1320},
+    }};
+    options_.slurs = slice_system_slurs(slurs, 0, 3, measures_, true, true);
+    options_.pedals = slice_system_pedals(pedals, 0, 3, measures_);
+    options_.reserve_pedal_lane = true;
     return;
   }
 

@@ -46,7 +46,17 @@ std::expected<AppFonts, std::string> load_app_fonts(ImGuiIO& io, float ui_font_s
       0x2713, 0x2714, // Checkmarks
       0,
   };
-  static constexpr std::array<ImWchar, 3> kSmuflRanges{0xE000, 0xE4FF, 0};
+  static constexpr std::array<ImWchar, 9> kSmuflRanges{
+      0xE000,
+      0xE4FF, // Clefs, brace, time sigs, noteheads, flags, accidentals, articulations, rests
+      0xE520,
+      0xE53F, // Dynamics (p, m, f, pp, mp, mf, ff)
+      0xE650,
+      0xE65F, // Keyboard pedal (Ped., *)
+      0xEAA0,
+      0xEABF, // Arpeggiato wiggle
+      0,
+  };
 
   const std::string regular_path = resolve_font_asset("Inter-Regular.ttf");
   const std::string semibold_path = resolve_font_asset("Inter-SemiBold.ttf");

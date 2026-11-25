@@ -62,7 +62,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Allegro leggiero"
   },
   "measures": [
     {
@@ -216,6 +217,12 @@
           "start_tick": 0,
           "chord_symbol": "Bb",
           "roman_numeral": "I"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
         }
       ]
     },
@@ -389,6 +396,13 @@
           "start_tick": 960,
           "chord_symbol": "F7",
           "roman_numeral": "V7"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -865,6 +879,12 @@
           "chord_symbol": "Bb",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -1032,6 +1052,13 @@
           "start_tick": 0,
           "chord_symbol": "Eb",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1572,6 +1599,12 @@
           "chord_symbol": "Bb",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
+        }
       ]
     },
     {
@@ -1781,6 +1814,13 @@
           "start_tick": 0,
           "chord_symbol": "Eb",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -2319,6 +2359,12 @@
           "chord_symbol": "Gm",
           "roman_numeral": "vi"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -2533,6 +2579,13 @@
           "start_tick": 960,
           "chord_symbol": "Eb",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -2797,5 +2850,64 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

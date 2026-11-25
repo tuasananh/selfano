@@ -58,7 +58,8 @@ std::optional<Accidental> MeasureAccidentalState::resolve_and_record(const Spell
 }
 
 ChordLayout layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
-                         float notehead_width_spaces) {
+                         float notehead_width_spaces,
+                         std::optional<StemDirection> forced_stem_direction) {
   ChordLayout result{};
   if (notes.empty()) {
     result.min_notehead_x_spaces = 0.0f;
@@ -75,20 +76,24 @@ ChordLayout layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
     return a.source_index < b.source_index;
   });
 
-  // 2. Determine stem direction relative to staff middle line.
+  // 2. Determine stem direction relative to staff middle line (or honor multi-voice override).
   const int mid = staff_middle_step(clef);
-  const int dist_below = mid - sorted.front().step;
-  const int dist_above = sorted.back().step - mid;
-  if (dist_above > dist_below) {
-    result.stem_direction = StemDirection::Down;
-  } else if (dist_below > dist_above) {
-    result.stem_direction = StemDirection::Up;
+  if (forced_stem_direction.has_value()) {
+    result.stem_direction = *forced_stem_direction;
   } else {
-    int signed_sum = 0;
-    for (const auto& n : sorted) {
-      signed_sum += (n.step - mid);
+    const int dist_below = mid - sorted.front().step;
+    const int dist_above = sorted.back().step - mid;
+    if (dist_above > dist_below) {
+      result.stem_direction = StemDirection::Down;
+    } else if (dist_below > dist_above) {
+      result.stem_direction = StemDirection::Up;
+    } else {
+      int signed_sum = 0;
+      for (const auto& n : sorted) {
+        signed_sum += (n.step - mid);
+      }
+      result.stem_direction = (signed_sum >= 0) ? StemDirection::Down : StemDirection::Up;
     }
-    result.stem_direction = (signed_sum >= 0) ? StemDirection::Down : StemDirection::Up;
   }
 
   // 3. Populate noteheads and resolve 2nd-interval offsets.
@@ -214,7 +219,8 @@ namespace {
 }
 
 [[nodiscard]] BeamGroupLayout build_beam_group(std::span<const BeamEventInput> run, Clef clef,
-                                               float notehead_width_spaces) {
+                                               float notehead_width_spaces,
+                                               std::optional<StemDirection> forced_stem_direction) {
   BeamGroupLayout out{};
   const int bottom = staff_bottom_step(clef);
   const int mid = staff_middle_step(clef);
@@ -233,14 +239,18 @@ namespace {
     out.event_indices.push_back(ev.event_index);
   }
 
-  const int dist_below = mid - min_step;
-  const int dist_above = max_step - mid;
-  if (dist_above > dist_below) {
-    out.stem_direction = StemDirection::Down;
-  } else if (dist_below > dist_above) {
-    out.stem_direction = StemDirection::Up;
+  if (forced_stem_direction.has_value()) {
+    out.stem_direction = *forced_stem_direction;
   } else {
-    out.stem_direction = (signed_sum >= 0) ? StemDirection::Down : StemDirection::Up;
+    const int dist_below = mid - min_step;
+    const int dist_above = max_step - mid;
+    if (dist_above > dist_below) {
+      out.stem_direction = StemDirection::Down;
+    } else if (dist_below > dist_above) {
+      out.stem_direction = StemDirection::Up;
+    } else {
+      out.stem_direction = (signed_sum >= 0) ? StemDirection::Down : StemDirection::Up;
+    }
   }
 
   const float stem_x_off = (out.stem_direction == StemDirection::Up) ? notehead_width_spaces : 0.0f;
@@ -345,9 +355,10 @@ namespace {
 
 } // namespace
 
-std::vector<BeamGroupLayout> compute_beam_groups(std::span<const BeamEventInput> events,
-                                                 TimeSignature meter, Clef clef,
-                                                 float notehead_width_spaces) {
+std::vector<BeamGroupLayout>
+compute_beam_groups(std::span<const BeamEventInput> events, TimeSignature meter, Clef clef,
+                    float notehead_width_spaces,
+                    std::optional<StemDirection> forced_stem_direction) {
   std::vector<BeamGroupLayout> groups;
   if (events.size() < 2U) {
     return groups;
@@ -380,12 +391,24 @@ std::vector<BeamGroupLayout> compute_beam_groups(std::span<const BeamEventInput>
     }
 
     if (run.size() >= 2U) {
-      groups.push_back(build_beam_group(run, clef, notehead_width_spaces));
+      groups.push_back(build_beam_group(run, clef, notehead_width_spaces, forced_stem_direction));
     }
     idx = j;
   }
 
   return groups;
+}
+
+float resolve_two_voice_collision(const ChordLayout& voice0_up, const ChordLayout& voice1_down,
+                                  float notehead_width_spaces) noexcept {
+  for (const auto& a : voice0_up.noteheads) {
+    for (const auto& b : voice1_down.noteheads) {
+      if (std::abs(a.step - b.step) <= 1 || a.step < b.step) {
+        return notehead_width_spaces * 1.02f;
+      }
+    }
+  }
+  return 0.0f;
 }
 
 std::vector<TieSpan> resolve_tie_spans(std::span<const TieEndpointRef> system_notes) {

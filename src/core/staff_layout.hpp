@@ -86,8 +86,14 @@ struct ChordLayout {
   int stem_end_step{35};
 };
 
-[[nodiscard]] ChordLayout layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
-                                       float notehead_width_spaces = kNoteheadBlackWidthSpaces);
+[[nodiscard]] ChordLayout
+layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
+             float notehead_width_spaces = kNoteheadBlackWidthSpaces,
+             std::optional<StemDirection> forced_stem_direction = std::nullopt);
+
+[[nodiscard]] float
+resolve_two_voice_collision(const ChordLayout& voice0_up, const ChordLayout& voice1_down,
+                            float notehead_width_spaces = kNoteheadBlackWidthSpaces) noexcept;
 
 struct BeamEventInput {
   std::size_t event_index{0};
@@ -122,7 +128,8 @@ struct BeamGroupLayout {
 
 [[nodiscard]] std::vector<BeamGroupLayout>
 compute_beam_groups(std::span<const BeamEventInput> events, TimeSignature meter, Clef clef,
-                    float notehead_width_spaces = kNoteheadBlackWidthSpaces);
+                    float notehead_width_spaces = kNoteheadBlackWidthSpaces,
+                    std::optional<StemDirection> forced_stem_direction = std::nullopt);
 
 enum class TieSpanKind : std::uint8_t {
   Complete = 0,

@@ -390,3 +390,45 @@ TEST_CASE("LessonScore supports anacrusis pickup measures with backward-compatib
     REQUIRE_FALSE(validate_lesson_score(bad_sum).has_value());
   }
 }
+
+TEST_CASE("Expressive LessonScore fields round-trip cleanly and validate bounds",
+          "[lesson_score]") {
+  auto score = make_valid_two_bar_score();
+  score.meta.tempo_marking = "Moderato cantabile";
+  score.measures[0].treble_events[0].articulations =
+      articulation_bit(ArticulationFlag::Accent) | articulation_bit(ArticulationFlag::Staccato);
+  score.measures[1].treble_events[1].articulations =
+      articulation_bit(ArticulationFlag::Tenuto) | articulation_bit(ArticulationFlag::Arpeggiate);
+  score.measures[0].dynamics = {{.start_tick = 0, .level = DynamicLevel::P}};
+  score.measures[1].dynamics = {{.start_tick = 960, .level = DynamicLevel::FF}};
+  score.measures[0].hairpins = {
+      {.start_tick = 0, .end_tick = 1920, .kind = HairpinKind::Crescendo}};
+  score.slurs = {{.start_bar = 0, .start_tick = 0, .end_bar = 1, .end_tick = 960, .treble = true}};
+  score.pedals = {{.start_bar = 0, .start_tick = 0, .end_bar = 1, .end_tick = 1920}};
+
+  REQUIRE(validate_lesson_score(score).has_value());
+  const std::string json_text = lesson_score_to_json(score);
+  const auto round = lesson_score_from_json(json_text);
+  REQUIRE(round.has_value());
+  REQUIRE(*round == score);
+  REQUIRE(round->meta.tempo_marking == "Moderato cantabile");
+  REQUIRE(has_articulation(round->measures[0].treble_events[0].articulations,
+                           ArticulationFlag::Accent));
+  REQUIRE(has_articulation(round->measures[1].treble_events[1].articulations,
+                           ArticulationFlag::Arpeggiate));
+
+  SECTION("Rejects out-of-range hairpins, slurs, and pedals") {
+    auto bad_hp = score;
+    bad_hp.measures[0].hairpins[0].end_tick = 4000;
+    REQUIRE_FALSE(validate_lesson_score(bad_hp).has_value());
+
+    auto bad_slur = score;
+    bad_slur.slurs[0].end_bar = 5;
+    REQUIRE_FALSE(validate_lesson_score(bad_slur).has_value());
+
+    auto bad_pedal = score;
+    bad_pedal.pedals[0].start_bar = 1;
+    bad_pedal.pedals[0].end_bar = 0;
+    REQUIRE_FALSE(validate_lesson_score(bad_pedal).has_value());
+  }
+}

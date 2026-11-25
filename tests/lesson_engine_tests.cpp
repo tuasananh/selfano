@@ -829,3 +829,93 @@ TEST_CASE("find_trouble_spot detects 1-bar and 2-bar seam hotspots accurately", 
   REQUIRE(spot->misses == 4U);
   REQUIRE(spot->partial_hits == 1U);
 }
+
+TEST_CASE("LessonEngine build_demo_playback applies dynamics, staccato, accent, and arpeggio roll",
+          "[lesson_engine]") {
+  auto ln = [](NoteLetter l, Accidental a, int oct) {
+    const SpelledNote sp{.letter = l, .accidental = a, .octave = oct};
+    return LessonNote{.spelled = sp, .midi = to_midi(sp).value_or(60), .finger = 1};
+  };
+
+  LessonScore s{};
+  s.meta = LessonMetadata{
+      .id = "exp_demo",
+      .tier = 5,
+      .order_in_tier = 1,
+      .title = "Expressive Test",
+      .composer_source = "Test",
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+      .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
+      .target_bpm = 120.0, // 500ms per quarter beat
+      .tempo_marking = "Allegro",
+  };
+  LessonMeasure m{};
+  m.bar_number = 1;
+  m.dynamics = {
+      {.start_tick = 0, .level = DynamicLevel::PP},
+      {.start_tick = 480, .level = DynamicLevel::FF},
+  };
+  m.treble_events = {
+      // Beat 1 (pp + staccato -> ~46 vel, ~225ms)
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .articulations = articulation_bit(ArticulationFlag::Staccato),
+       .notes = {ln(NoteLetter::C, Accidental::Natural, 5)}},
+      // Beat 2 (ff + accent -> >114 vel, 500ms)
+      {.start_tick = 480,
+       .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .articulations = articulation_bit(ArticulationFlag::Accent),
+       .notes = {ln(NoteLetter::G, Accidental::Natural, 5)}},
+      // Beats 3-4 (ff + arpeggiate 3-note chord -> rolled ~35ms stagger)
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .articulations = articulation_bit(ArticulationFlag::Arpeggiate),
+       .notes =
+           {
+               ln(NoteLetter::C, Accidental::Natural, 5),
+               ln(NoteLetter::E, Accidental::Natural, 5),
+               ln(NoteLetter::G, Accidental::Natural, 5),
+           }},
+  };
+  m.bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+       .is_rest = true,
+       .voice = 0,
+       .notes = {}},
+  };
+  s.measures.push_back(std::move(m));
+
+  LessonEngine engine;
+  engine.load_score(s, LessonConfig{.practice_mode = LessonPracticeMode::WaitForNote,
+                                    .hand_mode = LessonHandMode::RightHand,
+                                    .tempo_step = TempoLadderStep::Target100});
+  const auto notes = engine.build_demo_playback();
+  REQUIRE(notes.size() == 5U);
+
+  // Beat 1: PP + Staccato
+  REQUIRE(notes[0].midi == 72);
+  REQUIRE(notes[0].velocity <= 50U);
+  REQUIRE_THAT(notes[0].duration_ms, WithinAbs(225.0, 2.0));
+
+  // Beat 2: FF + Accent
+  REQUIRE(notes[1].midi == 79);
+  REQUIRE(notes[1].velocity >= 120U);
+  REQUIRE_THAT(notes[1].start_ms, WithinAbs(500.0, 1.0));
+  REQUIRE_THAT(notes[1].duration_ms, WithinAbs(500.0, 1.0));
+
+  // Beats 3-4: 3-note rolled Arpeggio (C5, E5, G5) staggered +35ms each
+  REQUIRE(notes[2].midi == 72);
+  REQUIRE(notes[3].midi == 76);
+  REQUIRE(notes[4].midi == 79);
+  REQUIRE_THAT(notes[2].start_ms, WithinAbs(1000.0, 1.0));
+  REQUIRE_THAT(notes[3].start_ms, WithinAbs(1035.0, 1.0));
+  REQUIRE_THAT(notes[4].start_ms, WithinAbs(1070.0, 1.0));
+  REQUIRE(notes[4].duration_ms < notes[2].duration_ms);
+}

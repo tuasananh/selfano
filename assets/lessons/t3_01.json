@@ -62,7 +62,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Allegretto"
   },
   "measures": [
     {
@@ -175,6 +176,12 @@
           "chord_symbol": "G",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -206,6 +213,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -220,6 +230,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         }
       ],
@@ -374,6 +387,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -388,6 +404,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         }
       ],
@@ -510,6 +529,12 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "ii"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
         }
       ]
     },
@@ -903,6 +928,12 @@
           "chord_symbol": "G",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -934,6 +965,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -948,6 +982,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         }
       ],
@@ -1102,6 +1139,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -1116,6 +1156,9 @@
               "midi": 67,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         }
       ],
@@ -1252,6 +1295,12 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "ii"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
         }
       ]
     },
@@ -1557,5 +1606,78 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 480,
+      "end_bar": 0,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 480,
+      "end_bar": 2,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 480,
+      "end_bar": 4,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 480,
+      "end_bar": 5,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 480,
+      "end_bar": 6,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 480,
+      "end_bar": 8,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 480,
+      "end_bar": 10,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 480,
+      "end_bar": 12,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 13,
+      "start_tick": 480,
+      "end_bar": 13,
+      "end_tick": 1200,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 480,
+      "end_bar": 14,
+      "end_tick": 1200,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

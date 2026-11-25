@@ -70,7 +70,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Allegro pastorale"
   },
   "measures": [
     {
@@ -197,6 +198,12 @@
           "chord_symbol": "D",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -214,6 +221,9 @@
               "midi": 67,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -313,6 +323,13 @@
           "start_tick": 480,
           "chord_symbol": "D",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "crescendo"
         }
       ]
     },
@@ -462,6 +479,9 @@
               "midi": 64,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -669,6 +689,12 @@
           "chord_symbol": "D",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -686,6 +712,9 @@
               "midi": 67,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -785,6 +814,13 @@
           "start_tick": 480,
           "chord_symbol": "D",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1090,6 +1126,12 @@
           "chord_symbol": "A",
           "roman_numeral": "V"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1107,6 +1149,9 @@
               "midi": 74,
               "finger": 4
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -1215,6 +1260,13 @@
           "start_tick": 0,
           "chord_symbol": "E7",
           "roman_numeral": "V7/V"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1520,6 +1572,12 @@
           "chord_symbol": "D",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -1537,6 +1595,9 @@
               "midi": 71,
               "finger": 3
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -1650,6 +1711,13 @@
           "start_tick": 480,
           "chord_symbol": "D",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1853,5 +1921,64 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 720,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 720,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

@@ -90,6 +90,129 @@ struct RhythmicValue {
   constexpr bool operator==(const RhythmicValue&) const = default;
 };
 
+enum class ArticulationFlag : std::uint8_t {
+  None = 0,
+  Staccato = 1U << 0U,
+  Tenuto = 1U << 1U,
+  Accent = 1U << 2U,
+  Arpeggiate = 1U << 3U,
+};
+
+[[nodiscard]] constexpr std::uint8_t articulation_bit(ArticulationFlag flag) noexcept {
+  return static_cast<std::uint8_t>(flag);
+}
+
+[[nodiscard]] constexpr bool has_articulation(std::uint8_t mask, ArticulationFlag flag) noexcept {
+  return (mask & articulation_bit(flag)) != 0U;
+}
+
+enum class DynamicLevel : std::uint8_t {
+  PP = 0,
+  P = 1,
+  MP = 2,
+  MF = 3,
+  F = 4,
+  FF = 5,
+};
+
+[[nodiscard]] constexpr std::uint8_t dynamic_level_velocity(DynamicLevel level) noexcept {
+  switch (level) {
+  case DynamicLevel::PP:
+    return 46;
+  case DynamicLevel::P:
+    return 62;
+  case DynamicLevel::MP:
+    return 74;
+  case DynamicLevel::MF:
+    return 86;
+  case DynamicLevel::F:
+    return 100;
+  case DynamicLevel::FF:
+    return 114;
+  }
+  return 86;
+}
+
+[[nodiscard]] constexpr std::string_view dynamic_level_to_string(DynamicLevel level) noexcept {
+  switch (level) {
+  case DynamicLevel::PP:
+    return "pp";
+  case DynamicLevel::P:
+    return "p";
+  case DynamicLevel::MP:
+    return "mp";
+  case DynamicLevel::MF:
+    return "mf";
+  case DynamicLevel::F:
+    return "f";
+  case DynamicLevel::FF:
+    return "ff";
+  }
+  return "mf";
+}
+
+[[nodiscard]] constexpr std::optional<DynamicLevel>
+parse_dynamic_level(std::string_view text) noexcept {
+  if (text == "pp" || text == "ppp") {
+    return DynamicLevel::PP;
+  }
+  if (text == "p") {
+    return DynamicLevel::P;
+  }
+  if (text == "mp") {
+    return DynamicLevel::MP;
+  }
+  if (text == "mf") {
+    return DynamicLevel::MF;
+  }
+  if (text == "f") {
+    return DynamicLevel::F;
+  }
+  if (text == "ff" || text == "fff") {
+    return DynamicLevel::FF;
+  }
+  return std::nullopt;
+}
+
+struct DynamicEvent {
+  int start_tick{0};
+  DynamicLevel level{DynamicLevel::MF};
+
+  constexpr bool operator==(const DynamicEvent&) const = default;
+};
+
+enum class HairpinKind : std::uint8_t {
+  Crescendo = 0,
+  Diminuendo = 1,
+};
+
+struct HairpinSpan {
+  int start_tick{0};
+  int end_tick{kTicksPerQuarter * 4};
+  HairpinKind kind{HairpinKind::Crescendo};
+
+  constexpr bool operator==(const HairpinSpan&) const = default;
+};
+
+struct SlurSpan {
+  std::size_t start_bar{0};
+  int start_tick{0};
+  std::size_t end_bar{0};
+  int end_tick{0};
+  bool treble{true};
+
+  constexpr bool operator==(const SlurSpan&) const = default;
+};
+
+struct PedalSpan {
+  std::size_t start_bar{0};
+  int start_tick{0};
+  std::size_t end_bar{0};
+  int end_tick{0};
+
+  constexpr bool operator==(const PedalSpan&) const = default;
+};
+
 struct LessonNote {
   SpelledNote spelled{};
   MidiPitch midi{60};
@@ -104,7 +227,8 @@ struct LessonEvent {
   int start_tick{0}; // [0, measure_ticks)
   RhythmicValue duration{};
   bool is_rest{false};
-  std::uint8_t voice{0}; // 0 = primary, 1 = optional secondary voice
+  std::uint8_t voice{0};         // 0 = primary, 1 = optional secondary voice
+  std::uint8_t articulations{0}; // ArticulationFlag bitmask
   std::vector<LessonNote> notes;
 
   bool operator==(const LessonEvent&) const = default;
@@ -126,6 +250,8 @@ struct LessonMeasure {
   std::vector<LessonEvent> treble_events;
   std::vector<LessonEvent> bass_events;
   std::vector<HarmonicAnnotation> harmony;
+  std::vector<DynamicEvent> dynamics;
+  std::vector<HairpinSpan> hairpins;
 
   bool operator==(const LessonMeasure&) const = default;
 };
@@ -181,6 +307,7 @@ struct LessonMetadata {
   KeySignature key{.fifths = 0, .mode = Mode::Major};
   TimeSignature time_signature{.numerator = 4, .denominator = 4};
   double target_bpm{84.0};
+  std::string tempo_marking{};
   TheoryLens theory{};
   bool is_imported{false};
   std::string source_filename{};
@@ -192,6 +319,8 @@ struct LessonScore {
   LessonMetadata meta{};
   std::vector<LessonMeasure> measures;
   std::vector<LessonPhrase> phrases;
+  std::vector<SlurSpan> slurs;
+  std::vector<PedalSpan> pedals;
 
   bool operator==(const LessonScore&) const = default;
 };

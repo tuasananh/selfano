@@ -59,7 +59,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Andante con moto"
   },
   "measures": [
     {
@@ -77,6 +78,9 @@
               "midi": 73,
               "finger": 3
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -117,6 +121,37 @@
             {
               "spell": "A4",
               "midi": 69,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 1,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 2
+            }
+          ],
+          "articulations": [
+            "tenuto"
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 1,
+          "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
               "finger": 1
             }
           ]
@@ -228,6 +263,12 @@
           "chord_symbol": "F#m",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -267,6 +308,20 @@
           "dotted": false,
           "is_rest": false,
           "voice": 0,
+          "notes": [
+            {
+              "spell": "E#4",
+              "midi": 65,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 1,
           "notes": [
             {
               "spell": "E#4",
@@ -382,6 +437,13 @@
           "chord_symbol": "C#7/E#",
           "roman_numeral": "V6/5"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
+        }
       ]
     },
     {
@@ -440,6 +502,20 @@
               "spell": "F#5",
               "midi": 78,
               "finger": 5
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 1,
+          "notes": [
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 1
             }
           ]
         }
@@ -576,6 +652,34 @@
           "is_rest": true,
           "voice": 0,
           "notes": []
+        },
+        {
+          "start_tick": 0,
+          "dur": "half",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 1,
+          "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
+              "finger": 1
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 1,
+          "notes": [
+            {
+              "spell": "B4",
+              "midi": 71,
+              "finger": 2
+            }
+          ]
         }
       ],
       "bass_events": [
@@ -786,6 +890,12 @@
           "chord_symbol": "Bm",
           "roman_numeral": "iv"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -953,6 +1063,13 @@
           "start_tick": 0,
           "chord_symbol": "G#dim7",
           "roman_numeral": "iio7"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1346,6 +1463,12 @@
           "chord_symbol": "A",
           "roman_numeral": "III"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
+        }
       ]
     },
     {
@@ -1547,6 +1670,13 @@
           "chord_symbol": "E7",
           "roman_numeral": "VII7"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
+        }
       ]
     },
     {
@@ -1697,6 +1827,9 @@
               "midi": 73,
               "finger": 4
             }
+          ],
+          "articulations": [
+            "arpeggiate"
           ]
         }
       ],
@@ -1750,6 +1883,118 @@
       "label": "Phrase C (Bars 9-12)",
       "start_bar": 8,
       "end_bar": 11
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 0,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1800
     }
   ]
 }

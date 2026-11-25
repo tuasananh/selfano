@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-25
-- **Active Phase:** **Ready for Phase 15** (Phases 0–14 Complete; Phases 15–16 Planned in `docs/phases/`)
-- **Last Completed Phase:** Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach
+- **Last Updated:** 2026-11-26
+- **Active Phase:** **Ready for Phase 16** (Phases 0–15 Complete; Phase 16 Planned in `docs/phases/`)
+- **Last Completed Phase:** Phase 15 — Expressive Classical Notation & Two-Voice Polyphony
 
 ---
 
@@ -240,6 +240,20 @@
   - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 14 C++ files.
   - Headless Light & Dark screenshots inspected (`t4_01 --bar-range 4-5` loop selector & Bars 5–6 rendering, `t1_01 --simulate-coach clean` Clean Run coach strip, `t5_02 --bar-range 0-3 --simulate-coach imperfect` Focus-spot Coach strip + Bar 2 staggered amber `PartialHit` `"Missed ..."` pills + Bars 3–4 misses) with zero overlap or clipping.
 
+### Phase 15 — Expressive Classical Notation & Two-Voice Polyphony
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): extended `lesson_score.hpp/.cpp` & backward-compatible `lesson_score_json.cpp` (`ArticulationFlag`, `DynamicLevel`/`DynamicEvent`, `HairpinKind`/`HairpinSpan`, `SlurSpan`, `PedalSpan`, `LessonMetadata::tempo_marking`, bounds validation); extended `musicxml_importer.cpp` (`<words>`, `<dynamics>`, `<wedge>`, `<pedal>`, `<articulations>`, `<arpeggiate>`, `<slur>`); added forced multi-voice stem direction + `resolve_two_voice_collision` to `staff_layout.hpp/.cpp`; upgraded `lesson_engine.hpp/.cpp` (`build_demo_playback()` and live `DemoPlaying` streaming apply `pp`–`ff` dynamics, hairpins, `~45%` staccato gates, `+16` accent boost, and `~35 ms` arpeggio chord rolls)
+  - Pedagogy Content (`assets/lessons/t1_01.json`..`t6_04.json`): annotated all 28 built-in lessons with tempo markings, dynamics, hairpins, phrase slurs, articulations, and genre-matched damper pedal spans; added true two-voice soprano/alto polyphony (`voice: 1`) in `t6_02.json` Bars 1–4
+  - Catch2 Suite (`tests/`): expanded `lesson_score_tests.cpp`, `musicxml_importer_tests.cpp`, `staff_layout_tests.cpp`, `lesson_engine_tests.cpp`, and `lesson_library_tests.cpp` (per-voice + cross-voice ergonomic span invariants and expressive integrity across all 28 lessons)
+  - UI & SMuFL Engraving (`src/ui/`): expanded `font_loader.cpp` `kSmuflRanges` (`U+E520..E53F`, `U+E650..E65F`, `U+EAA0..EABF`), added glyphs in `smufl_glyphs.hpp`, upgraded `staff_primitives.*`, `staff_renderer.*`, `lesson_staff_adapter.*`, `lesson_view.cpp`, and `staff_showcase.cpp` with tempo headers, centered dynamics + trimmed hairpins, staccato/tenuto/accent marks, arpeggio roll wiggles, tapered Bézier phrase slurs, `Ped. … *` sustain lane, and collision-free two-voice stemming
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic -Werror`.
+  - `ctest --preset native-debug --output-on-failure` passed **89/89** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings, bundling updated `assets/lessons/` into `selfano.data`.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean across all modified C++ files.
+  - Headless Light & Dark screenshots inspected (`t3_01`, `t5_02`, `t6_02`, `t6_03`, `t6_04`, `--tab showcase --showcase-preset classical`) and live headless Chromium CDP verification on `build/web-release` (`http://127.0.0.1:8766/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors** and sharp 1360x717 WebGL rendering.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -256,12 +270,12 @@
 
 ## Next Concrete Action
 
-- **Start Phase 15 — Expressive Classical Notation & Two-Voice Polyphony** (`docs/phases/phase-15-expressive-notation-and-polyphony.md`):
+- **Start Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)** (`docs/phases/phase-16-pianistic-musicality-coaching.md`):
   - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
   - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
   - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[x] Complete`)
   - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[x] Complete`)
-  - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[ ] Planned`)
+  - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[x] Complete`)
   - **Phase 16:** Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) (`[ ] Planned`)
 
 ---

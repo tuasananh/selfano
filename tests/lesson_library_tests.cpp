@@ -9,6 +9,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <set>
 #include <string>
@@ -76,8 +77,11 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
     }
     REQUIRE_FALSE(effective_phrases(*lesson).empty());
 
-    // Every harmony annotation must parse cleanly and explain cleanly
+    bool has_dynamics = false;
     for (const auto& m : lesson->measures) {
+      if (!m.dynamics.empty()) {
+        has_dynamics = true;
+      }
       for (const auto& ha : m.harmony) {
         REQUIRE(parse_chord_symbol(ha.chord_symbol).has_value());
         const auto exp = explain_harmony(ha.roman_numeral, ha.chord_symbol, lesson->meta.key);
@@ -88,15 +92,18 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
         REQUIRE_FALSE(exp.preview_notes.empty());
       }
     }
+    REQUIRE_FALSE(lesson->meta.tempo_marking.empty());
+    REQUIRE(has_dynamics);
+    REQUIRE_FALSE(lesson->slurs.empty());
 
     // Ergonomic & fingering invariants across every measure and hand
     const int max_hand_span = (lesson->meta.tier <= 3U) ? 9 : 12;
     auto check_staff_ergonomics = [&](std::uint32_t bar_num, std::string_view hand_label,
                                       std::span<const LessonEvent> events, bool is_rh) {
-      std::optional<std::pair<MidiPitch, std::uint8_t>> prev_single;
+      std::map<std::uint8_t, std::pair<MidiPitch, std::uint8_t>> prev_by_voice;
       for (const auto& ev : events) {
         if (ev.is_rest) {
-          prev_single.reset();
+          prev_by_voice.erase(ev.voice);
           continue;
         }
         if (ev.notes.size() > 1U) {
@@ -124,23 +131,52 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
               }
             }
           }
-          prev_single.reset();
+          prev_by_voice.erase(ev.voice);
         } else if (ev.notes.size() == 1U) {
           const auto& n = ev.notes[0];
           if (n.tie_stop) {
             continue;
           }
-          if (prev_single.has_value()) {
+          if (const auto it = prev_by_voice.find(ev.voice); it != prev_by_voice.end()) {
             const int diff =
-                std::abs(static_cast<int>(n.midi) - static_cast<int>(prev_single->first));
-            if (diff >= 1 && diff <= 2 && n.finger > 0U && prev_single->second > 0U) {
+                std::abs(static_cast<int>(n.midi) - static_cast<int>(it->second.first));
+            if (diff >= 1 && diff <= 2 && n.finger > 0U && it->second.second > 0U) {
               INFO("Lesson " << lesson->meta.id << " Bar " << bar_num << " " << hand_label
                              << " same-finger step finger=" << static_cast<int>(n.finger));
-              REQUIRE(n.finger != prev_single->second);
+              REQUIRE(n.finger != it->second.second);
             }
           }
-          prev_single = std::pair{n.midi, n.finger};
+          prev_by_voice[ev.voice] = std::pair{n.midi, n.finger};
         }
+      }
+
+      // Cross-voice simultaneous chord span must also remain playable by one hand
+      for (std::size_t i = 0; i < events.size(); ++i) {
+        if (events[i].is_rest || events[i].notes.empty()) {
+          continue;
+        }
+        const int a0 = events[i].start_tick;
+        const int a1 = a0 + events[i].duration.ticks();
+        int min_m = 127;
+        int max_m = 0;
+        for (const auto& n : events[i].notes) {
+          min_m = std::min<int>(min_m, n.midi);
+          max_m = std::max<int>(max_m, n.midi);
+        }
+        for (std::size_t j = i + 1U; j < events.size(); ++j) {
+          if (events[j].is_rest || events[j].notes.empty() || events[j].voice == events[i].voice) {
+            continue;
+          }
+          const int b0 = events[j].start_tick;
+          const int b1 = b0 + events[j].duration.ticks();
+          if (std::max(a0, b0) < std::min(a1, b1)) {
+            for (const auto& n : events[j].notes) {
+              min_m = std::min<int>(min_m, n.midi);
+              max_m = std::max<int>(max_m, n.midi);
+            }
+          }
+        }
+        REQUIRE((max_m - min_m) <= max_hand_span);
       }
     };
 
@@ -256,6 +292,19 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
   }
   REQUIRE(hops == 27U);
   REQUIRE(cur == "t6_04");
+
+  // True two-voice per-hand showcase present in Tier 6 (t6_02)
+  const auto* t602 = lib.find_lesson("t6_02");
+  REQUIRE(t602 != nullptr);
+  bool has_voice1 = false;
+  for (const auto& m : t602->measures) {
+    for (const auto& ev : m.treble_events) {
+      if (ev.voice == 1U) {
+        has_voice1 = true;
+      }
+    }
+  }
+  REQUIRE(has_voice1);
 }
 
 TEST_CASE("LessonLibrary My Books CRUD saves, reloads, updates, and deletes imported lessons",

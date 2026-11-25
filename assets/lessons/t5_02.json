@@ -60,7 +60,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Largo"
   },
   "measures": [
     {
@@ -93,6 +94,9 @@
               "midi": 72,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -311,6 +315,12 @@
           "chord_symbol": "Cm",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "ff"
+        }
       ]
     },
     {
@@ -372,6 +382,9 @@
               "midi": 77,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "accent"
           ]
         },
         {
@@ -1046,6 +1059,13 @@
           "chord_symbol": "G",
           "roman_numeral": "V"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 480,
+          "end_tick": 1920,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -1073,6 +1093,9 @@
               "midi": 72,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -1280,6 +1303,12 @@
           "start_tick": 1440,
           "chord_symbol": "Cm",
           "roman_numeral": "i"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
         }
       ]
     },
@@ -1751,6 +1780,13 @@
           "chord_symbol": "G",
           "roman_numeral": "V"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
+        }
       ]
     },
     {
@@ -1981,6 +2017,13 @@
           "chord_symbol": "Cm",
           "roman_numeral": "i"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 480,
+          "end_tick": 1920,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -2008,6 +2051,9 @@
               "midi": 67,
               "finger": 4
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -2205,6 +2251,12 @@
           "start_tick": 1440,
           "chord_symbol": "Cm",
           "roman_numeral": "i"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "pp"
         }
       ]
     },
@@ -2928,6 +2980,9 @@
               "midi": 72,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         }
       ],
@@ -2981,6 +3036,124 @@
       "label": "Phrase C (Bars 9-13)",
       "start_bar": 8,
       "end_bar": 12
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1440,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 0,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1800
     }
   ]
 }

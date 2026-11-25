@@ -55,6 +55,9 @@ struct ThemePalette {
 void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
                       ImU32 color, const char* utf8_glyph);
 
+void draw_smufl_glyph_centered(ImDrawList* draw_list, ImFont* smufl_font, float font_size,
+                               ImVec2 center_x_origin_y, ImU32 color, const char* utf8_glyph);
+
 void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
                      ImU32 color, float thickness);
 
@@ -80,5 +83,8 @@ void draw_beam_quad(ImDrawList* draw_list, float x0, float y0, float x1, float y
 
 void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef clef,
                     float bottom_y, float space, ImU32 color);
+
+void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float y1, bool above,
+                     float space, ImU32 color);
 
 } // namespace selfano::ui::detail

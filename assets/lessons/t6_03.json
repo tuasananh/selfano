@@ -51,7 +51,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Largo"
   },
   "measures": [
     {
@@ -130,6 +131,12 @@
           "start_tick": 0,
           "chord_symbol": "Ab/C",
           "roman_numeral": "bII6"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
         }
       ]
     },
@@ -297,6 +304,13 @@
           "chord_symbol": "Ab/C",
           "roman_numeral": "bII6"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
+        }
       ]
     },
     {
@@ -321,6 +335,9 @@
               "finger": 5,
               "tie_start": true
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -470,6 +487,12 @@
           "start_tick": 0,
           "chord_symbol": "Ab/C",
           "roman_numeral": "bII6"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
         }
       ]
     },
@@ -637,6 +660,13 @@
           "chord_symbol": "D7",
           "roman_numeral": "V7"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -654,6 +684,9 @@
               "midi": 67,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -759,6 +792,12 @@
           "start_tick": 960,
           "chord_symbol": "Cm",
           "roman_numeral": "iv"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
         }
       ]
     },
@@ -964,6 +1003,12 @@
           "chord_symbol": "D7",
           "roman_numeral": "V7"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "pp"
+        }
       ]
     }
   ],
@@ -977,6 +1022,49 @@
       "label": "Phrase B (Sigh & Dominant Pause, Bars 5-7)",
       "start_bar": 4,
       "end_bar": 6
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1680,
+      "treble": true
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 960,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1440
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1680
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1680
     }
   ]
 }

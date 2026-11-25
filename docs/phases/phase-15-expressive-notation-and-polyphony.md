@@ -1,6 +1,6 @@
 # Phase 15: Expressive Classical Notation & Two-Voice Polyphony
 
-**Status:** `[ ] Planned` (Depends on Phase 11; independent of Phases 12–14)  
+**Status:** `[x] Complete` (Depends on Phase 11; independent of Phases 12–14)  
 **Goal:** Bring authentic musical expression onto Selfano's Grand Staff—rendering tempo markings, dynamics (`pp`–`ff`), cresc./dim. hairpins, articulations (staccato, tenuto, accent, arpeggio roll), phrase slurs, damper pedal markings (`Ped. … *`), and true two-voice per-hand polyphony—while applying them to Demo playback and MusicXML import.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `verification-and-review`

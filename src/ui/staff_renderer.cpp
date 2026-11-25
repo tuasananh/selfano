@@ -29,6 +29,15 @@ struct PendingFeedbackBadge {
   std::string text;
 };
 
+struct SlurAnchorPoint {
+  std::size_t measure_idx{0};
+  int tick{0};
+  bool treble{true};
+  float center_x{0.0f};
+  float top_y{0.0f};
+  float bottom_y{0.0f};
+};
+
 struct ClefSlot {
   std::size_t chord_idx{0};
   int start_tick{0};
@@ -38,6 +47,8 @@ struct ClefSlot {
   bool is_rest{false};
   RestDuration rest_dur{RestDuration::Quarter};
   bool rest_dotted{false};
+  std::uint8_t voice{0};
+  std::uint8_t articulations{0};
   std::vector<const StaffNote*> notes;
   core::ChordLayout layout{};
   std::optional<core::StemDirection> beamed_dir;
@@ -47,40 +58,82 @@ struct ClefSlot {
 
 [[nodiscard]] std::vector<ClefSlot> prepare_clef_slots(const StaffMeasure& measure, core::Clef clef,
                                                        float m_x0, float pad_left, float usable_w,
-                                                       float measure_beats,
+                                                       float measure_beats, float space,
                                                        core::MeasureAccidentalState& acc_state,
-                                                       const ThemePalette& pal) {
+                                                       const ThemePalette& pal,
+                                                       bool& out_multi_voice) {
   std::vector<ClefSlot> slots;
   const int m_ticks = std::max(1, measure.measure_ticks);
+
+  out_multi_voice = false;
+  for (const auto& chord : measure.chords) {
+    for (const auto& sn : chord.notes) {
+      if (sn.clef == clef && sn.voice > 0U) {
+        out_multi_voice = true;
+        break;
+      }
+    }
+    if (out_multi_voice) {
+      break;
+    }
+  }
 
   for (std::size_t c = 0; c < measure.chords.size(); ++c) {
     const auto& chord = measure.chords[c];
     const float chord_x = detail::compute_chord_x(m_x0, pad_left, usable_w, measure_beats, m_ticks,
                                                   c, measure.chords.size(), chord);
+    const int start_tick = chord.tick_offset.value_or(static_cast<int>(
+        std::llround(chord.beat_offset.value_or(static_cast<float>(c)) * core::kTicksPerQuarter)));
 
-    std::vector<const StaffNote*> clef_notes;
+    std::vector<std::uint8_t> voices;
     for (const auto& sn : chord.notes) {
-      if (sn.clef == clef) {
-        clef_notes.push_back(&sn);
+      if (sn.clef == clef && std::find(voices.begin(), voices.end(), sn.voice) == voices.end()) {
+        voices.push_back(sn.voice);
       }
     }
+    std::sort(voices.begin(), voices.end());
 
     const std::optional<RestDuration> rest_opt =
         (clef == core::Clef::Treble) ? chord.treble_rest : chord.bass_rest;
-    if (clef_notes.empty() && !rest_opt.has_value()) {
+
+    if (voices.empty()) {
+      if (rest_opt.has_value()) {
+        ClefSlot slot{};
+        slot.chord_idx = c;
+        slot.chord_x = chord_x;
+        slot.start_tick = start_tick;
+        slot.is_rest = true;
+        slot.rest_dur = *rest_opt;
+        slot.rest_dotted =
+            (clef == core::Clef::Treble) ? chord.treble_rest_dotted : chord.bass_rest_dotted;
+        slot.voice = 0U;
+        slot.stem_color = pal.ink;
+        slots.push_back(std::move(slot));
+      }
       continue;
     }
 
-    ClefSlot slot{};
-    slot.chord_idx = c;
-    slot.chord_x = chord_x;
-    slot.start_tick = chord.tick_offset.value_or(static_cast<int>(
-        std::llround(chord.beat_offset.value_or(static_cast<float>(c)) * core::kTicksPerQuarter)));
+    const std::size_t first_slot_idx = slots.size();
+    for (const std::uint8_t v : voices) {
+      std::vector<const StaffNote*> clef_notes;
+      for (const auto& sn : chord.notes) {
+        if (sn.clef == clef && sn.voice == v) {
+          clef_notes.push_back(&sn);
+        }
+      }
+      if (clef_notes.empty()) {
+        continue;
+      }
 
-    if (!clef_notes.empty()) {
+      ClefSlot slot{};
+      slot.chord_idx = c;
+      slot.chord_x = chord_x;
+      slot.start_tick = start_tick;
       slot.is_rest = false;
       slot.duration = clef_notes[0]->duration.value_or(chord.duration);
       slot.dotted = clef_notes[0]->dotted || chord.dotted;
+      slot.voice = v;
+      slot.articulations = clef_notes[0]->articulations;
       slot.notes = std::move(clef_notes);
 
       std::vector<core::ChordNoteLayoutInput> inputs;
@@ -106,19 +159,27 @@ struct ClefSlot {
           all_correct = false;
         }
       }
-      slot.layout = core::layout_chord(inputs, clef, detail::notehead_width_spaces(slot.duration));
+      const std::optional<core::StemDirection> forced_dir =
+          out_multi_voice
+              ? std::optional{(v == 0U) ? core::StemDirection::Up : core::StemDirection::Down}
+              : std::nullopt;
+      slot.layout = core::layout_chord(inputs, clef, detail::notehead_width_spaces(slot.duration),
+                                       forced_dir);
       slot.stem_color = any_incorrect
                             ? pal.incorrect
                             : (any_partial ? pal.partial : (all_correct ? pal.correct : pal.ink));
-    } else {
-      slot.is_rest = true;
-      slot.rest_dur = *rest_opt;
-      slot.rest_dotted =
-          (clef == core::Clef::Treble) ? chord.treble_rest_dotted : chord.bass_rest_dotted;
-      slot.stem_color = pal.ink;
+      slots.push_back(std::move(slot));
     }
 
-    slots.push_back(std::move(slot));
+    if (out_multi_voice && slots.size() >= first_slot_idx + 2U) {
+      const auto& v0 = slots[first_slot_idx];
+      auto& v1 = slots[first_slot_idx + 1U];
+      const float nh_w = detail::notehead_width_spaces(v1.duration);
+      const float shift = core::resolve_two_voice_collision(v0.layout, v1.layout, nh_w);
+      if (shift > 0.0f) {
+        v1.chord_x += shift * space;
+      }
+    }
   }
   return slots;
 }
@@ -130,98 +191,117 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
                          float bottom_y, float space, core::MeasureAccidentalState& acc_state,
                          const StaffRenderOptions& options, const ThemePalette& pal,
                          std::vector<core::TieEndpointRef>& out_ties,
-                         std::vector<PendingFeedbackBadge>& out_badges) {
-  auto slots =
-      prepare_clef_slots(measure, clef, m_x0, pad_left, usable_w, measure_beats, acc_state, pal);
+                         std::vector<PendingFeedbackBadge>& out_badges,
+                         std::vector<SlurAnchorPoint>& out_slur_anchors) {
+  bool has_multi_voice = false;
+  auto slots = prepare_clef_slots(measure, clef, m_x0, pad_left, usable_w, measure_beats, space,
+                                  acc_state, pal, has_multi_voice);
   if (slots.empty()) {
     return;
   }
 
-  // 1. Compute meter-aware beam groups for this clef only
-  std::vector<core::BeamEventInput> beam_inputs;
-  beam_inputs.reserve(slots.size());
-  for (std::size_t i = 0; i < slots.size(); ++i) {
-    const auto& s_slot = slots[i];
-    if (s_slot.is_rest) {
-      core::NoteBaseDuration rbase = core::NoteBaseDuration::Quarter;
-      if (s_slot.rest_dur == RestDuration::Sixteenth) {
-        rbase = core::NoteBaseDuration::Sixteenth;
-      } else if (s_slot.rest_dur == RestDuration::Eighth) {
-        rbase = core::NoteBaseDuration::Eighth;
-      }
-      beam_inputs.push_back(core::BeamEventInput{
-          .event_index = i,
-          .start_tick = s_slot.start_tick,
-          .duration_ticks =
-              core::RhythmicValue{.base = rbase, .dotted = s_slot.rest_dotted}.ticks(),
-          .base_duration = rbase,
-          .dotted = s_slot.rest_dotted,
-          .is_rest = true,
-          .x_spaces = s_slot.chord_x / space,
-          .min_step = core::staff_middle_step(clef),
-          .max_step = core::staff_middle_step(clef),
-      });
-    } else {
-      const auto base_dur = detail::to_core_base_duration(s_slot.duration);
-      beam_inputs.push_back(core::BeamEventInput{
-          .event_index = i,
-          .start_tick = s_slot.start_tick,
-          .duration_ticks = core::RhythmicValue{.base = base_dur, .dotted = s_slot.dotted}.ticks(),
-          .base_duration = base_dur,
-          .dotted = s_slot.dotted,
-          .is_rest = false,
-          .x_spaces = s_slot.chord_x / space,
-          .min_step = s_slot.layout.noteheads.front().step,
-          .max_step = s_slot.layout.noteheads.back().step,
-      });
+  // 1. Compute meter-aware beam groups independently per voice in this clef
+  std::vector<std::uint8_t> beam_voices;
+  for (const auto& sl : slots) {
+    if (std::find(beam_voices.begin(), beam_voices.end(), sl.voice) == beam_voices.end()) {
+      beam_voices.push_back(sl.voice);
     }
   }
-
-  const auto beam_groups =
-      core::compute_beam_groups(beam_inputs, meter, clef, kNoteheadBlackWidthSpaces);
+  std::sort(beam_voices.begin(), beam_voices.end());
 
   const float beam_thick_px = std::max(2.0f, kBeamThicknessSpaces * space);
-  for (const auto& bg : beam_groups) {
-    ImU32 beam_col = pal.ink;
-    bool all_ok = true;
-    bool any_partial = false;
-    bool any_bad = false;
-    for (std::size_t k = 0; k < bg.event_indices.size(); ++k) {
-      const std::size_t slot_idx = bg.event_indices[k];
-      slots[slot_idx].beamed_dir = bg.stem_direction;
-      slots[slot_idx].beamed_tip_y_spaces = bg.stem_tip_y_spaces[k];
-      if (slots[slot_idx].stem_color == pal.incorrect) {
-        any_bad = true;
+  for (const std::uint8_t bv : beam_voices) {
+    std::vector<core::BeamEventInput> beam_inputs;
+    for (std::size_t i = 0; i < slots.size(); ++i) {
+      const auto& s_slot = slots[i];
+      if (s_slot.voice != bv) {
+        continue;
       }
-      if (slots[slot_idx].stem_color == pal.partial) {
-        any_partial = true;
-      }
-      if (slots[slot_idx].stem_color != pal.correct) {
-        all_ok = false;
+      if (s_slot.is_rest) {
+        core::NoteBaseDuration rbase = core::NoteBaseDuration::Quarter;
+        if (s_slot.rest_dur == RestDuration::Sixteenth) {
+          rbase = core::NoteBaseDuration::Sixteenth;
+        } else if (s_slot.rest_dur == RestDuration::Eighth) {
+          rbase = core::NoteBaseDuration::Eighth;
+        }
+        beam_inputs.push_back(core::BeamEventInput{
+            .event_index = i,
+            .start_tick = s_slot.start_tick,
+            .duration_ticks =
+                core::RhythmicValue{.base = rbase, .dotted = s_slot.rest_dotted}.ticks(),
+            .base_duration = rbase,
+            .dotted = s_slot.rest_dotted,
+            .is_rest = true,
+            .x_spaces = s_slot.chord_x / space,
+            .min_step = core::staff_middle_step(clef),
+            .max_step = core::staff_middle_step(clef),
+        });
+      } else {
+        const auto base_dur = detail::to_core_base_duration(s_slot.duration);
+        beam_inputs.push_back(core::BeamEventInput{
+            .event_index = i,
+            .start_tick = s_slot.start_tick,
+            .duration_ticks =
+                core::RhythmicValue{.base = base_dur, .dotted = s_slot.dotted}.ticks(),
+            .base_duration = base_dur,
+            .dotted = s_slot.dotted,
+            .is_rest = false,
+            .x_spaces = s_slot.chord_x / space,
+            .min_step = s_slot.layout.noteheads.front().step,
+            .max_step = s_slot.layout.noteheads.back().step,
+        });
       }
     }
-    if (any_bad) {
-      beam_col = pal.incorrect;
-    } else if (any_partial) {
-      beam_col = pal.partial;
-    } else if (all_ok) {
-      beam_col = pal.correct;
-    }
 
-    const float bx0 = bg.start_x_spaces * space;
-    const float bx1 = bg.end_x_spaces * space;
-    const float by0 = bottom_y - bg.start_y_spaces * space;
-    const float by1 = bottom_y - bg.end_y_spaces * space;
-    detail::draw_beam_quad(draw_list, bx0, by0, bx1, by1, beam_thick_px, bg.stem_direction,
-                           beam_col);
+    const std::optional<core::StemDirection> forced_dir =
+        has_multi_voice
+            ? std::optional{(bv == 0U) ? core::StemDirection::Up : core::StemDirection::Down}
+            : std::nullopt;
+    const auto beam_groups =
+        core::compute_beam_groups(beam_inputs, meter, clef, kNoteheadBlackWidthSpaces, forced_dir);
 
-    for (const auto& sb : bg.secondary_beams) {
-      const float sx0 = sb.x0_spaces * space;
-      const float sx1 = sb.x1_spaces * space;
-      const float sy0 = bottom_y - sb.y0_spaces * space;
-      const float sy1 = bottom_y - sb.y1_spaces * space;
-      detail::draw_beam_quad(draw_list, sx0, sy0, sx1, sy1, beam_thick_px * 0.88f,
-                             bg.stem_direction, beam_col);
+    for (const auto& bg : beam_groups) {
+      ImU32 beam_col = pal.ink;
+      bool all_ok = true;
+      bool any_partial = false;
+      bool any_bad = false;
+      for (std::size_t k = 0; k < bg.event_indices.size(); ++k) {
+        const std::size_t slot_idx = bg.event_indices[k];
+        slots[slot_idx].beamed_dir = bg.stem_direction;
+        slots[slot_idx].beamed_tip_y_spaces = bg.stem_tip_y_spaces[k];
+        if (slots[slot_idx].stem_color == pal.incorrect) {
+          any_bad = true;
+        }
+        if (slots[slot_idx].stem_color == pal.partial) {
+          any_partial = true;
+        }
+        if (slots[slot_idx].stem_color != pal.correct) {
+          all_ok = false;
+        }
+      }
+      if (any_bad) {
+        beam_col = pal.incorrect;
+      } else if (any_partial) {
+        beam_col = pal.partial;
+      } else if (all_ok) {
+        beam_col = pal.correct;
+      }
+
+      const float bx0 = bg.start_x_spaces * space;
+      const float bx1 = bg.end_x_spaces * space;
+      const float by0 = bottom_y - bg.start_y_spaces * space;
+      const float by1 = bottom_y - bg.end_y_spaces * space;
+      detail::draw_beam_quad(draw_list, bx0, by0, bx1, by1, beam_thick_px, bg.stem_direction,
+                             beam_col);
+
+      for (const auto& sb : bg.secondary_beams) {
+        const float sx0 = sb.x0_spaces * space;
+        const float sx1 = sb.x1_spaces * space;
+        const float sy0 = bottom_y - sb.y0_spaces * space;
+        const float sy1 = bottom_y - sb.y1_spaces * space;
+        detail::draw_beam_quad(draw_list, sx0, sy0, sx1, sy1, beam_thick_px * 0.88f,
+                               bg.stem_direction, beam_col);
+      }
     }
   }
 
@@ -294,6 +374,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
     const float acc_right_edge =
         slot.chord_x + layout.min_notehead_x_spaces * space - 0.35f * space;
     const float acc_col_stride = 1.15f * space;
+    float left_acc_edge = slot.chord_x + layout.min_notehead_x_spaces * space;
     const char* nh_glyph = detail::notehead_glyph(slot.duration);
     const float dot_x = slot.chord_x + (layout.max_notehead_x_spaces + 0.32f) * space;
 
@@ -317,6 +398,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
         const float acc_w = accidental_width_spaces(*nh.displayed_accidental) * space;
         const float ax =
             acc_right_edge - acc_w - static_cast<float>(nh.accidental_column) * acc_col_stride;
+        left_acc_edge = std::min(left_acc_edge, ax);
         detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ny), note_color,
                                  accidental_glyph(*nh.displayed_accidental));
       }
@@ -371,15 +453,119 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       }
     }
 
-    // 2d. Fingerings (1..5) clear of staff/stems/beams
+    // 2c-bis. Arpeggio roll wiggle and chord articulations (staccato, tenuto, accent)
+    const float top_nh_y = core::step_to_y(layout.noteheads.back().step, clef, bottom_y, space);
+    const float bot_nh_y = core::step_to_y(layout.noteheads.front().step, clef, bottom_y, space);
+    const float nh_center_x = slot.chord_x + nh_w_spaces * 0.5f * space;
+
+    if (core::has_articulation(slot.articulations, core::ArticulationFlag::Arpeggiate)) {
+      const float arp_x = left_acc_edge - 0.72f * space;
+      const float span_h = std::max(0.8f * space, bot_nh_y - top_nh_y);
+      const float step_px = 0.88f * space;
+      const int segs = std::max(2, static_cast<int>(std::ceil(span_h / step_px)));
+      for (int si = 0; si < segs; ++si) {
+        const float frac =
+            (segs <= 1) ? 0.5f : (static_cast<float>(si) / static_cast<float>(segs - 1));
+        const float ay = bot_nh_y - frac * span_h + 0.15f * space;
+        detail::draw_smufl_glyph_centered(draw_list, smufl_font, smufl_font_size * 0.92f,
+                                          ImVec2(arp_x, ay), slot.stem_color,
+                                          kGlyphWiggleArpeggiatoUp);
+      }
+    }
+
+    if (slot.articulations != 0U) {
+      const bool art_above =
+          has_multi_voice ? (slot.voice == 0U) : (stem_dir == core::StemDirection::Down);
+      int art_step =
+          art_above ? (layout.noteheads.back().step + 2) : (layout.noteheads.front().step - 2);
+      const int s_bot = core::staff_bottom_step(clef);
+      const int s_top = core::staff_top_step(clef);
+      if (art_step >= s_bot && art_step <= s_top && (art_step % 2 == 0)) {
+        art_step += art_above ? 1 : -1;
+      }
+      float cur_ay = core::step_to_y(art_step, clef, bottom_y, space);
+      if (art_above && stem_dir == core::StemDirection::Up &&
+          slot.duration != NoteDuration::Whole) {
+        cur_ay = std::min(cur_ay, sy_end - 0.75f * space);
+      } else if (!art_above && stem_dir == core::StemDirection::Down &&
+                 slot.duration != NoteDuration::Whole) {
+        cur_ay = std::max(cur_ay, sy_end + 0.75f * space);
+      }
+      const float step_dir = art_above ? -0.78f * space : 0.78f * space;
+      if (core::has_articulation(slot.articulations, core::ArticulationFlag::Staccato)) {
+        detail::draw_smufl_glyph_centered(
+            draw_list, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
+            art_above ? kGlyphArticStaccatoAbove : kGlyphArticStaccatoBelow);
+        cur_ay += step_dir;
+      }
+      if (core::has_articulation(slot.articulations, core::ArticulationFlag::Tenuto)) {
+        detail::draw_smufl_glyph_centered(
+            draw_list, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
+            art_above ? kGlyphArticTenutoAbove : kGlyphArticTenutoBelow);
+        cur_ay += step_dir;
+      }
+      if (core::has_articulation(slot.articulations, core::ArticulationFlag::Accent)) {
+        detail::draw_smufl_glyph_centered(
+            draw_list, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
+            art_above ? kGlyphArticAccentAbove : kGlyphArticAccentBelow);
+      }
+    }
+
+    // Track note anchor bounds for phrase slur placement
+    {
+      const bool is_tr = (clef == core::Clef::Treble);
+      const float ext_top = std::min(
+          top_nh_y, (stem_dir == core::StemDirection::Up && slot.duration != NoteDuration::Whole)
+                        ? sy_end
+                        : top_nh_y);
+      const float ext_bot = std::max(
+          bot_nh_y, (stem_dir == core::StemDirection::Down && slot.duration != NoteDuration::Whole)
+                        ? sy_end
+                        : bot_nh_y);
+      auto it = std::find_if(out_slur_anchors.begin(), out_slur_anchors.end(),
+                             [&](const SlurAnchorPoint& ap) {
+                               return ap.measure_idx == measure_idx && ap.tick == slot.start_tick &&
+                                      ap.treble == is_tr;
+                             });
+      if (it == out_slur_anchors.end()) {
+        out_slur_anchors.push_back(SlurAnchorPoint{
+            .measure_idx = measure_idx,
+            .tick = slot.start_tick,
+            .treble = is_tr,
+            .center_x = nh_center_x,
+            .top_y = ext_top,
+            .bottom_y = ext_bot,
+        });
+      } else {
+        it->top_y = std::min(it->top_y, ext_top);
+        it->bottom_y = std::max(it->bottom_y, ext_bot);
+      }
+    }
+
+    // 2d. Fingerings (1..5) clear of staff/stems/beams/articulations
     if (options.show_fingerings && finger_font != nullptr && !chord_fingers.empty()) {
-      const float center_x = slot.chord_x + nh_w_spaces * 0.5f * space;
+      const float center_x = nh_center_x;
       const float staff_top_y = bottom_y - detail::kStaffHeightSpaces * space;
-      if (clef == core::Clef::Treble) {
-        const float top_nh_y = core::step_to_y(layout.noteheads.back().step, clef, bottom_y, space);
+      const bool place_above = has_multi_voice ? (slot.voice == 0U) : (clef == core::Clef::Treble);
+      const bool art_above =
+          has_multi_voice ? (slot.voice == 0U) : (stem_dir == core::StemDirection::Down);
+      int art_count = 0;
+      if (core::has_articulation(slot.articulations, core::ArticulationFlag::Staccato)) {
+        ++art_count;
+      }
+      if (core::has_articulation(slot.articulations, core::ArticulationFlag::Tenuto)) {
+        ++art_count;
+      }
+      if (core::has_articulation(slot.articulations, core::ArticulationFlag::Accent)) {
+        ++art_count;
+      }
+      if (place_above) {
         float anchor_y = std::min(staff_top_y - 1.15f * space, top_nh_y - 1.18f * space);
         if (slot.duration != NoteDuration::Whole && stem_dir == core::StemDirection::Up) {
           anchor_y = std::min(anchor_y, sy_end - 0.85f * space);
+        }
+        if (art_above && art_count > 0) {
+          anchor_y -= static_cast<float>(art_count) * (0.95f * space);
         }
         for (std::size_t fi = 0; fi < chord_fingers.size(); ++fi) {
           const std::string fstr = std::to_string(chord_fingers[fi]);
@@ -392,11 +578,12 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
               fstr.c_str());
         }
       } else {
-        const float bot_nh_y =
-            core::step_to_y(layout.noteheads.front().step, clef, bottom_y, space);
         float anchor_y = std::max(bottom_y + 1.25f * space, bot_nh_y + 1.65f * space);
         if (slot.duration != NoteDuration::Whole && stem_dir == core::StemDirection::Down) {
           anchor_y = std::max(anchor_y, sy_end + 1.40f * space);
+        }
+        if (!art_above && art_count > 0) {
+          anchor_y += static_cast<float>(art_count) * (0.95f * space);
         }
         for (std::size_t fi = 0; fi < chord_fingers.size(); ++fi) {
           const std::string fstr = std::to_string(chord_fingers[chord_fingers.size() - 1U - fi]);
@@ -419,12 +606,14 @@ float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept {
   const float s = std::max(8.0f, options.staff_space);
   const float top_spaces =
       detail::kTopMarginSpaces +
-      (options.show_harmony_labels ? detail::kTopMarginHarmonyExtraSpaces : 0.0f);
+      (options.show_harmony_labels ? detail::kTopMarginHarmonyExtraSpaces : 0.0f) +
+      (!options.tempo_marking.empty() ? 1.5f : 0.0f);
   const float staves_spaces =
       (options.view_mode == StaffViewMode::GrandStaff)
           ? (detail::kStaffHeightSpaces * 2.0f + options.grand_staff_gap_spaces)
           : detail::kStaffHeightSpaces;
-  return (top_spaces + staves_spaces + detail::kBottomMarginSpaces) * s;
+  const float bottom_extra = (options.reserve_pedal_lane || !options.pedals.empty()) ? 4.0f : 0.0f;
+  return (top_spaces + staves_spaces + detail::kBottomMarginSpaces + bottom_extra) * s;
 }
 
 void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, ImVec2 origin,
@@ -454,7 +643,8 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
   const float top_spaces =
       detail::kTopMarginSpaces +
-      (options.show_harmony_labels ? detail::kTopMarginHarmonyExtraSpaces : 0.0f);
+      (options.show_harmony_labels ? detail::kTopMarginHarmonyExtraSpaces : 0.0f) +
+      (!options.tempo_marking.empty() ? 1.5f : 0.0f);
   const float treble_top_y = origin.y + top_spaces * s;
   const float treble_bottom_y = treble_top_y + detail::kStaffHeightSpaces * s;
   const float bass_top_y =
@@ -610,6 +800,17 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   std::vector<core::TieEndpointRef> treble_ties;
   std::vector<core::TieEndpointRef> bass_ties;
   std::vector<PendingFeedbackBadge> pending_badges;
+  std::vector<SlurAnchorPoint> slur_anchors;
+  std::vector<float> inner_m_x0s(measures.size(), content_left_x);
+  std::vector<float> pad_lefts(measures.size(), 0.0f);
+  std::vector<float> usable_ws(measures.size(), 10.0f);
+
+  if (!options.tempo_marking.empty() && ann_font != nullptr) {
+    const float tempo_sz = draw_font_size(13.5f);
+    draw_list->AddText(ann_font, tempo_sz,
+                       ImVec2(std::round(system_left_x), std::round(origin.y + 0.52f * s)), pal.ink,
+                       options.tempo_marking.c_str());
+  }
 
   for (std::size_t m = 0; m < measures.size(); ++m) {
     acc_treble.reset_measure();
@@ -641,6 +842,9 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     const float pad_left = std::min(2.4f * s, local_w * 0.15f);
     const float pad_right = std::min(2.0f * s, local_w * 0.14f);
     const float usable_w = std::max(10.0f, local_w - pad_left - pad_right);
+    inner_m_x0s[m] = inner_m_x0;
+    pad_lefts[m] = pad_left;
+    usable_ws[m] = usable_w;
     const float measure_beats = std::max(0.25f, measure.beats_per_measure);
 
     const float ann_size_px = draw_font_size(11.5f);
@@ -748,13 +952,14 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     if (show_treble) {
       render_clef_measure(draw_list, smufl_font, ui_font, smufl_font_size, m, measure, active_meter,
                           core::Clef::Treble, inner_m_x0, pad_left, usable_w, measure_beats,
-                          treble_bottom_y, s, acc_treble, options, pal, treble_ties,
-                          pending_badges);
+                          treble_bottom_y, s, acc_treble, options, pal, treble_ties, pending_badges,
+                          slur_anchors);
     }
     if (show_bass) {
       render_clef_measure(draw_list, smufl_font, ui_font, smufl_font_size, m, measure, active_meter,
                           core::Clef::Bass, inner_m_x0, pad_left, usable_w, measure_beats,
-                          bass_bottom_y, s, acc_bass, options, pal, bass_ties, pending_badges);
+                          bass_bottom_y, s, acc_bass, options, pal, bass_ties, pending_badges,
+                          slur_anchors);
     }
 
     // 5d. Barline at measure end
@@ -786,6 +991,123 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   if (show_bass && !bass_ties.empty()) {
     for (const auto& span : core::resolve_tie_spans(bass_ties)) {
       detail::draw_tie_curve(draw_list, span, core::Clef::Bass, bass_bottom_y, s, pal.ink);
+    }
+  }
+
+  auto tick_to_x = [&](std::size_t m_idx, int tick) noexcept -> float {
+    const std::size_t mi = std::min(m_idx, measures.size() - 1U);
+    const int mticks = std::max(1, measures[mi].measure_ticks);
+    const float frac =
+        std::clamp(static_cast<float>(tick) / static_cast<float>(mticks), 0.0f, 1.0f);
+    return inner_m_x0s[mi] + pad_lefts[mi] + frac * usable_ws[mi] +
+           kNoteheadBlackWidthSpaces * 0.5f * s;
+  };
+
+  // 5e+. Dynamics & hairpins centered in grand staff gap
+  {
+    const float dyn_y = (show_treble && show_bass)
+                            ? ((treble_bottom_y + bass_top_y) * 0.5f + 0.30f * s)
+                            : (system_bottom_y + 2.3f * s);
+    const float dyn_font_sz = smufl_font_size * 0.85f;
+    std::vector<std::pair<float, float>> dyn_boxes;
+    for (std::size_t m = 0; m < measures.size(); ++m) {
+      for (const auto& d : measures[m].dynamics) {
+        const char* glyph = dynamic_level_glyph(d.level);
+        const ImVec2 gsz = smufl_font->CalcTextSizeA(dyn_font_sz, FLT_MAX, 0.0f, glyph);
+        const float cx = tick_to_x(m, d.start_tick);
+        detail::draw_smufl_glyph_centered(draw_list, smufl_font, dyn_font_sz, ImVec2(cx, dyn_y),
+                                          pal.ink, glyph);
+        dyn_boxes.emplace_back(cx - gsz.x * 0.5f - 0.35f * s, cx + gsz.x * 0.5f + 0.35f * s);
+      }
+    }
+    const float hp_mid_y = dyn_y - 0.22f * s;
+    const float hp_half = 0.42f * s;
+    const float hp_thick = std::max(1.2f, 0.11f * s);
+    for (std::size_t m = 0; m < measures.size(); ++m) {
+      for (const auto& hp : measures[m].hairpins) {
+        float x0 = tick_to_x(m, hp.start_tick);
+        float x1 = tick_to_x(m, hp.end_tick);
+        for (const auto& [bx0, bx1] : dyn_boxes) {
+          if (x0 >= bx0 && x0 <= bx1) {
+            x0 = bx1 + 0.18f * s;
+          }
+          if (x1 >= bx0 && x1 <= bx1) {
+            x1 = bx0 - 0.18f * s;
+          }
+        }
+        if (x1 <= x0 + 0.8f * s) {
+          continue;
+        }
+        if (hp.kind == core::HairpinKind::Crescendo) {
+          draw_list->AddLine(ImVec2(x0, hp_mid_y), ImVec2(x1, hp_mid_y - hp_half), pal.ink,
+                             hp_thick);
+          draw_list->AddLine(ImVec2(x0, hp_mid_y), ImVec2(x1, hp_mid_y + hp_half), pal.ink,
+                             hp_thick);
+        } else {
+          draw_list->AddLine(ImVec2(x0, hp_mid_y - hp_half), ImVec2(x1, hp_mid_y), pal.ink,
+                             hp_thick);
+          draw_list->AddLine(ImVec2(x0, hp_mid_y + hp_half), ImVec2(x1, hp_mid_y), pal.ink,
+                             hp_thick);
+        }
+      }
+    }
+  }
+
+  // 5e++. Phrase slurs
+  for (const auto& sl : options.slurs) {
+    auto find_anchor = [&](std::size_t mi, int tick, bool treble) -> const SlurAnchorPoint* {
+      for (const auto& ap : slur_anchors) {
+        if (ap.measure_idx == mi && ap.tick == tick && ap.treble == treble) {
+          return &ap;
+        }
+      }
+      return nullptr;
+    };
+    const SlurAnchorPoint* a0 = find_anchor(sl.start_measure_idx, sl.start_tick, sl.treble);
+    const SlurAnchorPoint* a1 = find_anchor(sl.end_measure_idx, sl.end_tick, sl.treble);
+    const float x0 =
+        sl.open_left
+            ? content_left_x
+            : (a0 != nullptr ? a0->center_x : tick_to_x(sl.start_measure_idx, sl.start_tick));
+    const float x1 =
+        sl.open_right ? (system_right_x - 0.35f * s)
+                      : (a1 != nullptr ? a1->center_x : tick_to_x(sl.end_measure_idx, sl.end_tick));
+    if (x1 <= x0 + 4.0f) {
+      continue;
+    }
+    const bool above = sl.treble;
+    const float base_y = above ? (treble_top_y - 0.55f * s) : (bass_bottom_y + 0.75f * s);
+    const float y0 =
+        (a0 != nullptr) ? (above ? (a0->top_y - 0.55f * s) : (a0->bottom_y + 0.60f * s)) : base_y;
+    const float y1 =
+        (a1 != nullptr) ? (above ? (a1->top_y - 0.55f * s) : (a1->bottom_y + 0.60f * s)) : base_y;
+    detail::draw_slur_curve(draw_list, x0, y0, x1, y1, above, s, pal.ink);
+  }
+
+  // 5e+++. Pedal lane (Ped. ... *) below bass staff
+  if (!options.pedals.empty()) {
+    const float ped_y = system_bottom_y + 5.45f * s;
+    const float ped_font_sz = smufl_font_size * 0.85f;
+    const ImU32 guide_col = detail::apply_alpha_scale(pal.ink, 0.35f);
+    for (const auto& pd : options.pedals) {
+      const float x0 =
+          pd.open_left ? content_left_x : tick_to_x(pd.start_measure_idx, pd.start_tick);
+      const float x1 =
+          pd.open_right ? (system_right_x - 0.35f * s) : tick_to_x(pd.end_measure_idx, pd.end_tick);
+      if (!pd.open_left) {
+        detail::draw_smufl_glyph_centered(draw_list, smufl_font, ped_font_sz, ImVec2(x0, ped_y),
+                                          pal.ink, kGlyphPedalPed);
+      }
+      if (!pd.open_right) {
+        detail::draw_smufl_glyph_centered(draw_list, smufl_font, ped_font_sz, ImVec2(x1, ped_y),
+                                          pal.ink, kGlyphPedalRelease);
+      }
+      const float lx0 = x0 + (pd.open_left ? 0.0f : 1.35f * s);
+      const float lx1 = x1 - (pd.open_right ? 0.0f : 0.75f * s);
+      if (lx1 > lx0 + 4.0f) {
+        draw_list->AddLine(ImVec2(lx0, std::round(ped_y - 0.12f * s)),
+                           ImVec2(lx1, std::round(ped_y - 0.12f * s)), guide_col, 1.0f);
+      }
     }
   }
 

@@ -280,6 +280,7 @@ private:
     std::uint8_t velocity{84};
     int start_tick{0};
     int duration_ticks{480};
+    double start_offset_ms{0.0};
     std::uint8_t channel{0};
   };
 

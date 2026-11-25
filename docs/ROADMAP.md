@@ -35,7 +35,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 12** | Music Theory Reading Layer, Tier Guides & Clickable Glossary | [phase-12-music-theory-reading-and-glossary.md](./phases/phase-12-music-theory-reading-and-glossary.md) | `[x] Complete` |
 | **Phase 13** | Guided Learning Flow, Animated Demo & Play-Along Accompaniment | [phase-13-guided-flow-demo-accompaniment.md](./phases/phase-13-guided-flow-demo-accompaniment.md) | `[x] Complete` |
 | **Phase 14** | Custom Trouble-Spot Bar Looping & Post-Run Coach | [phase-14-trouble-spot-looping-and-coach.md](./phases/phase-14-trouble-spot-looping-and-coach.md) | `[x] Complete` |
-| **Phase 15** | Expressive Classical Notation & Two-Voice Polyphony | [phase-15-expressive-notation-and-polyphony.md](./phases/phase-15-expressive-notation-and-polyphony.md) | `[ ] Planned` |
+| **Phase 15** | Expressive Classical Notation & Two-Voice Polyphony | [phase-15-expressive-notation-and-polyphony.md](./phases/phase-15-expressive-notation-and-polyphony.md) | `[x] Complete` |
 | **Phase 16** | Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) | [phase-16-pianistic-musicality-coaching.md](./phases/phase-16-pianistic-musicality-coaching.md) | `[ ] Planned` |
 
 ---

@@ -191,6 +191,17 @@ void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size
   draw_list->AddText(smufl_font, font_size, draw_pos, color, utf8_glyph);
 }
 
+void draw_smufl_glyph_centered(ImDrawList* draw_list, ImFont* smufl_font, float font_size,
+                               ImVec2 center_x_origin_y, ImU32 color, const char* utf8_glyph) {
+  if (draw_list == nullptr || smufl_font == nullptr || utf8_glyph == nullptr) {
+    return;
+  }
+  const ImVec2 gsz = smufl_font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, utf8_glyph);
+  draw_smufl_glyph(draw_list, smufl_font, font_size,
+                   ImVec2(center_x_origin_y.x - gsz.x * 0.5f, center_x_origin_y.y), color,
+                   utf8_glyph);
+}
+
 void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
                      ImU32 color, float thickness) {
   for (int i = 0; i < 5; ++i) {
@@ -300,6 +311,25 @@ void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef
   draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.10f * space),
                             ImVec2(p2.x, p2.y + sign * 0.10f * space), p3, color, stroke * 0.85f,
                             18);
+}
+
+void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float y1, bool above,
+                     float space, ImU32 color) {
+  const float dx = std::max(1.0f, x1 - x0);
+  const float sign = above ? -1.0f : 1.0f;
+  const float arch = sign * std::clamp(0.18f * dx, 1.05f * space, 2.35f * space);
+  const float mid_y = (above ? std::min(y0, y1) : std::max(y0, y1)) + arch;
+
+  const ImVec2 p0(x0, y0);
+  const ImVec2 p3(x1, y1);
+  const ImVec2 p1(x0 + dx * 0.28f, mid_y);
+  const ImVec2 p2(x0 + dx * 0.72f, mid_y);
+
+  const float stroke = std::max(1.25f, 0.13f * space);
+  draw_list->AddBezierCubic(p0, p1, p2, p3, color, stroke, 22);
+  draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.11f * space),
+                            ImVec2(p2.x, p2.y + sign * 0.11f * space), p3, color, stroke * 0.85f,
+                            22);
 }
 
 } // namespace selfano::ui::detail

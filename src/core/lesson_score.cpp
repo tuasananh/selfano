@@ -244,6 +244,8 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
   TimeSignature cur_meter = score.meta.time_signature;
   std::vector<MidiPitch> treble_open_ties;
   std::vector<MidiPitch> bass_open_ties;
+  std::vector<int> bar_ticks;
+  bar_ticks.reserve(score.measures.size());
 
   for (const auto& m : score.measures) {
     if (m.key_change.has_value() && (m.key_change->fifths < -7 || m.key_change->fifths > 7)) {
@@ -265,6 +267,7 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
         (m.pickup_ticks.has_value() && *m.pickup_ticks > 0 && *m.pickup_ticks < full_mticks)
             ? *m.pickup_ticks
             : full_mticks;
+    bar_ticks.push_back(mticks);
     validate_staff_events(m.bar_number, "treble", m.treble_events, mticks, treble_open_ties,
                           errors);
     validate_staff_events(m.bar_number, "bass", m.bass_events, mticks, bass_open_ties, errors);
@@ -282,6 +285,19 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
         }
       }
     }
+
+    for (const auto& dyn : m.dynamics) {
+      if (dyn.start_tick < 0 || dyn.start_tick >= mticks) {
+        errors.push_back(std::format("Bar {} dynamic start_tick {} out of [0, {})", m.bar_number,
+                                     dyn.start_tick, mticks));
+      }
+    }
+    for (const auto& hp : m.hairpins) {
+      if (hp.start_tick < 0 || hp.end_tick <= hp.start_tick || hp.end_tick > mticks) {
+        errors.push_back(std::format("Bar {} hairpin span [{}, {}) out of [0, {}]", m.bar_number,
+                                     hp.start_tick, hp.end_tick, mticks));
+      }
+    }
   }
 
   for (const MidiPitch p : treble_open_ties) {
@@ -289,6 +305,27 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
   }
   for (const MidiPitch p : bass_open_ties) {
     errors.push_back(std::format("Dangling bass tie_start on MIDI {}", p));
+  }
+
+  for (std::size_t si = 0; si < score.slurs.size(); ++si) {
+    const auto& sl = score.slurs[si];
+    if (sl.start_bar >= score.measures.size() || sl.end_bar >= score.measures.size() ||
+        sl.start_bar > sl.end_bar || (sl.start_bar == sl.end_bar && sl.start_tick >= sl.end_tick) ||
+        sl.start_tick < 0 || sl.start_tick > bar_ticks[sl.start_bar] || sl.end_tick < 0 ||
+        sl.end_tick > bar_ticks[sl.end_bar]) {
+      errors.push_back(std::format("Slur {} has invalid span ({}:{} -> {}:{})", si, sl.start_bar,
+                                   sl.start_tick, sl.end_bar, sl.end_tick));
+    }
+  }
+  for (std::size_t pi = 0; pi < score.pedals.size(); ++pi) {
+    const auto& pd = score.pedals[pi];
+    if (pd.start_bar >= score.measures.size() || pd.end_bar >= score.measures.size() ||
+        pd.start_bar > pd.end_bar || (pd.start_bar == pd.end_bar && pd.start_tick >= pd.end_tick) ||
+        pd.start_tick < 0 || pd.start_tick > bar_ticks[pd.start_bar] || pd.end_tick < 0 ||
+        pd.end_tick > bar_ticks[pd.end_bar]) {
+      errors.push_back(std::format("Pedal {} has invalid span ({}:{} -> {}:{})", pi, pd.start_bar,
+                                   pd.start_tick, pd.end_bar, pd.end_tick));
+    }
   }
 
   for (std::size_t p = 0; p < score.phrases.size(); ++p) {

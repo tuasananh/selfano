@@ -1048,6 +1048,10 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   probe_opts.staff_space = 100.0f;
   probe_opts.grand_staff_gap_spaces = gap_spaces;
   probe_opts.show_harmony_labels = show_harmony_;
+  probe_opts.reserve_pedal_lane = !engine_.score().pedals.empty();
+  if (!meta.tempo_marking.empty() && sys1_start == 0U) {
+    probe_opts.tempo_marking = meta.tempo_marking;
+  }
   const float spaces_per_sys = compute_staff_canvas_height(probe_opts) / 100.0f;
   const float sys2_chrome =
       has_sys2 ? (8.0f * scale + ImGui::GetTextLineHeightWithSpacing() + 4.0f * scale) : 0.0f;
@@ -1065,6 +1069,10 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   opts1.show_fingerings = show_fingerings_;
   opts1.show_harmony_labels = show_harmony_;
   opts1.show_final_barline = !has_sys2;
+  opts1.reserve_pedal_lane = !engine_.score().pedals.empty();
+  if (sys1_start == 0U) {
+    opts1.tempo_marking = meta.tempo_marking;
+  }
   auto meter_at_bar = [&](std::size_t target_bar) noexcept {
     core::TimeSignature mtr = meta.time_signature;
     for (std::size_t b = 0; b <= target_bar && b < measures.size(); ++b) {
@@ -1094,6 +1102,9 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
                                                         sys1_end - sys1_start + 1U);
   const auto sm1 = build_lesson_staff_measures(sys1_slice, sys1_start, meter_at_bar(sys1_start),
                                                show_treble, show_bass, &fb_map);
+  opts1.slurs =
+      slice_system_slurs(engine_.score().slurs, sys1_start, sys1_end, sm1, show_treble, show_bass);
+  opts1.pedals = slice_system_pedals(engine_.score().pedals, sys1_start, sys1_end, sm1);
   const float h1 = compute_staff_canvas_height(opts1);
   const ImVec2 o1 = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton("##lv_sys1", ImVec2(avail_w, h1));
@@ -1110,9 +1121,13 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     const auto sm2 = build_lesson_staff_measures(sys2_slice, sys2_start, meter_at_bar(sys2_start),
                                                  show_treble, show_bass, nullptr);
     StaffRenderOptions opts2 = opts1;
+    opts2.tempo_marking.clear();
     opts2.playhead_beat.reset();
     opts2.dim_preview = true;
     opts2.show_final_barline = (sys2_end == slice_end);
+    opts2.slurs = slice_system_slurs(engine_.score().slurs, sys2_start, sys2_end, sm2, show_treble,
+                                     show_bass);
+    opts2.pedals = slice_system_pedals(engine_.score().pedals, sys2_start, sys2_end, sm2);
     const float h2 = compute_staff_canvas_height(opts2);
     const ImVec2 o2 = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##lv_sys2", ImVec2(avail_w, h2));

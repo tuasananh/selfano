@@ -64,7 +64,8 @@
           ]
         }
       ]
-    }
+    },
+    "tempo_marking": "Allegretto (Waltz)"
   },
   "measures": [
     {
@@ -96,7 +97,13 @@
           "notes": []
         }
       ],
-      "harmony": []
+      "harmony": [],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
+      ]
     },
     {
       "bar_number": 1,
@@ -325,6 +332,13 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "i"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -750,6 +764,12 @@
           "chord_symbol": "C",
           "roman_numeral": "III"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -895,6 +915,13 @@
           "start_tick": 0,
           "chord_symbol": "F",
           "roman_numeral": "VI"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1209,6 +1236,12 @@
           "chord_symbol": "Am",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
+        }
       ]
     },
     {
@@ -1316,6 +1349,13 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "i"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1745,6 +1785,12 @@
           "chord_symbol": "Am",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1890,6 +1936,13 @@
           "start_tick": 0,
           "chord_symbol": "Dm",
           "roman_numeral": "iv"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -2100,6 +2153,156 @@
       "label": "Phrase D (Bars 13-16)",
       "start_bar": 13,
       "end_bar": 16
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 12,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 13,
+      "start_tick": 0,
+      "end_bar": 14,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 15,
+      "start_tick": 0,
+      "end_bar": 16,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 12,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 13,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 14,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 15,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 1320
     }
   ]
 }

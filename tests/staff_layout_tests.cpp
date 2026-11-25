@@ -564,3 +564,60 @@ TEST_CASE("resolve_tie_spans handles complete, outgoing, incoming ties and orien
   REQUIRE(spans[2].kind == TieSpanKind::OutgoingHalf);
   REQUIRE(spans[2].direction == TieDirection::Above); // Stem Down -> Tie Above
 }
+
+TEST_CASE("Two-voice forced stem directions and collision offset avoidance work cleanly",
+          "[staff_layout]") {
+  const float w = kNoteheadBlackWidthSpaces;
+  const std::array high_c5{
+      ChordNoteLayoutInput{.source_index = 0, .step = 35, .displayed_accidental = std::nullopt}};
+  const std::array high_b4{
+      ChordNoteLayoutInput{.source_index = 0, .step = 34, .displayed_accidental = std::nullopt}};
+  const std::array low_f4{
+      ChordNoteLayoutInput{.source_index = 0, .step = 31, .displayed_accidental = std::nullopt}};
+
+  // Forced StemDirection::Up on C5 (even above middle line B4)
+  const auto v0_c5 = layout_chord(high_c5, Clef::Treble, w, StemDirection::Up);
+  REQUIRE(v0_c5.stem_direction == StemDirection::Up);
+
+  // Forced StemDirection::Down on F4 (below middle line B4)
+  const auto v1_f4 = layout_chord(low_f4, Clef::Treble, w, StemDirection::Down);
+  REQUIRE(v1_f4.stem_direction == StemDirection::Down);
+
+  // C5 vs F4 (5th apart) -> no horizontal shift
+  REQUIRE_THAT(resolve_two_voice_collision(v0_c5, v1_f4, w), WithinAbs(0.0f, 1e-5f));
+
+  // C5 vs B4 (2nd apart) -> shift voice 1 right
+  const auto v1_b4 = layout_chord(high_b4, Clef::Treble, w, StemDirection::Down);
+  REQUIRE(resolve_two_voice_collision(v0_c5, v1_b4, w) > w);
+
+  // Voice crossing (voice0 F4 below voice1 C5) -> shift voice 1 right
+  const auto v0_f4 = layout_chord(low_f4, Clef::Treble, w, StemDirection::Up);
+  const auto v1_c5 = layout_chord(high_c5, Clef::Treble, w, StemDirection::Down);
+  REQUIRE(resolve_two_voice_collision(v0_f4, v1_c5, w) > w);
+
+  // Forced stem direction on compute_beam_groups
+  std::vector<BeamEventInput> beam_in{
+      {.event_index = 0,
+       .start_tick = 0,
+       .duration_ticks = 240,
+       .base_duration = NoteBaseDuration::Eighth,
+       .dotted = false,
+       .is_rest = false,
+       .x_spaces = 2.0f,
+       .min_step = 35,
+       .max_step = 36},
+      {.event_index = 1,
+       .start_tick = 240,
+       .duration_ticks = 240,
+       .base_duration = NoteBaseDuration::Eighth,
+       .dotted = false,
+       .is_rest = false,
+       .x_spaces = 5.0f,
+       .min_step = 35,
+       .max_step = 37},
+  };
+  const auto forced_up =
+      compute_beam_groups(beam_in, TimeSignature{4, 4}, Clef::Treble, w, StemDirection::Up);
+  REQUIRE(forced_up.size() == 1U);
+  REQUIRE(forced_up[0].stem_direction == StemDirection::Up);
+}

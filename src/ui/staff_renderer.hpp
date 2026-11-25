@@ -51,6 +51,8 @@ struct StaffNote {
   std::uint8_t finger{0};
   bool tie_start{false};
   bool tie_stop{false};
+  std::uint8_t voice{0};
+  std::uint8_t articulations{0};
 };
 
 struct StaffChord {
@@ -81,6 +83,25 @@ struct StaffHarmonicHitbox {
   std::size_t measure_index{0};
 };
 
+struct StaffSlurSpan {
+  std::size_t start_measure_idx{0};
+  int start_tick{0};
+  std::size_t end_measure_idx{0};
+  int end_tick{0};
+  bool treble{true};
+  bool open_left{false};
+  bool open_right{false};
+};
+
+struct StaffPedalSpan {
+  std::size_t start_measure_idx{0};
+  int start_tick{0};
+  std::size_t end_measure_idx{0};
+  int end_tick{0};
+  bool open_left{false};
+  bool open_right{false};
+};
+
 struct StaffMeasure {
   std::vector<StaffChord> chords;
   float beats_per_measure{4.0f};
@@ -88,6 +109,8 @@ struct StaffMeasure {
   std::optional<core::TimeSignature> time_signature{};
   int measure_ticks{core::kTicksPerQuarter * 4};
   bool is_pickup{false};
+  std::vector<core::DynamicEvent> dynamics{};
+  std::vector<core::HairpinSpan> hairpins{};
 };
 
 enum class StaffViewMode : std::uint8_t {
@@ -109,6 +132,10 @@ struct StaffRenderOptions {
   std::optional<core::TimeSignature> time_signature{};
   bool show_fingerings{true};
   bool show_harmony_labels{false};
+  std::string tempo_marking{};
+  std::vector<StaffSlurSpan> slurs{};
+  std::vector<StaffPedalSpan> pedals{};
+  bool reserve_pedal_lane{false};
 };
 
 [[nodiscard]] float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept;
