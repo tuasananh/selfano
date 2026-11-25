@@ -102,6 +102,7 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
       .review_repetitions = 2,
       .review_due_epoch_day = today + 6,
       .last_practiced_epoch_day = today,
+      .brief_read = true,
   };
   profile.imported_lesson_ids = {"imp_abc123"};
   profile.preferences.sync_weekly_key_to_lesson = false;
@@ -116,6 +117,12 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   SECTION("Missing optional fields fall back cleanly and empty user arrays stay empty") {
     const std::string minimal = R"({
       "schema_version": 1,
+      "lesson_progress": {
+        "t1_01": {
+          "status": 1,
+          "best_accuracy": 0.91
+        }
+      },
       "repertoire_phrases": [],
       "srs_cards": []
     })";
@@ -123,7 +130,8 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res.has_value());
     REQUIRE(res->schema_version == 1);
     REQUIRE(res->active_lesson_id == "t1_01");
-    REQUIRE(res->lesson_progress.empty());
+    REQUIRE(res->lesson_progress.size() == 1U);
+    REQUIRE_FALSE(res->lesson_progress.at("t1_01").brief_read);
     REQUIRE(res->imported_lesson_ids.empty());
     REQUIRE(res->repertoire_phrases.empty());
     REQUIRE(res->srs_cards.empty());

@@ -18,7 +18,41 @@
       "summary": "Premier Bach two-voice counterpoint study passing an agile 16th-note motif imitatively between both hands.",
       "pattern_tip": "Track the 7-note ascending motif (C-D-E-F-D-E-C) and its upside-down inversion in Bars 3-4 as it modulates to G Major.",
       "technique_tip": "Use crisp non-legato 8th notes against smooth legato 16ths so the two contrapuntal voices never blur.",
-      "ballade_link": "Trains complete two-hand independence essential for Chopin's inner-voice counterpoint."
+      "ballade_link": "Trains complete two-hand independence essential for Chopin's inner-voice counterpoint.",
+      "concept_title": "Imitative Two-Voice Counterpoint & Motif Inversion",
+      "concept_paragraphs": [
+        "Bach's Invention No. 1 is pure musical architecture: virtually the entire opening eight bars grows out of one tiny seven-note motif (C-D-E-F-D-E-C), tossed back and forth between Right Hand and Left Hand in imitation.",
+        "Look closely at Bars 3-4: Bach flips that rising motif upside down (Inversion!) while climbing sequentially onto G Major via D7 (V7/V). Reading the motif shape makes intricate 16th-note counterpoint intuitive."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Subject exposition (RH answered 2 beats later by LH), pivoting via inverted sequence to G."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Imitative dialogue in G Major alternating C (IV/V) and D7 (V7/V) into a poised G cadence."
+        }
+      ],
+      "practice_steps": [
+        "1. Spot every entrance of the 7-note motif in both staves\u2014circle them mentally before playing.",
+        "2. Play Hands Separately in Wait-for-Note so each hand learns its subject & countersubject cleanly.",
+        "3. Contrast crisp, detached 8th notes against smooth legato 16th-note motifs.",
+        "4. Combine Hands Together at 60% (46 BPM) before advancing to 76 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Harmonic Backbone of Invention Bars 1-8",
+          "caption": "C -> G -> Am -> D7 (V7/V) -> G -> C -> D7 -> G",
+          "chords": [
+            "C",
+            "G",
+            "Am",
+            "D7",
+            "G"
+          ]
+        }
+      ]
     }
   },
   "measures": [

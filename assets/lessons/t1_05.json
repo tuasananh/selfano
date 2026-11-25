@@ -18,7 +18,54 @@
       "summary": "Trains F-major reading (Bb key signature), dotted half notes, and smooth I-IV-ii-V-I triad transitions.",
       "pattern_tip": "Track the shared common tone C4/F3 between F major and Bb/C7 grips so your left hand barely moves.",
       "technique_tip": "Balance the dotted half notes cleanly above quiet blocked triads in the left hand.",
-      "ballade_link": "Builds flat-key reading fluency and singing upper-voice phrasing."
+      "ballade_link": "Builds flat-key reading fluency and singing upper-voice phrasing.",
+      "concept_title": "Key Signatures (First Flat Bb) & Smooth Common-Tone Voicings",
+      "concept_paragraphs": [
+        "Welcome to F Major, marked by a single Bb flat in the key signature. Notice how smoothly F (F-A-C), Bb (Bb-D-F), Gm (G-Bb-D), and C7 (C-E-G-Bb) connect using inversions\u2014your Left Hand barely needs to shift position when common tones stay anchored!",
+        "Notice the dotted half note filling whole three-beat bars in the melody while gentle triads and V6/5 inversions breathe underneath."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Singing F-major melody gliding over C7/E (V6/5) to a poised C Half Cadence."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Expands through warm Bb (IV) and Gm (ii) before resolving authentically to F."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Luminous closing arch reinforcing I - IV - ii - V7 - I."
+        }
+      ],
+      "practice_steps": [
+        "1. Locate Bb in both hands so the flat-key grip feels second-nature.",
+        "2. Practice Skeleton mode first to see how LH chords pivot around shared notes.",
+        "3. Count '1-2-3' steadily through the dotted half notes without cutting beat 3 short.",
+        "4. Climb the Tempo Ladder cleanly up to 84 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Full F-Major Cadential Circle (I - IV - ii - V7 - I)",
+          "caption": "F -> Bb -> Gm -> C7 -> F",
+          "chords": [
+            "F",
+            "Bb",
+            "Gm",
+            "C7",
+            "F"
+          ]
+        },
+        {
+          "label": "Smooth E->F Bass Lift (F -> C7/E -> F)",
+          "caption": "1st inversion V6/5 stepping cleanly to Tonic",
+          "chords": [
+            "F",
+            "C7/E",
+            "F"
+          ]
+        }
+      ]
     }
   },
   "measures": [

@@ -18,7 +18,49 @@
       "summary": "Crisp 2/4 A-minor etude pairing brisk 16th-note 5-finger bursts with rhythmic chord accompaniment and C-major contrast.",
       "pattern_tip": "Group every four 16th notes as one explosive fingertip gesture (A-B-C-B-A) landing squarely on beat 2.",
       "technique_tip": "Keep the wrist loose during the 16th-note bursts and rebound cleanly off the final 8th note.",
-      "ballade_link": "Builds rapid, articulate 16th-note finger independence for Chopin's ornamental figuration."
+      "ballade_link": "Builds rapid, articulate 16th-note finger independence for Chopin's ornamental figuration.",
+      "concept_title": "Articulate 16th-Note Finger Bursts & Relative-Major Contrast",
+      "concept_paragraphs": [
+        "Arabesque teaches brisk 16th-note finger agility without tension. Don't push each 16th individually\u2014throw one compact five-finger impulse across all four 16ths straight to the landing 8th note, then immediately relax your wrist.",
+        "Notice the classic Baroque-Romantic minor-to-major mood shift in Phrase C: dark A minor suddenly brightens into sunny C Major (III) via G7 (V7/III) before returning to A minor."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Rhythmic A-minor staccato chords answered by darting 16th-note turns."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Drives to E/E7 dominant tension and resolves home to Am."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Sunlit C-Major contrast (III) tonicized by G7 (V7/III)."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Energetic A-minor reprise sealing the miniature etude cleanly."
+        }
+      ],
+      "practice_steps": [
+        "1. Practice each 4-sixteenth burst fast in Wait-for-Note as a single gesture, pausing relaxed on beat 2.",
+        "2. Keep LH accompanying chords light, crisp, and rhythmically locked.",
+        "3. Enjoy the open, bright color shift in Bars 9-12 (C Major) vs. the minor A sections.",
+        "4. Work cleanly through 60% and 80% before pushing to 112 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Dark Tonic vs. Sunny Relative Major Shift (i -> V7/III -> III)",
+          "caption": "Am -> G7 -> C -> E7 -> Am",
+          "chords": [
+            "Am",
+            "G7",
+            "C",
+            "E7",
+            "Am"
+          ]
+        }
+      ]
     }
   },
   "measures": [

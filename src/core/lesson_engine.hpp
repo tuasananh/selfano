@@ -67,6 +67,7 @@ struct LessonProgress {
   int review_repetitions{0};
   std::int64_t review_due_epoch_day{0};
   std::int64_t last_practiced_epoch_day{0};
+  bool brief_read{false};
 
   bool operator==(const LessonProgress&) const = default;
 };

@@ -2,6 +2,7 @@
 
 #include "core/key_signature.hpp"
 #include "core/lesson_engine.hpp"
+#include "core/theory_glossary.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
@@ -60,6 +61,104 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
 
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
+
+  const core::TierChapterGuide* active_guide =
+      active_guide_tier_.has_value() ? library.find_tier_guide(*active_guide_tier_) : nullptr;
+
+  if (active_guide != nullptr) {
+    if (pill_button("Back to Tiers##cg_back", ButtonTone::Secondary, IconId::None, 30.0f, 118.0f,
+                    true)) {
+      active_guide_tier_.reset();
+    }
+    ImGui::SameLine(0.0f, 12.0f * scale);
+    {
+      ScopedFont tf(TypeStyle::Title);
+      ImGui::AlignTextToFramePadding();
+      ImGui::TextUnformatted(active_guide->title.c_str());
+    }
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    status_pill(active_guide->reading_time, StatusTone::Accent, IconId::None, true);
+
+    const float close_w = 84.0f * scale;
+    const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+    if (avail_end > ImGui::GetCursorPosX() + close_w) {
+      ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - close_w));
+    }
+    if (pill_button("Done##cg_done", ButtonTone::Primary, IconId::Check, 30.0f, 76.0f, true)) {
+      open_ = false;
+      active_guide_tier_.reset();
+    }
+
+    hairline_separator(10.0f);
+
+    if (ImGui::BeginChild("##cg_scroll", ImVec2(0.0f, 0.0f))) {
+      {
+        ScopedFont sf(TypeStyle::Subheadline);
+        ImGui::TextColored(c.text_secondary, "%s", active_guide->subtitle.c_str());
+      }
+      ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+
+      for (std::size_t si = 0; si < active_guide->sections.size(); ++si) {
+        const auto& sec = active_guide->sections[si];
+        const std::string cid = std::format("##cg_sec_{}", si);
+        begin_card(cid.c_str(), ImVec2(0.0f, 0.0f), 14.0f, 12.0f, true, true);
+        {
+          ScopedFont hf(TypeStyle::Headline);
+          ImGui::TextWrapped("%s", sec.heading.c_str());
+        }
+        ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
+        {
+          ScopedFont bf(TypeStyle::Body);
+          ImGui::TextWrapped("%s", sec.body.c_str());
+        }
+        end_card();
+        ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+      }
+
+      if (!active_guide->audio_examples.empty()) {
+        begin_card("##cg_audio_card", ImVec2(0.0f, 0.0f), 14.0f, 12.0f, true, true);
+        section_kicker("HEAR & COMPARE EXAMPLES");
+        ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+        const core::KeySignature preview_key =
+            (active_guide->tier == 6U)
+                ? core::KeySignature{.fifths = -2, .mode = core::Mode::Minor}
+                : ((active_guide->tier == 5U)
+                       ? core::KeySignature{.fifths = 1, .mode = core::Mode::Minor}
+                       : core::KeySignature{.fifths = 0, .mode = core::Mode::Major});
+        for (std::size_t ei = 0; ei < active_guide->audio_examples.size(); ++ei) {
+          const auto& ex = active_guide->audio_examples[ei];
+          const std::string btn_id = std::format("Listen##cg_ex_{}", ei);
+          if (pill_button(btn_id.c_str(), ButtonTone::SoftAccent, IconId::VolumeOn, 28.0f, 86.0f,
+                          true)) {
+            actions.preview_playback_notes =
+                core::build_chord_sequence_preview(ex.chords, preview_key, 780.0);
+          }
+          ImGui::SameLine(0.0f, 12.0f * scale);
+          ImGui::BeginGroup();
+          {
+            ScopedFont hf(TypeStyle::Headline);
+            ImGui::TextWrapped("%s", ex.label.c_str());
+          }
+          if (!ex.caption.empty()) {
+            ScopedFont sf(TypeStyle::Subheadline);
+            ImGui::TextColored(c.text_secondary, "%s", ex.caption.c_str());
+          }
+          ImGui::EndGroup();
+          if (ei + 1U < active_guide->audio_examples.size()) {
+            ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
+          }
+        }
+        end_card();
+      }
+    }
+    ImGui::EndChild();
+
+    end_modal_sheet(open_);
+    if (!open_) {
+      active_guide_tier_.reset();
+    }
+    return actions;
+  }
 
   {
     ScopedFont tf(TypeStyle::Title);
@@ -155,6 +254,16 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
           continue;
         }
         section_kicker(tier.title.c_str());
+        if (library.find_tier_guide(tier.tier) != nullptr) {
+          const float guide_w = 132.0f * scale;
+          const float end_x = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+          ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, end_x - guide_w));
+          const std::string cg_btn = std::format("Chapter Guide##cg_open_{}", tier.tier);
+          if (pill_button(cg_btn.c_str(), ButtonTone::SoftAccent, IconId::Eye, 24.0f, 124.0f,
+                          true)) {
+            active_guide_tier_ = tier.tier;
+          }
+        }
         {
           ScopedFont cf(TypeStyle::Caption);
           ImGui::TextColored(c.text_tertiary, "%s  \xC2\xB7  %s", tier.subtitle.c_str(),

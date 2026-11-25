@@ -2,6 +2,7 @@
 #include "core/lesson_engine.hpp"
 #include "core/lesson_library.hpp"
 #include "core/musicxml_importer.hpp"
+#include "core/theory_glossary.hpp"
 
 #include <algorithm>
 #include <array>
@@ -60,12 +61,31 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
     REQUIRE_FALSE(lesson->meta.theory.pattern_tip.empty());
     REQUIRE_FALSE(lesson->meta.theory.technique_tip.empty());
     REQUIRE_FALSE(lesson->meta.theory.ballade_link.empty());
+    REQUIRE_FALSE(lesson->meta.theory.concept_title.empty());
+    REQUIRE(lesson->meta.theory.concept_paragraphs.size() >= 2U);
+    REQUIRE_FALSE(lesson->meta.theory.form_map.empty());
+    REQUIRE(lesson->meta.theory.practice_steps.size() >= 3U);
+    REQUIRE_FALSE(lesson->meta.theory.audio_examples.empty());
+    for (const auto& ex : lesson->meta.theory.audio_examples) {
+      REQUIRE_FALSE(ex.label.empty());
+      REQUIRE_FALSE(ex.chords.empty());
+      for (const auto& ch : ex.chords) {
+        REQUIRE(parse_chord_symbol(ch).has_value());
+      }
+      REQUIRE_FALSE(build_chord_sequence_preview(ex.chords, lesson->meta.key).empty());
+    }
     REQUIRE_FALSE(effective_phrases(*lesson).empty());
 
-    // Every harmony annotation must parse cleanly
+    // Every harmony annotation must parse cleanly and explain cleanly
     for (const auto& m : lesson->measures) {
       for (const auto& ha : m.harmony) {
         REQUIRE(parse_chord_symbol(ha.chord_symbol).has_value());
+        const auto exp = explain_harmony(ha.roman_numeral, ha.chord_symbol, lesson->meta.key);
+        REQUIRE_FALSE(exp.title.empty());
+        REQUIRE_FALSE(exp.function_label.empty());
+        REQUIRE_FALSE(exp.explanation.empty());
+        REQUIRE_FALSE(exp.spelled_notes.empty());
+        REQUIRE_FALSE(exp.preview_notes.empty());
       }
     }
 
@@ -188,6 +208,32 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
 
   // Circle-of-fifths key coverage across at least 13 distinct major/minor keys
   REQUIRE(distinct_keys.size() >= 13U);
+
+  // Tier Chapter Guides 1..6 must all load with non-empty sections and playable audio examples
+  REQUIRE(lib.tier_guides().size() == 6U);
+  for (std::uint8_t tier = 1; tier <= 6; ++tier) {
+    const auto* g = lib.find_tier_guide(tier);
+    REQUIRE(g != nullptr);
+    REQUIRE_FALSE(g->title.empty());
+    REQUIRE_FALSE(g->subtitle.empty());
+    REQUIRE_FALSE(g->reading_time.empty());
+    REQUIRE(g->sections.size() >= 3U);
+    REQUIRE_FALSE(g->audio_examples.empty());
+    for (const auto& sec : g->sections) {
+      REQUIRE_FALSE(sec.heading.empty());
+      REQUIRE_FALSE(sec.body.empty());
+    }
+    for (const auto& ex : g->audio_examples) {
+      REQUIRE_FALSE(ex.label.empty());
+      REQUIRE_FALSE(ex.chords.empty());
+      for (const auto& ch : ex.chords) {
+        REQUIRE(parse_chord_symbol(ch).has_value());
+      }
+      REQUIRE_FALSE(
+          build_chord_sequence_preview(ex.chords, KeySignature{.fifths = 0, .mode = Mode::Major})
+              .empty());
+    }
+  }
 
   // Canonical pickup and title integrity checks
   for (const char* pickup_id : {"t5_01", "t5_03", "t5_04"}) {

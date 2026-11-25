@@ -4,6 +4,7 @@
 #include "core/lesson_library.hpp"
 #include "core/musicxml_importer.hpp"
 #include "core/profile_store.hpp"
+#include "core/theory_glossary.hpp"
 
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_scheduler.hpp"
@@ -24,6 +25,11 @@ struct ImFont;
 
 namespace selfano::ui {
 
+enum class LessonViewTab : std::uint8_t {
+  Learn = 0,
+  Practice = 1,
+};
+
 struct LessonViewActions {
   bool metronome_click{false};
   bool metronome_accent{false};
@@ -38,13 +44,23 @@ struct LessonViewActions {
   bool request_import_file_dialog{false};
   std::optional<core::LessonScore> save_imported_lesson{};
   std::optional<std::string> delete_imported_lesson_id{};
+  std::vector<core::LessonPlaybackNote> preview_playback_notes{};
 };
 
 class LessonView {
 public:
   LessonView() = default;
 
-  void load_lesson(const core::LessonScore& score, std::optional<core::LessonConfig> cfg = {});
+  void load_lesson(const core::LessonScore& score, bool brief_already_read = true,
+                   std::optional<core::LessonConfig> cfg = {});
+  void set_active_tab(LessonViewTab tab) noexcept;
+  [[nodiscard]] LessonViewTab active_tab() const noexcept { return active_tab_; }
+  void open_chapter_guide(std::uint8_t tier) noexcept {
+    curriculum_modal_.open_chapter_guide(tier);
+  }
+  void request_open_theory_popover_index(std::size_t index) noexcept {
+    pending_cli_popover_idx_ = index;
+  }
   void apply_preferences(bool metronome_enabled, bool light_paper, bool show_fingerings,
                          bool show_harmony);
   void set_revision_context(bool is_revision, std::string lesson_id = {});
@@ -99,24 +115,29 @@ private:
   void draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
                       LessonViewActions& actions);
   void draw_scaffold_bar(const core::LessonProgress& prog);
-  void draw_theory_lens(bool is_running);
   void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
                            LessonViewActions& actions);
   void draw_status_strip() const;
-  void draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const;
+  void draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
+                          std::vector<StaffHarmonicHitbox>& out_hitboxes) const;
+  void draw_harmony_popover(LessonViewActions& actions);
 
   core::LessonEngine engine_{};
   bool metronome_enabled_{true};
   bool light_paper_theme_{true};
   bool show_fingerings_{true};
   bool show_harmony_{true};
-  bool theory_expanded_{false};
+  LessonViewTab active_tab_{LessonViewTab::Practice};
   CurriculumModal curriculum_modal_{};
   ImportLessonModal import_modal_{};
   bool just_mastered_banner_{false};
   bool is_revision_mode_{false};
   std::string revision_lesson_id_{};
   std::uint32_t completed_revisions_{0};
+  std::optional<core::HarmonyExplanation> active_harmony_explanation_{};
+  float popover_anchor_x_{0.0f};
+  float popover_anchor_y_{0.0f};
+  std::optional<std::size_t> pending_cli_popover_idx_{};
 };
 
 } // namespace selfano::ui

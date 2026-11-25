@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **Ready for Phase 12** (Phases 0–11 Complete; Phases 12–16 Planned in `docs/phases/`)
-- **Last Completed Phase:** Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons
+- **Active Phase:** **Ready for Phase 13** (Phases 0–12 Complete; Phases 13–16 Planned in `docs/phases/`)
+- **Last Completed Phase:** Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary
 
 ---
 
@@ -199,6 +199,21 @@
   - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all modified C++ files.
   - Headless Light & Dark screenshots (`t2_05`, `t3_04`, `t5_01`, `t5_02`, `t6_03`) confirmed crisp compact `"Pickup"` engraving, playable voicings, and zero fingering/harmony overlap.
 
+### Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): extended `TheoryLens` in `lesson_score.hpp` + backward-compatible `lesson_score_json.cpp` (`concept_title`, `concept_paragraphs`, `form_map`, `practice_steps`, `audio_examples`); `theory_glossary.hpp/.cpp` (`explain_harmony` decoding diatonic triads/7ths, figured-bass inversions `6`/`6/4`/`6/5`/`4/3`/`4/2`, cadential/pedal `6/4`, secondary dominants/diminished pivots including double-slash `V4/2/iv` & `ii6/5/V`, and Neapolitan `bII6`/`bII`, plus `build_chord_sequence_preview` voice-led synthesis); `TierChapterGuide` loader in `lesson_library.hpp/.cpp`; `brief_read` persistence in `lesson_engine.hpp` & `profile_store.cpp`
+  - Pedagogy Content (`assets/lessons/`): authored `tier_guides.json` (6 concise 2-minute Tier Chapter Guides with playable Hear & Compare examples) and populated rich Lesson Brief fields across all 28 curriculum JSONs (`t1_01`..`t6_04`)
+  - Catch2 Suite (`tests/`): added `theory_glossary_tests.cpp`; expanded `lesson_score_tests.cpp`, `profile_store_tests.cpp`, and `lesson_library_tests.cpp` (asserting non-empty brief & guide fields, valid chord examples, and valid `explain_harmony` results across all 28 lessons and 6 guides)
+  - UI & App Wiring (`src/ui/`, `src/app/`): `lesson_brief_view.hpp/.cpp` (`Learn` view with Concept card, Hear & Compare buttons, Form & Phrase Map, Technique cues, Practice Recipe, and `"Start Practicing ->"` CTA), `curriculum_modal.hpp/.cpp` (Tier `"Chapter Guide"` buttons & readable guide sheet), `staff_renderer.hpp/.cpp` (`StaffHarmonicHitbox` click bounds & hover/underline affordances), `lesson_view.hpp/.cpp` (`Learn | Practice` segmented toggle, one-time `!brief_read` auto-open, clickable Roman-numeral Theory Popover with `"Play Chord & Resolution"`), plus `cli_options`, `lesson_import_controller.cpp`, `profile_sync.cpp`, and `app_controller.cpp`
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **79/79** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings, bundling `assets/lessons/tier_guides.json` (`12819` bytes in VirtualFS) into `selfano.data`.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all modified/created C++ files.
+  - Headless Light & Dark screenshots inspected cleanly across `Learn` Lesson Brief (`t4_01`, `t6_03`), Tier 6 Chapter Guide modal, and clickable Theory Popovers (`t6_03` `bII6` and `t4_02` `V7/V`) with zero clipping or overlap.
+  - Live headless Chromium CDP verification on `web-release` (`http://127.0.0.1:8765/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors**, `tier_guides.json` loaded in Emscripten FS, and crisp 1360x717 WebGL rendering.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -215,9 +230,10 @@
 
 ## Next Concrete Action
 
-- **Start Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary** (`docs/phases/phase-12-music-theory-reading-and-glossary.md`):
+- **Start Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment** (`docs/phases/phase-13-guided-flow-demo-accompaniment.md`):
   - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
-  - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[ ] Planned`)
+  - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
+  - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
   - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
   - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)
   - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[ ] Planned`)

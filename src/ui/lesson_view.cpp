@@ -4,6 +4,7 @@
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
+#include "ui/lesson_brief_view.hpp"
 #include "ui/lesson_staff_adapter.hpp"
 #include "ui/widgets.hpp"
 
@@ -17,14 +18,27 @@
 
 namespace selfano::ui {
 
-void LessonView::load_lesson(const core::LessonScore& score,
+void LessonView::load_lesson(const core::LessonScore& score, bool brief_already_read,
                              std::optional<core::LessonConfig> cfg) {
   core::LessonConfig next_cfg = cfg.value_or(engine_.config());
-  if (score.meta.id != engine_.score().meta.id) {
+  const bool switched_lesson = (score.meta.id != engine_.score().meta.id);
+  if (switched_lesson) {
     next_cfg.phrase_index.reset();
     just_mastered_banner_ = false;
+    active_harmony_explanation_.reset();
+    const bool has_brief = !score.meta.is_imported && !score.meta.theory.concept_title.empty();
+    active_tab_ =
+        (!brief_already_read && has_brief) ? LessonViewTab::Learn : LessonViewTab::Practice;
   }
   engine_.load_score(score, next_cfg);
+}
+
+void LessonView::set_active_tab(LessonViewTab tab) noexcept {
+  if (tab == LessonViewTab::Learn) {
+    engine_.stop();
+    active_harmony_explanation_.reset();
+  }
+  active_tab_ = tab;
 }
 
 void LessonView::apply_preferences(bool metronome_enabled, bool light_paper, bool show_fingerings,
@@ -236,25 +250,44 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
   if (pill_button("Curriculum##lv_curr", ButtonTone::Secondary, IconId::Layers, 32.0f)) {
     curriculum_modal_.open();
   }
-  wrap_if_needed(88.0f, 8.0f);
-  if (pill_button("Demo##lv_demo", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f, false,
-                  "E7")) {
-    actions.trigger_demo_playback = true;
+  wrap_if_needed(176.0f, 8.0f);
+  {
+    static constexpr std::array<std::string_view, 2> kLessonTabs{"Learn", "Practice"};
+    int tab_idx = static_cast<int>(active_tab_);
+    if (segmented_control("##lv_tab_seg", &tab_idx, kLessonTabs, 168.0f, 32.0f)) {
+      const auto next_tab = static_cast<LessonViewTab>(tab_idx);
+      if (active_tab_ == LessonViewTab::Learn && next_tab == LessonViewTab::Practice &&
+          !meta.id.empty()) {
+        auto& lp = profile.lesson_progress[meta.id];
+        if (!lp.brief_read) {
+          lp.brief_read = true;
+          actions.profile_dirty = true;
+        }
+      }
+      set_active_tab(next_tab);
+    }
   }
-  wrap_if_needed(92.0f, 8.0f);
+  if (active_tab_ == LessonViewTab::Practice) {
+    wrap_if_needed(88.0f, 8.0f);
+    if (pill_button("Demo##lv_demo", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f, false,
+                    "E7")) {
+      actions.trigger_demo_playback = true;
+    }
+    wrap_if_needed(92.0f, 8.0f);
 
-  const auto pb_st = engine_.playback_state();
-  const bool is_running =
-      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
-  if (pill_button(is_running ? "Pause##lv_play" : "Pulse##lv_play",
-                  is_running ? ButtonTone::Warning : ButtonTone::Primary,
-                  is_running ? IconId::Pause : IconId::Play, 32.0f, 0.0f, false, "F7")) {
-    toggle_play_pause(actions.metronome_click, actions.metronome_accent);
-  }
-  wrap_if_needed(38.0f, 8.0f);
-  if (icon_button("##lv_reset", IconId::Refresh, "Reset Phrase", false, 32.0f,
-                  ButtonTone::Secondary, "G7")) {
-    reset_phrase();
+    const auto pb_st = engine_.playback_state();
+    const bool is_running = (pb_st == core::LessonPlaybackState::CountIn ||
+                             pb_st == core::LessonPlaybackState::Playing);
+    if (pill_button(is_running ? "Pause##lv_play" : "Pulse##lv_play",
+                    is_running ? ButtonTone::Warning : ButtonTone::Primary,
+                    is_running ? IconId::Pause : IconId::Play, 32.0f, 0.0f, false, "F7")) {
+      toggle_play_pause(actions.metronome_click, actions.metronome_accent);
+    }
+    wrap_if_needed(38.0f, 8.0f);
+    if (icon_button("##lv_reset", IconId::Refresh, "Reset Phrase", false, 32.0f,
+                    ButtonTone::Secondary, "G7")) {
+      reset_phrase();
+    }
   }
   wrap_if_needed(96.0f, 8.0f);
   if (pill_button("Options##lv_opts", ButtonTone::Secondary, IconId::Sliders, 32.0f)) {
@@ -313,9 +346,6 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
 void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const auto& meta = engine_.score().meta;
-  const auto pb_st = engine_.playback_state();
-  const bool is_running =
-      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
 
   begin_card("##lv_scaffold", ImVec2(0.0f, 0.0f), 10.0f, 12.0f, true, true);
   {
@@ -405,35 +435,6 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
         ImGui::EndCombo();
       }
     }
-
-    if (!is_running) {
-      sc_wrap(118.0f, 8.0f);
-      if (pill_button(theory_expanded_ ? "Hide Theory##lv_th" : "Theory Lens##lv_th",
-                      theory_expanded_ ? ButtonTone::SoftAccent : ButtonTone::Ghost, IconId::Eye,
-                      26.0f)) {
-        theory_expanded_ = !theory_expanded_;
-      }
-    }
-  }
-  end_card();
-}
-
-void LessonView::draw_theory_lens(bool is_running) {
-  if (!theory_expanded_ || is_running) {
-    return;
-  }
-  const auto& c = colors();
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  const auto& meta = engine_.score().meta;
-
-  ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
-  begin_card("##lv_theory_card", ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, false);
-  {
-    ScopedFont bf(TypeStyle::Subheadline);
-    ImGui::TextWrapped("%s", meta.theory.summary.c_str());
-    ImGui::TextColored(c.accent, "Pattern: %s", meta.theory.pattern_tip.c_str());
-    ImGui::TextColored(c.text_secondary, "Technique: %s", meta.theory.technique_tip.c_str());
-    ImGui::TextColored(c.indigo, "Ballade Bridge: %s", meta.theory.ballade_link.c_str());
   }
   end_card();
 }
@@ -506,7 +507,8 @@ void LessonView::draw_status_strip() const {
   }
 }
 
-void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const {
+void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
+                                    std::vector<StaffHarmonicHitbox>& out_hitboxes) const {
   const auto& measures = engine_.display_measures();
   if (measures.empty()) {
     return;
@@ -622,7 +624,8 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const {
   const float h1 = compute_staff_canvas_height(opts1);
   const ImVec2 o1 = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton("##lv_sys1", ImVec2(avail_w, h1));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o1, avail_w, sm1, opts1);
+  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o1, avail_w, sm1, opts1,
+               show_harmony_ ? &out_hitboxes : nullptr);
 
   if (has_sys2) {
     ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
@@ -640,8 +643,100 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const {
     const float h2 = compute_staff_canvas_height(opts2);
     const ImVec2 o2 = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##lv_sys2", ImVec2(avail_w, h2));
-    render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o2, avail_w, sm2, opts2);
+    render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o2, avail_w, sm2, opts2,
+                 show_harmony_ ? &out_hitboxes : nullptr);
   }
+}
+
+void LessonView::draw_harmony_popover(LessonViewActions& actions) {
+  if (!active_harmony_explanation_.has_value()) {
+    return;
+  }
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const ImGuiViewport* vp = ImGui::GetMainViewport();
+  const float est_w = std::min(430.0f * scale, vp->WorkSize.x - 24.0f * scale);
+  const float est_h = 260.0f * scale;
+  const float px = std::clamp(popover_anchor_x_, vp->WorkPos.x + 12.0f * scale,
+                              std::max(vp->WorkPos.x + 12.0f * scale,
+                                       vp->WorkPos.x + vp->WorkSize.x - est_w - 12.0f * scale));
+  const float py = std::clamp(popover_anchor_y_, vp->WorkPos.y + 12.0f * scale,
+                              std::max(vp->WorkPos.y + 12.0f * scale,
+                                       vp->WorkPos.y + vp->WorkSize.y - est_h - 12.0f * scale));
+
+  ImGui::SetNextWindowPos(ImVec2(px, py), ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(est_w, 0.0f), ImGuiCond_Always);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f * scale, 14.0f * scale));
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 14.0f * scale);
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, c.card_elevated_bg);
+  ImGui::PushStyleColor(ImGuiCol_Border, c.hairline_strong);
+  if (ImGui::BeginPopup("##lv_harmony_popover")) {
+    const auto& exp = *active_harmony_explanation_;
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + est_w - 32.0f * scale);
+
+    StatusTone fn_tone = StatusTone::Accent;
+    switch (exp.function) {
+    case core::HarmonicFunction::Tonic:
+      fn_tone = StatusTone::Success;
+      break;
+    case core::HarmonicFunction::Predominant:
+      fn_tone = StatusTone::Accent;
+      break;
+    case core::HarmonicFunction::Dominant:
+      fn_tone = StatusTone::Warning;
+      break;
+    case core::HarmonicFunction::Chromatic:
+      fn_tone = StatusTone::Danger;
+      break;
+    }
+
+    status_pill(exp.function_label, fn_tone, IconId::None, true);
+    if (!exp.chord_symbol.empty()) {
+      ImGui::SameLine(0.0f, 8.0f * scale);
+      status_pill(exp.chord_symbol, StatusTone::Neutral);
+    }
+    ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+    {
+      ScopedFont hf(TypeStyle::Headline);
+      ImGui::TextWrapped("%s", exp.title.c_str());
+    }
+    if (!exp.spelled_notes.empty()) {
+      ScopedFont cf(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Notes: %s", exp.spelled_notes.c_str());
+    }
+
+    hairline_separator(6.0f);
+    {
+      ScopedFont bf(TypeStyle::Body);
+      ImGui::TextWrapped("%s", exp.explanation.c_str());
+    }
+    if (!exp.resolution_caption.empty()) {
+      ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
+      ScopedFont sf(TypeStyle::Subheadline);
+      ImGui::TextColored(c.indigo, "Typical path: %s", exp.resolution_caption.c_str());
+    }
+
+    ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+    if (!exp.preview_notes.empty()) {
+      if (pill_button("Play Chord & Resolution##lv_hpop_play", ButtonTone::SoftAccent,
+                      IconId::VolumeOn, 30.0f, 198.0f, true)) {
+        actions.preview_playback_notes = exp.preview_notes;
+      }
+      ImGui::SameLine(0.0f, 8.0f * scale);
+    }
+    if (pill_button("Close##lv_hpop_close", ButtonTone::Secondary, IconId::None, 30.0f, 76.0f,
+                    true)) {
+      active_harmony_explanation_.reset();
+      ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::PopTextWrapPos();
+    ImGui::EndPopup();
+  } else {
+    active_harmony_explanation_.reset();
+  }
+  ImGui::PopStyleColor(2);
+  ImGui::PopStyleVar(2);
 }
 
 LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
@@ -653,18 +748,62 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
   const auto prog_it = profile.lesson_progress.find(meta.id);
   const core::LessonProgress prog =
       (prog_it != profile.lesson_progress.end()) ? prog_it->second : core::LessonProgress{};
-  const auto pb_st = engine_.playback_state();
-  const bool is_running =
-      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
 
   draw_top_strip(profile, today_epoch_day, actions);
   ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
-  draw_scaffold_bar(prog);
-  draw_theory_lens(is_running);
-  draw_mastery_banner(library, prog, actions);
-  draw_status_strip();
-  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
-  draw_staff_systems(smufl_font, ui_font);
+
+  if (active_tab_ == LessonViewTab::Learn) {
+    const auto brief_act = draw_lesson_brief(engine_.score(), prog);
+    if (!brief_act.preview_playback_notes.empty()) {
+      actions.preview_playback_notes = brief_act.preview_playback_notes;
+    }
+    if (brief_act.start_practicing) {
+      if (!meta.id.empty()) {
+        auto& lp = profile.lesson_progress[meta.id];
+        if (!lp.brief_read) {
+          lp.brief_read = true;
+          actions.profile_dirty = true;
+        }
+      }
+      set_active_tab(LessonViewTab::Practice);
+    }
+  } else {
+    draw_scaffold_bar(prog);
+    draw_mastery_banner(library, prog, actions);
+    draw_status_strip();
+    ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+
+    std::vector<StaffHarmonicHitbox> hitboxes;
+    draw_staff_systems(smufl_font, ui_font, hitboxes);
+
+    const bool can_trigger_hitbox =
+        !curriculum_modal_.is_open() && !import_modal_.is_open() && !hitboxes.empty();
+    if (can_trigger_hitbox && pending_cli_popover_idx_.has_value()) {
+      const std::size_t idx = std::min(*pending_cli_popover_idx_, hitboxes.size() - 1U);
+      const auto& hb = hitboxes[idx];
+      pending_cli_popover_idx_.reset();
+      active_harmony_explanation_ =
+          core::explain_harmony(hb.roman_numeral, hb.chord_symbol, meta.key);
+      popover_anchor_x_ = hb.min.x;
+      popover_anchor_y_ = hb.max.y + 8.0f * scale;
+      ImGui::OpenPopup("##lv_harmony_popover");
+    } else if (can_trigger_hitbox && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
+      for (const auto& hb : hitboxes) {
+        if (ImGui::IsMouseHoveringRect(hb.min, hb.max, false)) {
+          ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+          if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            active_harmony_explanation_ =
+                core::explain_harmony(hb.roman_numeral, hb.chord_symbol, meta.key);
+            popover_anchor_x_ = hb.min.x;
+            popover_anchor_y_ = hb.max.y + 8.0f * scale;
+            ImGui::OpenPopup("##lv_harmony_popover");
+            break;
+          }
+        }
+      }
+    }
+    draw_harmony_popover(actions);
+  }
 
   const auto cm_act =
       curriculum_modal_.draw(library, profile, meta.id, today_epoch_day,
@@ -680,6 +819,9 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
   }
   if (cm_act.request_import_file_dialog) {
     actions.request_import_file_dialog = true;
+  }
+  if (!cm_act.preview_playback_notes.empty()) {
+    actions.preview_playback_notes = cm_act.preview_playback_notes;
   }
 
   if (const auto saved_score = import_modal_.draw(); saved_score.has_value()) {

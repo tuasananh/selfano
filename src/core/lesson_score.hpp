@@ -143,11 +143,31 @@ struct LessonPhrase {
   bool operator==(const LessonPhrase&) const = default;
 };
 
+struct PhraseFormNote {
+  std::string phrase_label;
+  std::string role;
+
+  bool operator==(const PhraseFormNote&) const = default;
+};
+
+struct TheoryAudioExample {
+  std::string label;
+  std::string caption;
+  std::vector<std::string> chords;
+
+  bool operator==(const TheoryAudioExample&) const = default;
+};
+
 struct TheoryLens {
   std::string summary;
   std::string pattern_tip;
   std::string technique_tip;
   std::string ballade_link;
+  std::string concept_title;
+  std::vector<std::string> concept_paragraphs;
+  std::vector<PhraseFormNote> form_map;
+  std::vector<std::string> practice_steps;
+  std::vector<TheoryAudioExample> audio_examples;
 
   bool operator==(const TheoryLens&) const = default;
 };

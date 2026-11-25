@@ -18,7 +18,49 @@
       "summary": "Chopin's masterclass in chromatic voice-leading: a singing tied melody floating above slowly descending left-hand triads.",
       "pattern_tip": "Watch the left-hand chords slide downward one half-step at a time (G -> F# -> F -> E -> Eb -> D -> C -> B).",
       "technique_tip": "Play the repeated left-hand 8th chords legato with forearm weight while sustaining the sighing right-hand half-step.",
-      "ballade_link": "Directly trains the chromatic inner-voice voice-leading and sorrowful rubato cantabile of Chopin's ballads."
+      "ballade_link": "Directly trains the chromatic inner-voice voice-leading and sorrowful rubato cantabile of Chopin's ballads.",
+      "concept_title": "Chromatic Voice-Leading & Applied Chain Progressions",
+      "concept_paragraphs": [
+        "Chopin's E-minor Prelude looks intimidating on a Roman-numeral sheet (V4/2/iv, ii6/5/V, viio7/V), yet at the piano it follows one crystal-clear secret: the Left Hand slides down a chromatic staircase almost one note at a time!",
+        "Each repeated 8th-note triad changes just ONE voice by half-step while the Right Hand floats a tied, sighing melody overhead. Learn to spot which single finger steps downward from bar to bar."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Pickup - Bar 4)",
+          "role": "Opening pickup sigh over Em/G descending chromatically past F#m7b5 and Dm7/F to Am/E."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Chromatic slide continues through Adim7/Eb and E7/D into Am/C -> B7."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Settles onto Em/B (i6/4) and poignant B7 dominant pause expecting resolution."
+        }
+      ],
+      "practice_steps": [
+        "1. Click the Roman numerals above the staff in Practice tab anytime to inspect any single chromatic chord.",
+        "2. Practice LH alone in Skeleton/Wait mode, watching one inner voice melt down a half-step per change.",
+        "3. Hold the tied RH melody tones serenely while pulsing the soft LH accompaniment underneath.",
+        "4. Perform quietly at 60 BPM without rushing the sighing half-step drops."
+      ],
+      "audio_examples": [
+        {
+          "label": "The Slow-Motion Chromatic Staircase (Bars 1-9)",
+          "caption": "Em/G -> F#m7b5 -> Dm7/F -> E7 -> Adim7/Eb -> E7/D -> Am/C -> B7 -> Em/B",
+          "chords": [
+            "Em/G",
+            "F#m7b5",
+            "Dm7/F",
+            "E7",
+            "Adim7/Eb",
+            "E7/D",
+            "Am/C",
+            "B7",
+            "Em/B"
+          ]
+        }
+      ]
     }
   },
   "measures": [

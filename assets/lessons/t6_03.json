@@ -18,7 +18,39 @@
       "summary": "The iconic opening Largo of Chopin's Ballade No. 1 (mm. 1-7): a declamatory two-hand unison octave arpeggio on the Neapolitan 6th (Ab/C = bII6) resolving onto the G-minor dominant.",
       "pattern_tip": "Hear Bars 1-4 as a single sweeping Ab-major triad in first inversion (C-Eb-Ab-C-Eb-Ab-C-Eb) sighing down via D-C-Bb-Ab-G-F#.",
       "technique_tip": "Shape the unison octaves across both hands with deep arm weight and keep every inner-voice resolution strictly within an octave span.",
-      "ballade_link": "Authentic Urtext study of Op. 23 mm. 1-7: bII6 (Neapolitan 6th) -> i -> V7."
+      "ballade_link": "Authentic Urtext study of Op. 23 mm. 1-7: bII6 (Neapolitan 6th) -> i -> V7.",
+      "concept_title": "The Neapolitan Sixth (bII6) & Unison Opening of Ballade No. 1",
+      "concept_paragraphs": [
+        "Instead of beginning in G minor, Chopin opens Ballade No. 1 on a haunting unison wave spelling an Ab Major chord in first inversion (C in the bass = Ab/C = bII6). Sitting just a half-step above G, this Neapolitan 6th casts an instant epic tragic shadow.",
+        "In Bars 5-7, the declamatory line sighs down D - C - Bb - Ab - G - F# and stops on an open, questioning D7 dominant (V7)\u2014suspending time right before the Moderato begins."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Neapolitan Largo, Bars 1-4)",
+          "role": "Sweeping unison octaves ascending through Ab/C (bII6) and halting on D7."
+        },
+        {
+          "phrase_label": "Phrase B (Sigh & Dominant Pause, Bars 5-7)",
+          "role": "Expressive chromatic sigh resolution hovering questioningly over Gm and D7."
+        }
+      ],
+      "practice_steps": [
+        "1. Hear Ab/C -> D7 -> Gm first in the audio player so you feel the Neapolitan magic immediately.",
+        "2. Practice Bars 1-4 unison octaves with deep relaxed arm weight\u2014never lock your wrists.",
+        "3. Listen carefully to inner-voice resolution in Bars 5-7 (Eb->D and C->Bb->A->G).",
+        "4. Shape the Largo tempo (52 BPM) as spoken drama, letting Bar 7 hover softly."
+      ],
+      "audio_examples": [
+        {
+          "label": "The Secret Behind Bars 1-7: Neapolitan 6th -> Dominant -> Tonic",
+          "caption": "Ab/C (bII6) -> D7 (V7) -> Gm (i)",
+          "chords": [
+            "Ab/C",
+            "D7",
+            "Gm"
+          ]
+        }
+      ]
     }
   },
   "measures": [

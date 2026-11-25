@@ -18,7 +18,49 @@
       "summary": "Combines a buoyant 3/4 bass-chord-chord waltz left hand with clean thumb-under right-hand scale shifts.",
       "pattern_tip": "Prepare the thumb tuck (finger 3 -> 1) before reaching C5 so the rising G-major line flows seamlessly.",
       "technique_tip": "Keep the left-hand wrist light on the leap from the low bass note up to the mid-register chord.",
-      "ballade_link": "Direct training for Chopin's waltz and 6/4 bass-to-chord left-hand leaps."
+      "ballade_link": "Direct training for Chopin's waltz and 6/4 bass-to-chord left-hand leaps.",
+      "concept_title": "Waltz Bass-Chord Leaps & Smooth Thumb-Under Shifts",
+      "concept_paragraphs": [
+        "Two essential Romantic piano habits meet here: while your Left Hand leaps cleanly from a low bass root up to mid-register chords, your Right Hand shifts out of a static five-finger frame using a silent thumb tuck (passing 1 under 3).",
+        "Preparing the thumb under early\u2014the moment finger 2 or 3 plays\u2014prevents jerky wrist twists and keeps the rising G-major melody silk-smooth."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Buoyant G-major waltz motif rising to an early Authentic Cadence."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Sequential exploration through C (IV) and Am (ii) settling on Half Cadence D (V)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Extended lyrical line using thumb-under shifts cleanly over G-C-D7."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Subdominant climax tapering into a poised final G-major cadence."
+        }
+      ],
+      "practice_steps": [
+        "1. Drill the RH thumb crossing slowly without tension, letting the elbow follow gracefully.",
+        "2. Practice LH blind leaps (bass on beat 1 -> chord on beats 2-3) at 60% speed.",
+        "3. Balance LH beat 1 deeper than beats 2-3 so the melody dances on top.",
+        "4. Graduate smoothly up to 96 BPM in Steady Pulse."
+      ],
+      "audio_examples": [
+        {
+          "label": "Predominant ii -> V -> I Waltz Drive",
+          "caption": "G -> C -> Am -> D -> G",
+          "chords": [
+            "G",
+            "C",
+            "Am",
+            "D",
+            "G"
+          ]
+        }
+      ]
     }
   },
   "measures": [

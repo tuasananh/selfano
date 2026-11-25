@@ -18,7 +18,52 @@
       "summary": "Compound 6/8 lyrical etude featuring 3-eighth beaming, dotted-8th + 16th ornaments, and secondary dominants.",
       "pattern_tip": "Feel 6/8 in two broad dotted-quarter pulses per bar ('ONE-two-three, FOUR-five-six') rather than six choppy beats.",
       "technique_tip": "Rotate the left-hand wrist smoothly across the broken arpeggios and lean gently into the A# and G# leading tones.",
-      "ballade_link": "Prepares the compound rhythmic sway and expressive harmonic color (V7/iv, V7/V) of Chopin's slow themes."
+      "ballade_link": "Prepares the compound rhythmic sway and expressive harmonic color (V7/iv, V7/V) of Chopin's slow themes.",
+      "concept_title": "Compound 6/8 Pulse & Rich Secondary Dominants in B Minor",
+      "concept_paragraphs": [
+        "In 6/8 meter, don't chop every measure into six separate vertical ticks. Feel two swaying dotted-quarter pulses per bar ('ONE-two-three, FOUR-five-six') so the lyrical B-minor melody floats in smooth, vocal waves.",
+        "Harmonically, this etude strings together three gorgeous secondary dominants: E7 (V7/iv) leaning toward E minor, A7 (V7/III) opening into sunny D Major, and C#7 (V7/V) intensifying the final F#7 cadence."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "B-minor 6/8 sway introducing E7 (V7/iv) pulling sweetly into subdominant Em."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Brightens via A7 (V7/III) into D Major (III) before F# restores B-minor tension."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Climactic C#7 (V7/V) preparation driving onto expressive F#7 dominant."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Tender, singing B-minor closure."
+        }
+      ],
+      "practice_steps": [
+        "1. Set Skeleton mode and listen to how V7/iv (E7), V7/III (A7), and V7/V (C#7) color the key.",
+        "2. Count ONLY TWO beats per measure while keeping LH 8th-note rocking smooth and quiet.",
+        "3. Lean subtly into A#, G#, and D# chromatic accidentals for singing warmth.",
+        "4. Flow steadily through 66 BPM without breaking the compound two-pulse sway."
+      ],
+      "audio_examples": [
+        {
+          "label": "Three Secondary Dominants of B Minor",
+          "caption": "Bm -> E7 (to Em) -> A7 (to D) -> C#7 (to F#7 -> Bm)",
+          "chords": [
+            "Bm",
+            "E7",
+            "Em",
+            "A7",
+            "D",
+            "C#7",
+            "F#7",
+            "Bm"
+          ]
+        }
+      ]
     }
   },
   "measures": [

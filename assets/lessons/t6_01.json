@@ -18,7 +18,47 @@
       "summary": "Nocturne-style cantabile study in Eb Major (3 flats)\u2014the luminous secondary key area of Chopin's Ballade No. 1.",
       "pattern_tip": "Hear the wide 6/8 left-hand bass-to-chord sweeps as warm harmonic resonance supporting the singing soprano.",
       "technique_tip": "Pivot smoothly from the low Eb2/G2 bass up to the mid-register triads using a supple horizontal wrist arc.",
-      "ballade_link": "Builds fluent sight-reading in Eb Major (bVI of G minor), the lyrical second theme key of Op. 23."
+      "ballade_link": "Builds fluent sight-reading in Eb Major (bVI of G minor), the lyrical second theme key of Op. 23.",
+      "concept_title": "Eb Major (Ballade Secondary Key) & Wide Nocturne LH Arcs",
+      "concept_paragraphs": [
+        "Why study Eb Major right before Ballade No. 1? In Op. 23, Chopin contrasts stormy G minor with a breathtakingly tender second theme in Eb Major (3 flats: Bb, Eb, Ab). Reading 3 flats fluently removes all panic when Op. 23 opens into sunlight.",
+        "Technically, master the sweeping 6/8 nocturne Left Hand: roll horizontally from the low bass note to mid-register triads with a supple wrist arc, keeping the accompaniment cushion-soft beneath a singing bel canto melody."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Singing Eb-major cantabile rising over rich Ab (IV) and Fm (ii) to Bb7."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Tonicizes C minor (vi) with G7 (V7/vi), returning through Eb/Bb (I6/4) -> Bb7."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Soars via C7 (V7/ii) and warm predominant colors back to serene Tonic Eb."
+        }
+      ],
+      "practice_steps": [
+        "1. Drill LH blind 6/8 leaps alone using supple wrist rotation and no finger stretching.",
+        "2. Hear how G7 (B-natural!) in Bar 5 steers briefly into C minor before returning to Eb.",
+        "3. Sing the RH top melody with lingering rubato balance above whisper-quiet chords.",
+        "4. Keep unhurried 6/8 flow cleanly at 54 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Nocturne Color Shifts (V7/vi to Cm & Cadential I6/4)",
+          "caption": "Eb -> G7 -> Cm -> Ab -> Eb/Bb -> Bb7 -> Eb",
+          "chords": [
+            "Eb",
+            "G7",
+            "Cm",
+            "Ab",
+            "Eb/Bb",
+            "Bb7",
+            "Eb"
+          ]
+        }
+      ]
     }
   },
   "measures": [

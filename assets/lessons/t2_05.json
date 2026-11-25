@@ -18,7 +18,58 @@
       "summary": "Contrasts dramatic D-minor chordal punctuation with nimble 8th-note melodic turns and C# leading-tone cadences.",
       "pattern_tip": "Spot the cadential 6/4 pivot (Dm/A -> A7 -> Dm) in Bars 7-8 and 15-16.",
       "technique_tip": "Release the left-hand chords crisply while keeping the right-hand 8th notes singing and connected.",
-      "ballade_link": "Prepares the sharp dynamic contrast and cadential i6/4 -> V7 -> i grammar of minor-key Chopin."
+      "ballade_link": "Prepares the sharp dynamic contrast and cadential i6/4 -> V7 -> i grammar of minor-key Chopin.",
+      "concept_title": "Minor-Key Cadential 6/4 & Secondary V7/III Brightness",
+      "concept_paragraphs": [
+        "Romantic minor pieces love dramatic contrast: crisp LH punctuation answered by nimble 8th-note flourishes, and sudden rays of warmth when the harmony pivots momentarily into the Relative Major (F Major via C7 = V7/III).",
+        "At the climactic cadence (Bars 11-12 and 15-16), learn to recognize the iconic i6/4 -> V7 -> i pattern (Dm/A -> A7 -> Dm) with the 5th (A) held steadfast in the bass."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Crisp D-minor opening building through Gm (iv) to a dramatic A Major Half Cadence."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Illuminates Relative Major F via C7 (V7/III) before snapping back to A7."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Drives through subdominant Gm into a textbook Dm/A (i6/4) -> A7 -> Dm cadence."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Crowning dramatic confirmation locking in minor-key cadential authority."
+        }
+      ],
+      "practice_steps": [
+        "1. Run Skeleton mode to memorize the i - VI - V7/III - III - iv - i6/4 - V7 - i map.",
+        "2. Keep LH chords crisp and articulated without banging, releasing tension immediately.",
+        "3. Connect the RH 8th-note turns cleanly with finger articulation, watching C# leading tones.",
+        "4. Bring up tempo cleanly to 88 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Momentary Relative-Major Glow (VI -> V7/III -> III)",
+          "caption": "Dm -> Bb -> C7 -> F",
+          "chords": [
+            "Dm",
+            "Bb",
+            "C7",
+            "F"
+          ]
+        },
+        {
+          "label": "Minor Cadential 6/4 Formula (iv -> i6/4 -> V7 -> i)",
+          "caption": "Gm -> Dm/A -> A7 -> Dm",
+          "chords": [
+            "Gm",
+            "Dm/A",
+            "A7",
+            "Dm"
+          ]
+        }
+      ]
     }
   },
   "measures": [

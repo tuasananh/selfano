@@ -30,14 +30,12 @@ namespace {
       .key = KeySignature{.fifths = -2, .mode = Mode::Minor},
       .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
       .target_bpm = 80.0,
-      .theory =
-          TheoryLens{
-              .summary = "G minor tonic pedal",
-              .pattern_tip = "Read fifths in LH",
-              .technique_tip = "Drop wrist on beat 1",
-              .ballade_link = "Shared G minor home key",
-          },
+      .theory = {},
   };
+  score.meta.theory.summary = "G minor tonic pedal";
+  score.meta.theory.pattern_tip = "Read fifths in LH";
+  score.meta.theory.technique_tip = "Drop wrist on beat 1";
+  score.meta.theory.ballade_link = "Shared G minor home key";
 
   LessonMeasure m1{};
   m1.bar_number = 1;
@@ -275,6 +273,35 @@ TEST_CASE("lesson_score_to_json and lesson_score_from_json round-trip cleanly", 
   REQUIRE(*parsed == original);
 
   REQUIRE_FALSE(lesson_score_from_json("{invalid json").has_value());
+
+  SECTION("Extended TheoryLens fields round-trip and stay backward-compatible") {
+    LessonScore rich = original;
+    rich.meta.theory.concept_title = "Tonic Pedal vs. Dominant Tension";
+    rich.meta.theory.concept_paragraphs = {
+        "Paragraph one explains the pedal tone in simple language.",
+        "Paragraph two connects the harmony to the left hand shape.",
+    };
+    rich.meta.theory.form_map = {
+        PhraseFormNote{.phrase_label = "Phrase A", .role = "Opening question settling on V7"},
+    };
+    rich.meta.theory.practice_steps = {
+        "1. Play RH melody alone.",
+        "2. Add LH pedal on beat 1.",
+    };
+    rich.meta.theory.audio_examples = {
+        TheoryAudioExample{.label = "Tonic vs. Dominant",
+                           .caption = "Gm -> D7 -> Gm",
+                           .chords = {"Gm", "D7", "Gm"}},
+    };
+
+    const std::string rich_json = lesson_score_to_json(rich);
+    const auto reparsed = lesson_score_from_json(rich_json);
+    REQUIRE(reparsed.has_value());
+    REQUIRE(*reparsed == rich);
+    REQUIRE(reparsed->meta.theory.concept_title == "Tonic Pedal vs. Dominant Tension");
+    REQUIRE(reparsed->meta.theory.form_map.size() == 1U);
+    REQUIRE(reparsed->meta.theory.audio_examples[0].chords.size() == 3U);
+  }
 }
 
 TEST_CASE("split_ticks_to_values greedily decomposes durations into rhythmic values",

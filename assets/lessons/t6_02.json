@@ -18,7 +18,47 @@
       "summary": "Trains 3-sharp minor fluency (F#, C#, G# + E# leading tone) with Romantic inner voices and diminished-7th pivots.",
       "pattern_tip": "Read E#4 cleanly as the raised leading tone of F# minor (V7 = C#7), and spot G#dim7 bridging i to iv.",
       "technique_tip": "Keep the wrist supple when voicing chromatic inner lines against low F#2/C#2 pedal anchors.",
-      "ballade_link": "Eliminates sharp-key and enharmonic reading hesitation during Chopin's middle-section A-major/F#-minor modulations."
+      "ballade_link": "Eliminates sharp-key and enharmonic reading hesitation during Chopin's middle-section A-major/F#-minor modulations.",
+      "concept_title": "Sharp-Key Reading Fluency (F# Minor / E#) & Diminished Pivots",
+      "concept_paragraphs": [
+        "Reading three sharps (F#, C#, G#) in minor\u2014especially with the white-key enharmonic leading tone E# on C#7 (V6/5 = C#7/E#)\u2014often trips up learners accustomed to C or G minor. Knowing F# minor inside-out makes Chopin's sharp middle episodes feel natural.",
+        "Listen closely to Bar 6's G#dim7 (iio7): symmetrical minor thirds pull tension tightly inward before expanding onto the F#m/C# (i6/4) -> C#7 -> F#m cadence."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Expressive F#-minor opening tracing C#7/E# (V6/5) to Half Cadence C#."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Builds through Bm (iv) and G#dim7 (iio7) into a rich F#m/C# cadential 6/4."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Lifts briefly through A (III), D (VI), and E7 (VII7) before closing in F#m."
+        }
+      ],
+      "practice_steps": [
+        "1. Locate E# (= F key) immediately whenever you see C#7/E# in the harmony.",
+        "2. Run Skeleton mode to map F#m -> Bm -> G#dim7 -> C#7 cleanly across the black keys.",
+        "3. Keep wrists supple when voicing chromatic inner lines against low F#/C# anchors.",
+        "4. Perform smoothly at 68 BPM with balanced Romantic singing tone."
+      ],
+      "audio_examples": [
+        {
+          "label": "Sharp-Key Leading Tone & Diminished Pivot",
+          "caption": "F#m -> C#7/E# -> F#m -> Bm -> G#dim7 -> F#m/C# -> C#7 -> F#m",
+          "chords": [
+            "F#m",
+            "C#7/E#",
+            "Bm",
+            "G#dim7",
+            "F#m/C#",
+            "C#7",
+            "F#m"
+          ]
+        }
+      ]
     }
   },
   "measures": [

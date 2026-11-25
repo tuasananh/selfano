@@ -18,7 +18,49 @@
       "summary": "Stepwise right-hand 5-finger melody over sustained left-hand I-V-I bass anchors in C Major.",
       "pattern_tip": "Read intervals by contour (steps of a 2nd and 3rds) rather than naming every isolated note.",
       "technique_tip": "Keep wrists supple and let fingers rest gently over C4-G4 without lifting unused fingers.",
-      "ballade_link": "Establishes effortless landmark reading (G4, C4, F3) needed before dense Romantic textures."
+      "ballade_link": "Establishes effortless landmark reading (G4, C4, F3) needed before dense Romantic textures.",
+      "concept_title": "Grand Staff Landmarks (C4, G4, F3) & Five-Finger Steps",
+      "concept_paragraphs": [
+        "Instead of reciting letter rhymes for every note, anchor your eyes on Middle C (C4), Treble G4 (line 2), and Bass F3 (line 4). Every note in this opening study steps gently inside the natural five-finger shape around C4-G4.",
+        "While the Right Hand traces singing steps and 3rds, the Left Hand anchors the harmony with calm whole-note roots (C -> G -> C). Hearing I as Home and V as gentle tension builds your tonal compass from day one."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Statement rising by steps from C4 and pausing expectantly on Dominant G (V)."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Balanced answer traveling through F (IV) and G7 (V7) back home to C (I)."
+        }
+      ],
+      "practice_steps": [
+        "1. Silently place RH fingers 1-5 on C4-G4 and LH 5-1 on C3-G3 before playing.",
+        "2. Play Hands Separately at 60% tempo in Wait-for-Note, reading intervals by step vs. skip.",
+        "3. Combine Hands Together while counting 4 calm beats per bar in Steady Pulse.",
+        "4. Pass 100% Tempo (76 BPM) with supple wrists and legato connected fingers."
+      ],
+      "audio_examples": [
+        {
+          "label": "Home (I) -> Tension (V7) -> Home (I)",
+          "caption": "C -> G7 -> C (notice the pull of B up to C)",
+          "chords": [
+            "C",
+            "G7",
+            "C"
+          ]
+        },
+        {
+          "label": "Warm Subdominant Lift (I -> IV -> V7 -> I)",
+          "caption": "C -> F -> G7 -> C",
+          "chords": [
+            "C",
+            "F",
+            "G7",
+            "C"
+          ]
+        }
+      ]
     }
   },
   "measures": [

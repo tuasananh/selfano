@@ -1,0 +1,196 @@
+{
+  "guides": [
+    {
+      "tier": 1,
+      "title": "Tier 1 Chapter Guide: Reading by Landmarks & Pulse",
+      "subtitle": "Grand Staff Landmarks (G4, C4, F3), Steps vs. Skips, Basic Rhythm, 5-Finger Frame & I-IV-V-I",
+      "reading_time": "2 min read",
+      "sections": [
+        {
+          "heading": "1. Three Anchor Landmarks Beats Naming Every Note",
+          "body": "Instead of memorizing rhymes from the bottom line up, train your eye on three visual anchors: Middle C (C4) floating on its own ledger line between staves, Treble G4 sitting on the second line circled by the treble clef curl, and Bass F3 sitting on the fourth line framed by the bass clef's two dots. Every other note in Tier 1 sits just a step or skip away from one of those three beacons."
+        },
+        {
+          "heading": "2. Line vs. Space Intervals: Steps and Skips",
+          "body": "Fluent sight-readers read geometry, not individual letter names. Moving from a line to the very next space (or space to line) is a Step (a 2nd, adjacent keys). Jumping line-to-line or space-to-space is a Skip (a 3rd, skipping one white key). In a relaxed 5-finger hand frame, steps use neighboring fingers (e.g. 2-3-4) and skips use alternating fingers (e.g. 1-3-5)."
+        },
+        {
+          "heading": "3. Rhythm Foundations & Your First Chord Vocabulary (I - IV - V - I)",
+          "body": "Count pulses out loud before touching the keys: a quarter note gets 1 beat, a half note gets 2, a dotted half fills 3 beats in 3/4 waltz meter, and a whole note fills all 4 beats. Underneath the melody, nearly all Western music alternates between Rest (I, Tonic), Expansion (IV, Predominant), Tension (V or V7, Dominant with its leading tone pulling upward), and Home again (I)."
+        }
+      ],
+      "audio_examples": [
+        {
+          "label": "Home -> Travel -> Tension -> Home (I - IV - V7 - I)",
+          "caption": "C -> F -> G7 -> C (C Major)",
+          "chords": ["C", "F", "G7", "C"]
+        },
+        {
+          "label": "Major Serenity vs. Minor Leading-Tone Pull",
+          "caption": "Am -> Dm -> E7 -> Am (A Minor with raised G# leading tone)",
+          "chords": ["Am", "Dm", "E7", "Am"]
+        }
+      ]
+    },
+    {
+      "tier": 2,
+      "title": "Tier 2 Chapter Guide: Chords in Motion & Broken Patterns",
+      "subtitle": "Chord Inversions & Figured Bass (6, 6/4), Alberti & Waltz Accompaniments, Dotted Rhythms & Ties",
+      "reading_time": "2 min read",
+      "sections": [
+        {
+          "heading": "1. Seeing Inversions & Figured Bass at a Glance",
+          "body": "Composers rarely stack every chord in root position because jumping between roots makes the bass clunky. A '6' next to a Roman numeral (like I6 or C/E) means 1st inversion: the 3rd is on the bottom, making the bass lighter and more melodic. A '6/4' (like I6/4 or C/G) places the 5th in the bass, adding unstable lift right before a cadence."
+        },
+        {
+          "heading": "2. Chunking Alberti Bass and 3/4 Waltz Patterns",
+          "body": "An Alberti bass (low-high-mid-high eighth notes, like C3-G3-E3-G3) is just one blocked chord rocked back and forth by a supple wrist rotation. Spot the chord label above the bar, place all fingers silently over that triad shape, and keep the accompaniment half as loud as your singing right-hand melody. In 3/4 waltzes, treat beat 1 as a resonant anchor and beats 2-3 as gentle rebounds."
+        },
+        {
+          "heading": "3. Dotted Rhythms & Barline Ties",
+          "body": "A dot adds half the note's value: a dotted quarter lasts three 8th notes ('1-and-2'), leaving 'AND' for the crisp eighth note before beat 3. Whenever you see a curved tie connecting two identical pitches, strike only the first note and hold it smoothly through the second while the other hand shifts harmony underneath."
+        }
+      ],
+      "audio_examples": [
+        {
+          "label": "Why Inversions Smooth Out the Bass Line (I - V6/5 - I)",
+          "caption": "C -> G7/B -> C (B bass steps half-step up to C)",
+          "chords": ["C", "G7/B", "C"]
+        },
+        {
+          "label": "Dramatic Cadential 6/4 Formula (i - iv - i6/4 - V7 - i)",
+          "caption": "Dm -> Gm -> Dm/A -> A7 -> Dm (D Minor)",
+          "chords": ["Dm", "Gm", "Dm/A", "A7", "Dm"]
+        }
+      ]
+    },
+    {
+      "tier": 3,
+      "title": "Tier 3 Chapter Guide: Contrasts, Cadences & Baroque Counterpoint",
+      "subtitle": "Half vs. Authentic Cadences, Two-Voice Counterpoint, Articulation & Syncopated Pedaling",
+      "reading_time": "2 min read",
+      "sections": [
+        {
+          "heading": "1. Musical Punctuation: Half vs. Authentic Cadences",
+          "body": "Phrases in classical piano work like spoken sentences. A Half Cadence pauses on the Dominant (V)—a musical comma or question mark that keeps you expecting a reply. Four or eight bars later, an Authentic Cadence moves cleanly from Dominant (V7) back to Tonic (I), supplying the satisfying period at the end of the thought."
+        },
+        {
+          "heading": "2. Hearing Two Independent Voices Simultaneously",
+          "body": "In Bach's Notebook minuets and musettes, the left hand stops being simple chordal wallpaper and becomes an equal singing melody. Instead of looking vertically only at simultaneous notes, trace both hands horizontally: one voice climbs while the other descends in contrary motion, creating rich three- and six-interval sweetness without thick chords."
+        },
+        {
+          "heading": "3. Stylistic Articulation & Clean Syncopated Pedal",
+          "body": "Baroque dance music breathes through crisp non-legato quarter notes contrasted against smooth 8th-note runs, whereas Romantic character pieces like Burgmuller connect long slurred arches with tapered endings. When you begin adding sustain pedal, depress the pedal right AFTER playing the beat so the previous harmony clears without smudging."
+        }
+      ],
+      "audio_examples": [
+        {
+          "label": "Question (Half Cadence) -> Answer (Authentic Cadence)",
+          "caption": "G -> C -> Am -> D (Half) ... -> G -> C -> D7 -> G (Authentic)",
+          "chords": ["G", "Am", "D", "G", "C", "D7", "G"]
+        },
+        {
+          "label": "Parallel Key Darkening vs. Relative Major Glow",
+          "caption": "Gm -> Cm -> D7 -> Bb -> F -> Bb",
+          "chords": ["Gm", "Cm", "D7", "Bb"]
+        }
+      ]
+    },
+    {
+      "tier": 4,
+      "title": "Tier 4 Chapter Guide: Secondary Dominants & Classical Modulation",
+      "subtitle": "Applied Dominants (V7/V), Sonata Exposition Architecture, Two-Part Imitation & 6/8 Compound Pulse",
+      "reading_time": "2 min read",
+      "sections": [
+        {
+          "heading": "1. What V7/V Means: Borrowing Another Key's Magnet",
+          "body": "Whenever you see a chromatic accidental (like F# popping up in a C-major piece) paired with a Roman numeral like V7/V, read the slash as 'of': this is the Dominant 7th OF V (D7 pointing directly to G). Instead of changing the whole piece's key signature permanently, secondary dominants temporarily magnetize a target chord, giving the phrase a bright lift or full Classical modulation."
+        },
+        {
+          "heading": "2. Classical Exposition & Bach Imitation Architecture",
+          "body": "Clementi's sonatinas establish the Home Key (Theme A) in Bars 1-8 and then pivot through V7/V into the Dominant Key (G Major) for Bars 9-16. Meanwhile, Bach's Invention No. 1 spins an entire polyphonic cathedral out of one seven-note motif tossed between Right Hand and Left Hand—first right side up, then turned upside down (inverted) in the bridge."
+        },
+        {
+          "heading": "3. Compound 6/8 Meter: Two Sweeping Pulses Per Bar",
+          "body": "In 6/8 time, resist counting six stiff beats ('1-2-3-4-5-6'). Group every three eighth notes under one broad sway: 'ONE-two-three, FOUR-five-six', feeling two dotted-quarter pulses per measure. Notice how 8th-note beams visually group into clean sets of three to show you each large beat at a glance."
+        }
+      ],
+      "audio_examples": [
+        {
+          "label": "How V7/V Turns C Major toward G Major",
+          "caption": "C -> Am -> D7 (V7/V) -> G -> C",
+          "chords": ["C", "Am", "D7", "G"]
+        },
+        {
+          "label": "Diatonic ii vs. Brightened Secondary V7/V Pivot",
+          "caption": "Bm -> Em -> C#7 (V7/V) -> F#7 -> Bm",
+          "chords": ["Bm", "Em", "C#7", "F#7", "Bm"]
+        }
+      ]
+    },
+    {
+      "tier": 5,
+      "title": "Tier 5 Chapter Guide: Chopin's Bel Canto & Chromatic Harmony",
+      "subtitle": "Soprano Voicing, Chromatic Voice-Leading & Descending Bass Lines, Wide LH Leaps & Upbeats",
+      "reading_time": "2 min read",
+      "sections": [
+        {
+          "heading": "1. Voicing the Soprano (Think Like an Opera Singer)",
+          "body": "Chopin worshipped Italian bel canto opera: even in dense four-note block chords (like the C-minor Prelude Op. 28 No. 20), one top melody note must float unmistakably above a warm velvet accompaniment. Lean subtle arm weight toward the outer pinky/ring side of the right hand while keeping thumb and inner fingers feather-light."
+        },
+        {
+          "heading": "2. Chromatic Voice-Leading & Applied Chain Progressions",
+          "body": "Look at Chopin's E-minor Prelude (Op. 28 No. 4): rather than jumping to unrelated chords, each left-hand chord melts downward by a single semitone at a time (E -> D -> C -> B, with chromatic inner notes passing through G -> F# -> F -> E -> Eb -> D -> C -> B). Reading only which ONE note changes from chord to chord makes dense labels like V4/2/iv or ii6/5/V completely natural."
+        },
+        {
+          "heading": "3. Wide Left-Hand Strides & Upbeat Pickups",
+          "body": "Pieces like the A-major Prelude and A-minor Waltz open with an incomplete pickup bar (anacrusis) that leans gracefully into bar 1—always breathe before the barline instead of stomping beat 1. For wide left-hand bass-to-chord strides, practice landing silently on the low bass note first, then sweeping in a relaxed wrist arc to the mid-register chord."
+        }
+      ],
+      "audio_examples": [
+        {
+          "label": "E-Minor Chromatic Descent (Op. 28, No. 4 Harmony)",
+          "caption": "Em/G -> F#m7b5 -> Dm7/F -> E7/D -> Am/C -> B7 -> Em",
+          "chords": ["Em/G", "F#m7b5", "Dm7/F", "E7/D", "Am/C", "B7", "Em"]
+        },
+        {
+          "label": "A-Minor Waltz Circle of Fifths",
+          "caption": "Am -> Dm -> G7 -> C -> F -> Dm/B -> E7 -> Am",
+          "chords": ["Am", "Dm", "G7", "C", "F", "Dm/B", "E7", "Am"]
+        }
+      ]
+    },
+    {
+      "tier": 6,
+      "title": "Tier 6 Chapter Guide: Decoding Ballade No. 1 in G Minor",
+      "subtitle": "The Neapolitan Sixth (bII6), Mode Mixture, 6/4 Barcarolle-Waltz Lilt & Op. 23 Narrative Form",
+      "reading_time": "2 min read",
+      "sections": [
+        {
+          "heading": "1. The Neapolitan Sixth (bII6): Op. 23's Tragic Signature",
+          "body": "Chopin opens Ballade No. 1 with a hushed C2 octave swelling up the keyboard in sweeping first-inversion Ab major (Ab/C = bII6 in G minor). Because Ab sits just a half-step above G tonic, this Neapolitan chord casts an unforgettable dark shadow before sighing through D-C-Bb-Ab-G-F# onto the hesitant D7 dominant."
+        },
+        {
+          "heading": "2. Mode Mixture & Distant Modulation Keys (Eb Major, F# Minor)",
+          "body": "Across the Ballade, Chopin blends colors from parallel and chromatic keys: luminous Eb Major (VI of G minor, explored in Tier 6 Lesson 1) provides the soaring cantabile second theme, while sharp-key excursions like F# minor and A major (Tier 6 Lesson 2) demand fluent enharmonic and leading-tone reading."
+        },
+        {
+          "heading": "3. The 6/4 Barcarolle Lilt & Arch Form of Bars 1-23",
+          "body": "When the opening Largo gives way to Moderato, the time signature becomes a rocking 6/4 barcarolle-waltz: feel each bar in two broad three-beat sighs (Bass -> Warm Chord -> Gentle Breath). Everything from Tier 1 landmarks through Tier 5 chromatic voice-leading converges right here in your hands."
+        }
+      ],
+      "audio_examples": [
+        {
+          "label": "Op. 23 Opening Largo Harmonic Reveal (bII6 -> V7 -> i)",
+          "caption": "Ab/C (Neapolitan 6th) -> D7 (Dominant) -> Gm (Home Tonic)",
+          "chords": ["Ab/C", "D7", "Gm"]
+        },
+        {
+          "label": "Op. 23 Moderato Climactic Cadence (i -> iv -> V7/V -> bII6 -> i6/4 -> V7 -> i)",
+          "caption": "Gm -> Cm -> A7 -> Ab/C -> Gm/D -> D7 -> Gm",
+          "chords": ["Gm", "Cm", "A7", "Ab/C", "Gm/D", "D7", "Gm"]
+        }
+      ]
+    }
+  ]
+}

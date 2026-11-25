@@ -111,6 +111,22 @@ CliOptions parse_cli(int argc, char* argv[]) {
       opts.open_keymap = true;
     } else if (arg == "--show-key-hints") {
       opts.force_key_hints = true;
+    } else if (arg == "--lesson-tab" && i + 1 < argc) {
+      const std::string_view tab = argv[++i];
+      if (tab == "learn") {
+        opts.lesson_learn_tab = true;
+      } else if (tab == "practice") {
+        opts.lesson_learn_tab = false;
+      }
+    } else if (arg == "--chapter-guide" && i + 1 < argc) {
+      if (const auto tier = parse_strict_int(argv[++i]);
+          tier.has_value() && *tier >= 1 && *tier <= 6) {
+        opts.open_chapter_guide_tier = static_cast<std::uint8_t>(*tier);
+      }
+    } else if (arg == "--theory-popover" && i + 1 < argc) {
+      if (const auto idx = parse_strict_int(argv[++i]); idx.has_value() && *idx >= 0) {
+        opts.open_theory_popover_index = static_cast<std::size_t>(*idx);
+      }
     }
   }
   return opts;

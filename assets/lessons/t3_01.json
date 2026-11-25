@@ -18,7 +18,50 @@
       "summary": "Iconic 16-bar Baroque two-voice minuet in G Major contrasting leaps of a fifth with stepwise 8th-note runs.",
       "pattern_tip": "Notice bars 1-4 and 9-12 share the exact same opening sequence, differing only in the cadence (bars 7-8 half cadence vs. bars 15-16 authentic cadence).",
       "technique_tip": "Articulate the quarter-note leaps gently detached while keeping the four 8th notes smooth and vocal.",
-      "ballade_link": "Baroque two-voice independence frees your left hand from pure block chords into melodic counterpoint."
+      "ballade_link": "Baroque two-voice independence frees your left hand from pure block chords into melodic counterpoint.",
+      "concept_title": "Two-Voice Counterpoint & Half vs. Authentic Cadences",
+      "concept_paragraphs": [
+        "Petzold's famous Minuet in G teaches two foundational Baroque skills at once: how two single-note voices talk to each other independently, and how symmetrical 8-bar periods work like Question and Answer.",
+        "Notice that Phrases A and C begin identically! Phrase B ends openly on a Dominant Half Cadence (D), leaving the harmonic question hovering in the air until Phrase D finishes it with a true Authentic Cadence (D7 -> G)."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Iconic 5th-leap opening climbing through G/B (I6) and C (IV) in buoyant 3/4 time."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Question cadence: Am -> G settles expectantly on D/D7 (Half Cadence on V)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Direct restatement of the opening theme with flowing Baroque bass line."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Answer cadence: steps cleanly through D7 down to an Authentic Cadence on G (I)."
+        }
+      ],
+      "practice_steps": [
+        "1. Practice Left Hand alone like its own cello melody\u2014it uses 1st inversions (G/B) for stepwise grace!",
+        "2. Practice RH with gently detached quarter notes contrasting silky legato 8th notes.",
+        "3. Compare Bar 7-8 (Half Cadence tension) against Bar 15-16 (Authentic Cadence rest).",
+        "4. Perform hands together at 104 BPM with poised Baroque dance poise."
+      ],
+      "audio_examples": [
+        {
+          "label": "Question (Half Cadence) vs. Answer (Authentic Cadence)",
+          "caption": "Am -> G -> D7 (open question) ... -> Am -> D7 -> G (closed answer)",
+          "chords": [
+            "G",
+            "Am",
+            "D",
+            "G",
+            "D7",
+            "G"
+          ]
+        }
+      ]
     }
   },
   "measures": [

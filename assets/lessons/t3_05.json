@@ -18,7 +18,51 @@
       "summary": "Baroque two-voice minuet in G Minor (Bb, Eb) introducing melodic-minor F# and E-natural inflections.",
       "pattern_tip": "First deep dive into Ballade No. 1's home key (G minor): notice how Phrase B lifts briefly into relative major Bb.",
       "technique_tip": "Listen to both treble and bass lines equally; shape each hand's phrasing independently.",
-      "ballade_link": "Establishes G-minor key-signature fluency (Bb, Eb, F#) directly required for Op. 23."
+      "ballade_link": "Establishes G-minor key-signature fluency (Bb, Eb, F#) directly required for Op. 23.",
+      "concept_title": "G Minor Key Fluency (Bb, Eb) & Melodic Minor Inflections",
+      "concept_paragraphs": [
+        "Welcome to G Minor\u2014the home key of Chopin's Ballade No. 1! With Bb and Eb in the key signature, plus frequent F# leading tones (D/D7), fluent reading here builds an essential foundation for the Tier 6 masterworks.",
+        "Watch how Phrase B brightens briefly into Relative Major Bb (with bass stepping Bb/D -> F -> Bb), while Phrase D climbs back through Cm (iv) and D7 (V7) into dignified G minor."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Poised G-minor dialogue moving through D (V) and Cm (iv) back to Half Cadence D."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Lyrical lift into Relative Major Bb (III) via Bb/D (III6) and F (VII)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Darkens back into G minor with imitative bass steps and D7 cadence."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Balances i6 (Gm/Bb) and iv against a final D7 -> Gm closing."
+        }
+      ],
+      "practice_steps": [
+        "1. Check both Bb and Eb on the keys before playing; keep fingertips close to the black keys.",
+        "2. Play LH independently as an expressive bass melody, especially Bars 5-8.",
+        "3. Listen for how natural F in Phrase B becomes raised F# again in Phrase C.",
+        "4. Aim for refined minuet balance at 96 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "G Minor's Twin Poles: Tonic (Gm) & Relative Major (Bb)",
+          "caption": "Gm -> D7 -> Gm -> F -> Bb -> D7 -> Gm",
+          "chords": [
+            "Gm",
+            "D7",
+            "Gm",
+            "F",
+            "Bb",
+            "D7",
+            "Gm"
+          ]
+        }
+      ]
     }
   },
   "measures": [

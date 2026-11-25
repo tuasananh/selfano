@@ -18,7 +18,48 @@
       "summary": "Romantic phrasing etude in C Major balancing smooth 8th-note scalar runs against gentle off-beat chords.",
       "pattern_tip": "Hear each 2-bar arch as one breath: rising C-major scale fragment into a warm cadence.",
       "technique_tip": "Taper the final quarter note of each slur softly so phrases breathe naturally.",
-      "ballade_link": "Builds singing Romantic legato and delicate accompaniment balance."
+      "ballade_link": "Builds singing Romantic legato and delicate accompaniment balance.",
+      "concept_title": "Cantabile Romantic Slurs & Gentle Harmonic Breathing",
+      "concept_paragraphs": [
+        "Burgmuller's La Candeur ('Candor') marks your transition from Baroque articulation into true 19th-century Romantic phrasing. Notice how rising 8th-note arcs resolve into tapered quarter-note endings\u2014imagine inhaling across the 8ths and sighing gently on the cadence.",
+        "Phrase C introduces D7 (V7/V) to lift the middle section warmly toward G Major before returning smoothly home."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Innocent rising C-major arches floating over G7/B (V6/5) to Half Cadence G."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Answers gently with ii6 (Dm/F) -> G7 -> C Authentic Cadence."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Middle lyrical excursion coloring G Major with borrowed D7 (V7/V)."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Sweet, unhurried return to C Major home key."
+        }
+      ],
+      "practice_steps": [
+        "1. Shape every 2-bar RH slur by growing slightly toward the peak and tapering off the final note.",
+        "2. Keep the LH chords feather-quiet, touching keys softly rather than jabbing.",
+        "3. Listen for the smooth ii6 (Dm/F) -> V7 -> I bass movement in Bar 7-8.",
+        "4. Play effortlessly with singing tone up to 100 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Predominant ii6 Smooth Bass Cadence",
+          "caption": "C -> Dm/F (ii6) -> G7 -> C",
+          "chords": [
+            "C",
+            "Dm/F",
+            "G7",
+            "C"
+          ]
+        }
+      ]
     }
   },
   "measures": [

@@ -1,6 +1,6 @@
 # Phase 12: Music Theory Reading Layer, Tier Guides & Clickable Glossary
 
-**Status:** `[ ] Planned` (Depends on Phase 11)  
+**Status:** `[x] Complete` (Depends on Phase 11)  
 **Goal:** Give self-taught learners genuine, plain-English music theory text *before* they touch the keys—structured Lesson Briefs with playable "Hear & Compare" snippets, 6 Tier Chapter Guides, and clickable Roman-numeral Theory Popovers directly on the Grand Staff.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `music-notation-imgui`, `verification-and-review`

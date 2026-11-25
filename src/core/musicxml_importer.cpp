@@ -1049,15 +1049,16 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   build_phrases_from_breaks(ctx.phrase_break_bars, score);
 
   score.meta.id = generate_imported_lesson_id(score.meta.title, score.measures.size(), xml_text);
-  score.meta.theory = TheoryLens{
-      .summary = std::format("Imported MusicXML study in {} ({}/{}, {} bars).",
-                             format_key_name(score.meta.key), score.meta.time_signature.numerator,
-                             score.meta.time_signature.denominator, score.measures.size()),
-      .pattern_tip =
-          "Practice in 4-to-8 bar phrase chunks using Wait-for-Note before Steady Pulse.",
-      .technique_tip = "Isolate Left Hand and Right Hand separately at 60% tempo, then combine.",
-      .ballade_link = "Imported My Books repertoire integrated with Selfano's Tempo Ladder & SRS.",
-  };
+  score.meta.theory.summary =
+      std::format("Imported MusicXML study in {} ({}/{}, {} bars).",
+                  format_key_name(score.meta.key), score.meta.time_signature.numerator,
+                  score.meta.time_signature.denominator, score.measures.size());
+  score.meta.theory.pattern_tip =
+      "Practice in 4-to-8 bar phrase chunks using Wait-for-Note before Steady Pulse.";
+  score.meta.theory.technique_tip =
+      "Isolate Left Hand and Right Hand separately at 60% tempo, then combine.";
+  score.meta.theory.ballade_link =
+      "Imported My Books repertoire integrated with Selfano's Tempo Ladder & SRS.";
 
   if (const auto valid = validate_lesson_score(score); !valid.has_value()) {
     return std::unexpected(

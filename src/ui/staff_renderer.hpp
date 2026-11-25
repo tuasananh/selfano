@@ -4,6 +4,9 @@
 #include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
 
+#include "imgui.h"
+
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -12,7 +15,6 @@
 
 struct ImDrawList;
 struct ImFont;
-struct ImVec2;
 
 namespace selfano::ui {
 
@@ -70,6 +72,14 @@ struct StaffHarmonicLabel {
   std::string roman_numeral;
 };
 
+struct StaffHarmonicHitbox {
+  ImVec2 min{};
+  ImVec2 max{};
+  std::string chord_symbol;
+  std::string roman_numeral;
+  std::size_t measure_index{0};
+};
+
 struct StaffMeasure {
   std::vector<StaffChord> chords;
   float beats_per_measure{4.0f};
@@ -104,6 +114,7 @@ struct StaffRenderOptions {
 
 void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, ImVec2 origin,
                   float width, std::span<const StaffMeasure> measures,
-                  const StaffRenderOptions& options);
+                  const StaffRenderOptions& options,
+                  std::vector<StaffHarmonicHitbox>* out_harmony_hitboxes = nullptr);
 
 } // namespace selfano::ui

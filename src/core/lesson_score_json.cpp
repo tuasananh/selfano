@@ -236,6 +236,36 @@ using json = nlohmann::json;
 
 std::string lesson_score_to_json(const LessonScore& score) {
   json j;
+  json theory_json{
+      {"summary", score.meta.theory.summary},
+      {"pattern_tip", score.meta.theory.pattern_tip},
+      {"technique_tip", score.meta.theory.technique_tip},
+      {"ballade_link", score.meta.theory.ballade_link},
+  };
+  if (!score.meta.theory.concept_title.empty()) {
+    theory_json["concept_title"] = score.meta.theory.concept_title;
+  }
+  if (!score.meta.theory.concept_paragraphs.empty()) {
+    theory_json["concept_paragraphs"] = score.meta.theory.concept_paragraphs;
+  }
+  if (!score.meta.theory.form_map.empty()) {
+    json fm_arr = json::array();
+    for (const auto& fn : score.meta.theory.form_map) {
+      fm_arr.push_back({{"phrase_label", fn.phrase_label}, {"role", fn.role}});
+    }
+    theory_json["form_map"] = std::move(fm_arr);
+  }
+  if (!score.meta.theory.practice_steps.empty()) {
+    theory_json["practice_steps"] = score.meta.theory.practice_steps;
+  }
+  if (!score.meta.theory.audio_examples.empty()) {
+    json ex_arr = json::array();
+    for (const auto& ex : score.meta.theory.audio_examples) {
+      ex_arr.push_back({{"label", ex.label}, {"caption", ex.caption}, {"chords", ex.chords}});
+    }
+    theory_json["audio_examples"] = std::move(ex_arr);
+  }
+
   j["meta"] = {
       {"id", score.meta.id},
       {"tier", score.meta.tier},
@@ -249,11 +279,7 @@ std::string lesson_score_to_json(const LessonScore& score) {
        {{"numerator", score.meta.time_signature.numerator},
         {"denominator", score.meta.time_signature.denominator}}},
       {"target_bpm", score.meta.target_bpm},
-      {"theory",
-       {{"summary", score.meta.theory.summary},
-        {"pattern_tip", score.meta.theory.pattern_tip},
-        {"technique_tip", score.meta.theory.technique_tip},
-        {"ballade_link", score.meta.theory.ballade_link}}},
+      {"theory", std::move(theory_json)},
       {"is_imported", score.meta.is_imported},
       {"source_filename", score.meta.source_filename},
   };
@@ -377,6 +403,93 @@ std::expected<LessonScore, std::string> lesson_score_from_json(std::string_view 
     }
     if (th.contains("ballade_link") && th.at("ballade_link").is_string()) {
       out.meta.theory.ballade_link = th.at("ballade_link").get<std::string>();
+    }
+    if (th.contains("concept_title")) {
+      if (!th.at("concept_title").is_string()) {
+        return std::unexpected("Theory 'concept_title' must be a string");
+      }
+      out.meta.theory.concept_title = th.at("concept_title").get<std::string>();
+    }
+    if (th.contains("concept_paragraphs")) {
+      if (!th.at("concept_paragraphs").is_array()) {
+        return std::unexpected("Theory 'concept_paragraphs' must be an array");
+      }
+      for (const auto& p : th.at("concept_paragraphs")) {
+        if (!p.is_string()) {
+          return std::unexpected("Theory 'concept_paragraphs' entry must be a string");
+        }
+        out.meta.theory.concept_paragraphs.push_back(p.get<std::string>());
+      }
+    }
+    if (th.contains("form_map")) {
+      if (!th.at("form_map").is_array()) {
+        return std::unexpected("Theory 'form_map' must be an array");
+      }
+      for (const auto& fj : th.at("form_map")) {
+        if (!fj.is_object()) {
+          return std::unexpected("Theory 'form_map' entry must be an object");
+        }
+        PhraseFormNote fn{};
+        if (fj.contains("phrase_label")) {
+          if (!fj.at("phrase_label").is_string()) {
+            return std::unexpected("Theory form_map 'phrase_label' must be a string");
+          }
+          fn.phrase_label = fj.at("phrase_label").get<std::string>();
+        }
+        if (fj.contains("role")) {
+          if (!fj.at("role").is_string()) {
+            return std::unexpected("Theory form_map 'role' must be a string");
+          }
+          fn.role = fj.at("role").get<std::string>();
+        }
+        out.meta.theory.form_map.push_back(std::move(fn));
+      }
+    }
+    if (th.contains("practice_steps")) {
+      if (!th.at("practice_steps").is_array()) {
+        return std::unexpected("Theory 'practice_steps' must be an array");
+      }
+      for (const auto& st : th.at("practice_steps")) {
+        if (!st.is_string()) {
+          return std::unexpected("Theory 'practice_steps' entry must be a string");
+        }
+        out.meta.theory.practice_steps.push_back(st.get<std::string>());
+      }
+    }
+    if (th.contains("audio_examples")) {
+      if (!th.at("audio_examples").is_array()) {
+        return std::unexpected("Theory 'audio_examples' must be an array");
+      }
+      for (const auto& ej : th.at("audio_examples")) {
+        if (!ej.is_object()) {
+          return std::unexpected("Theory 'audio_examples' entry must be an object");
+        }
+        TheoryAudioExample ex{};
+        if (ej.contains("label")) {
+          if (!ej.at("label").is_string()) {
+            return std::unexpected("Theory audio_examples 'label' must be a string");
+          }
+          ex.label = ej.at("label").get<std::string>();
+        }
+        if (ej.contains("caption")) {
+          if (!ej.at("caption").is_string()) {
+            return std::unexpected("Theory audio_examples 'caption' must be a string");
+          }
+          ex.caption = ej.at("caption").get<std::string>();
+        }
+        if (ej.contains("chords")) {
+          if (!ej.at("chords").is_array()) {
+            return std::unexpected("Theory audio_examples 'chords' must be an array");
+          }
+          for (const auto& cj : ej.at("chords")) {
+            if (!cj.is_string()) {
+              return std::unexpected("Theory audio_examples 'chords' entry must be a string");
+            }
+            ex.chords.push_back(cj.get<std::string>());
+          }
+        }
+        out.meta.theory.audio_examples.push_back(std::move(ex));
+      }
     }
   }
 

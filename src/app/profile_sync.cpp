@@ -244,7 +244,7 @@ void AppController::enter_stage3_autopilot_block(std::int64_t today_epoch_day, d
   if (stage3_plan_.has_revision) {
     if (const auto* rev = lesson_library_.find_lesson(stage3_plan_.revision_lesson_id);
         rev != nullptr) {
-      lesson_view_.load_lesson(*rev);
+      lesson_view_.load_lesson(*rev, true);
       lesson_view_.set_revision_context(true, rev->meta.id);
       stage3_revision_active_ = true;
       show_hud_toast("Stage 3A: Guided Revision (" + rev->meta.title + ")", now_ms);

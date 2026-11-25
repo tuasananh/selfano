@@ -219,6 +219,7 @@ std::string to_json_string(const UserProfile& profile) {
         {"review_repetitions", lp.review_repetitions},
         {"review_due_epoch_day", lp.review_due_epoch_day},
         {"last_practiced_epoch_day", lp.last_practiced_epoch_day},
+        {"brief_read", lp.brief_read},
     };
   }
   j["lesson_progress"] = std::move(lp_obj);
@@ -402,7 +403,8 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
           !read_double_field(val, "review_ease_factor", lp.review_ease_factor, err) ||
           !read_int_field(val, "review_repetitions", lp.review_repetitions, err) ||
           !read_int_field(val, "review_due_epoch_day", lp.review_due_epoch_day, err) ||
-          !read_int_field(val, "last_practiced_epoch_day", lp.last_practiced_epoch_day, err)) {
+          !read_int_field(val, "last_practiced_epoch_day", lp.last_practiced_epoch_day, err) ||
+          !read_bool_field(val, "brief_read", lp.brief_read, err)) {
         return std::unexpected(err);
       }
       st_int = std::clamp(st_int, 0, 3);

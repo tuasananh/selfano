@@ -18,7 +18,50 @@
       "summary": "Stormy C-minor 6/8 narrative etude combining a driving compound bass pulse with dramatic melodic leaps.",
       "pattern_tip": "Feel 6/8 in two urgent dotted-quarter beats per bar; watch for B-natural leading tones and Ab -> G half-steps.",
       "technique_tip": "Keep the repeated left-hand 8th-note chords close to the keys with a firm rhythmic pulse.",
-      "ballade_link": "Directly anticipates Romantic ballad storytelling and 6/8 dramatic minor-key agitation."
+      "ballade_link": "Directly anticipates Romantic ballad storytelling and 6/8 dramatic minor-key agitation.",
+      "concept_title": "Stormy 6/8 Dramatic Drive & Relative-Major Relief (Eb)",
+      "concept_paragraphs": [
+        "Burgmuller's Ballade in C minor packs theatrical Romantic urgency into a crisp 6/8 pulse: pulsing repeated LH chords propel dramatic RH leaps and urgent half-step sighs (Ab -> G).",
+        "In Phrase C (Bars 9-12), notice how Bb7 (V7/III) tears open the storm clouds into noble Eb Major before G7 snaps the drama back to C minor\u2014exact preparation for Chopin's narrative contrasts."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Restless C-minor opening surging through Fm (iv) and G7 back to i."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Intensifies toward an open Dominant G / G7 Half Cadence."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Dramatic relief into Relative Major Eb (III) via Ab and Bb7 (V7/III)."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Stormy return closing forcefully onto C minor."
+        }
+      ],
+      "practice_steps": [
+        "1. Keep LH repeated 8th-note chords close to the keys with flexible wrist rebound.",
+        "2. Feel two urgent dotted-quarter pulses per 6/8 bar ('ONE-two-three, FOUR-five-six').",
+        "3. Spot the B-natural leading tone in G7 vs. Bb in Phrase C's Eb-major passage.",
+        "4. Build fiery rhythmic control safely from 60% up to 72 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Storm vs. Sanctuary (Cm -> Ab -> Bb7 -> Eb -> G7 -> Cm)",
+          "caption": "Watch Bb7 open into Eb before G7 pulls back to C minor",
+          "chords": [
+            "Cm",
+            "Ab",
+            "Bb7",
+            "Eb",
+            "G7",
+            "Cm"
+          ]
+        }
+      ]
     }
   },
   "measures": [

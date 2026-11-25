@@ -18,7 +18,52 @@
       "summary": "Classic Chopin waltz pairing a leaping bass-chord-chord left hand with a lyrical circle-of-fifths A-minor melody.",
       "pattern_tip": "Hear the textbook minor circle of fifths in Bars 1-8: Am -> Dm -> G -> C -> F -> Bm7b5 -> E7 -> Am.",
       "technique_tip": "Land the left-hand bass note on beat 1 with relaxed arm weight and brush beats 2-3 softly.",
-      "ballade_link": "Builds Chopin waltz pedal-and-leap agility and minor circle-of-fifths pattern recognition."
+      "ballade_link": "Builds Chopin waltz pedal-and-leap agility and minor circle-of-fifths pattern recognition.",
+      "concept_title": "Minor Circle of Fifths & Graceful Waltz Leaps",
+      "concept_paragraphs": [
+        "Opening with an expressive two-eighth pickup, Chopin's posthumous A-minor Waltz hides the cleanest harmonic textbook progression you'll ever memorize: a full minor Circle of Fifths in Bars 1-8 (Am -> Dm -> G7 -> C -> F -> Dm/B -> E7 -> Am).",
+        "Once you hear roots tumbling in fifths every bar, the melody sings effortlessly while your Left Hand learns smooth wrist-arc jumps from beat 1's bass root up to beats 2-3."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Pickup - Bar 4)",
+          "role": "Upbeat motif launching the descending 5th chain: Am -> Dm -> G7 (VII7)."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Completes the circle through C (III) -> F (VI) -> Dm/B (ii6) -> E7 -> Am."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Lyrical restatement singing cleanly over tonic-subdominant-dominant chords."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Graceful closing phrase settling decisively onto A minor."
+        }
+      ],
+      "practice_steps": [
+        "1. Lock in the Circle of Fifths bass roots (A - D - G - C - F - B - E - A) before speeding up.",
+        "2. Keep LH beat-1 bass warm and beats 2-3 light as a feather.",
+        "3. Breathe naturally on the opening beat-3 pickup into Measure 1.",
+        "4. Build effortless waltz sweep up to 116 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Full A-Minor Circle of Fifths (i - iv - VII7 - III - VI - ii6 - V7 - i)",
+          "caption": "Am -> Dm -> G7 -> C -> F -> Dm/B -> E7 -> Am",
+          "chords": [
+            "Am",
+            "Dm",
+            "G7",
+            "C",
+            "F",
+            "Dm/B",
+            "E7",
+            "Am"
+          ]
+        }
+      ]
     }
   },
   "measures": [

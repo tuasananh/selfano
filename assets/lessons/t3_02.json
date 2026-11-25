@@ -18,7 +18,58 @@
       "summary": "Crisp 2/4 Baroque musette in D Major contrasting an octave drone bass with agile right-hand leaps.",
       "pattern_tip": "Anchor the left-hand D2-D3 octave bounce on autopilot while your right hand outlines D major (D-F#-A) and A7 (A-C#-E).",
       "technique_tip": "Keep the 8th-note drone light and buoyant; let the top notes of the right-hand leaps ring clearly.",
-      "ballade_link": "Develops 2/4 rhythmic precision and clean hand-independence over repeating bass pedals."
+      "ballade_link": "Develops 2/4 rhythmic precision and clean hand-independence over repeating bass pedals.",
+      "concept_title": "Drone Pedal Basses, IV6/4 & Applied V7/V Color",
+      "concept_paragraphs": [
+        "A Baroque Musette imitates a folk bagpipe by holding a steady octave drone on the tonic note D2-D3 beneath playful, leaping melodies in 2/4 time. Even as the Right Hand moves through G (IV6/4) and A7 (V4/2), that stubborn D stays ringing in the bass.",
+        "In Phrase C (Bars 9-12), the piece pivots temporarily up into Dominant A Major using E7 (V7/V) with its expressive G# accidental before skipping home."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Bagpipe D-octave drone anchoring pedal harmonies (IV6/4, V4/2) under RH leaps."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Echoes and closes the A section cleanly on D Major (I)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "B-section contrast introducing G# (E7 = V7/V) to emphasize Dominant A Major."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Brisk return to D Major closing with bright Musette energy."
+        }
+      ],
+      "practice_steps": [
+        "1. Let the LH D-octave drone feel bounce-light with zero wrist stiffness.",
+        "2. Highlight the top melody notes of the RH broken-interval leaps.",
+        "3. Watch for the G# accidental in Phrase C (E7 -> A) before returning to natural G.",
+        "4. Maintain crisp 2/4 pulse up to 96 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Bagpipe Pedal Chords over Stationary Bass D",
+          "caption": "D -> G/D (IV6/4) -> A7/D (V4/2) -> D",
+          "chords": [
+            "D",
+            "G/D",
+            "A7/D",
+            "D"
+          ]
+        },
+        {
+          "label": "Bright Shift to A via E7 (V7/V)",
+          "caption": "D -> E7 -> A -> D",
+          "chords": [
+            "D",
+            "E7",
+            "A",
+            "D"
+          ]
+        }
+      ]
     }
   },
   "measures": [

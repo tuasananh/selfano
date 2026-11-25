@@ -398,7 +398,8 @@ float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept {
 
 void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, ImVec2 origin,
                   float width, std::span<const StaffMeasure> measures,
-                  const StaffRenderOptions& options) {
+                  const StaffRenderOptions& options,
+                  std::vector<StaffHarmonicHitbox>* out_harmony_hitboxes) {
   if (draw_list == nullptr || smufl_font == nullptr || width <= 40.0f) {
     return;
   }
@@ -662,17 +663,51 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
     // 5b. Harmonic labels (Chord symbol + Roman numeral) above Treble staff
     if (options.show_harmony_labels && ann_font != nullptr) {
+      const bool popup_open = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);
+      const ImVec2 mouse_pos = ImGui::GetMousePos();
       for (const auto& hl : measure.harmony_labels) {
         const float frac = std::clamp(hl.beat_offset / measure_beats, 0.0f, 1.0f);
-        const float hx = inner_m_x0 + pad_left + frac * usable_w;
+        const float hx = std::round(inner_m_x0 + pad_left + frac * usable_w);
+        const ImVec2 chord_sz =
+            hl.chord_symbol.empty()
+                ? ImVec2(0.0f, 0.0f)
+                : ann_font->CalcTextSizeA(chord_sz_px, FLT_MAX, 0.0f, hl.chord_symbol.c_str());
+        const ImVec2 roman_sz =
+            (hl.roman_numeral.empty() || roman_font == nullptr)
+                ? ImVec2(0.0f, 0.0f)
+                : roman_font->CalcTextSizeA(roman_sz_px, FLT_MAX, 0.0f, hl.roman_numeral.c_str());
+        const float max_w = std::max(std::max(chord_sz.x, roman_sz.x), 14.0f);
+        const ImVec2 box_min(hx - 4.0f, std::round(chord_top_y) - 2.0f);
+        const ImVec2 box_max(hx + max_w + 4.0f, std::round(roman_top_y + roman_sz_px) + 3.0f);
+        if (out_harmony_hitboxes != nullptr &&
+            (!hl.roman_numeral.empty() || !hl.chord_symbol.empty())) {
+          const bool hovered = !popup_open && mouse_pos.x >= box_min.x &&
+                               mouse_pos.x <= box_max.x && mouse_pos.y >= box_min.y &&
+                               mouse_pos.y <= box_max.y;
+          if (hovered) {
+            draw_list->AddRectFilled(box_min, box_max, with_alpha(colors().accent, 0.16f), 5.0f);
+          }
+          out_harmony_hitboxes->push_back(StaffHarmonicHitbox{
+              .min = box_min,
+              .max = box_max,
+              .chord_symbol = hl.chord_symbol,
+              .roman_numeral = hl.roman_numeral,
+              .measure_index = m,
+          });
+        }
         if (!hl.chord_symbol.empty()) {
-          draw_list->AddText(ann_font, chord_sz_px, ImVec2(std::round(hx), std::round(chord_top_y)),
+          draw_list->AddText(ann_font, chord_sz_px, ImVec2(hx, std::round(chord_top_y)),
                              pal.harmony_chord, hl.chord_symbol.c_str());
         }
         if (!hl.roman_numeral.empty() && roman_font != nullptr) {
-          draw_list->AddText(roman_font, roman_sz_px,
-                             ImVec2(std::round(hx), std::round(roman_top_y)), pal.annotation,
+          const float ry = std::round(roman_top_y);
+          draw_list->AddText(roman_font, roman_sz_px, ImVec2(hx, ry), pal.annotation,
                              hl.roman_numeral.c_str());
+          if (out_harmony_hitboxes != nullptr) {
+            const float uy = ry + roman_sz_px + 1.0f;
+            draw_list->AddLine(ImVec2(hx, uy), ImVec2(hx + roman_sz.x, uy),
+                               detail::apply_alpha_scale(pal.harmony_chord, 0.48f), 1.0f);
+          }
         }
       }
     }

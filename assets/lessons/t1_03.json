@@ -18,7 +18,50 @@
       "summary": "Lyrical A-minor cantabile study introducing the expressive iv and raised G# leading-tone dominant V.",
       "pattern_tip": "Hear the half-step pull from G#4 up to A4 at the cadences (Bars 4 and 8).",
       "technique_tip": "Transfer arm weight smoothly from finger to finger for a singing legato line.",
-      "ballade_link": "Develops cantabile minor-mode tone production central to Chopin's G-minor melodies."
+      "ballade_link": "Develops cantabile minor-mode tone production central to Chopin's G-minor melodies.",
+      "concept_title": "A Minor Songfulness & the Raised Leading Tone (G#)",
+      "concept_paragraphs": [
+        "Why does minor mode sound tender yet dramatic? Natural minor uses all white keys from A to A, giving a wistful, modal atmosphere. To give the cadence strong magnetic pull back home to A, classical composers raise the 7th note from G natural up to G#.",
+        "That accidental G# turns the minor five-chord (Em) into a bright Major Dominant (E or E7), creating the irresistible half-step resolve from G#4 to A4."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Sorrowful sigh from A minor (i) to D minor (iv), leaning onto raised-G# Dominant (E)."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Expanded melodic arch climbing smoothly before resolving through E7 back to Am."
+        }
+      ],
+      "practice_steps": [
+        "1. Hear the difference between white-key Em and raised-G# E7 in Wait-for-Note.",
+        "2. Play RH alone first, shaping each slurred phrase with smooth forearm weight transfer.",
+        "3. Add LH roots cleanly underneath, listening closely to the iv -> V7 -> i minor cadence.",
+        "4. Polish legato tone at 76 BPM without letting the pinky collapse."
+      ],
+      "audio_examples": [
+        {
+          "label": "Minor Subdominant & Raised Leading-Tone Cadence",
+          "caption": "Am -> Dm -> E7 -> Am (hear the G# -> A pull)",
+          "chords": [
+            "Am",
+            "Dm",
+            "E7",
+            "Am"
+          ]
+        },
+        {
+          "label": "Natural Em vs. Harmonic E7 Dominant",
+          "caption": "Am -> Em -> Am vs. Am -> E7 -> Am",
+          "chords": [
+            "Am",
+            "Em",
+            "E7",
+            "Am"
+          ]
+        }
+      ]
     }
   },
   "measures": [

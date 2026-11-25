@@ -35,6 +35,9 @@ struct CliOptions {
   std::optional<ui::AppTheme> theme_override;
   bool open_keymap{false};
   bool force_key_hints{false};
+  std::optional<bool> lesson_learn_tab;
+  std::optional<std::uint8_t> open_chapter_guide_tier;
+  std::optional<std::size_t> open_theory_popover_index;
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

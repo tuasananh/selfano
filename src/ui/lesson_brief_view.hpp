@@ -1,0 +1,18 @@
+#pragma once
+
+#include "core/lesson_engine.hpp"
+#include "core/lesson_score.hpp"
+
+#include <vector>
+
+namespace selfano::ui {
+
+struct LessonBriefActions {
+  bool start_practicing{false};
+  std::vector<core::LessonPlaybackNote> preview_playback_notes;
+};
+
+[[nodiscard]] LessonBriefActions draw_lesson_brief(const core::LessonScore& score,
+                                                   const core::LessonProgress& prog);
+
+} // namespace selfano::ui

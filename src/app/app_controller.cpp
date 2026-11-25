@@ -562,6 +562,17 @@ bool AppController::init(const CliOptions& cli_opts) {
   if (!cli_.lesson_id_override.empty()) {
     (void)select_active_lesson(cli_.lesson_id_override, prev_now_ms_, false);
   }
+  if (cli_.lesson_learn_tab.has_value()) {
+    lesson_view_.set_active_tab(*cli_.lesson_learn_tab ? ui::LessonViewTab::Learn
+                                                       : ui::LessonViewTab::Practice);
+  }
+  if (cli_.open_chapter_guide_tier.has_value()) {
+    lesson_view_.open_chapter_guide(*cli_.open_chapter_guide_tier);
+  }
+  if (cli_.open_theory_popover_index.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.request_open_theory_popover_index(*cli_.open_theory_popover_index);
+  }
 
   if (cli_.initial_mode == AppMode::Autopilot) {
     start_autopilot_session(prev_now_ms_);
@@ -837,6 +848,20 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
         send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
       }
       lesson_view_.build_demo_playback(now_ms, pending_playback_);
+    }
+    if (!lv_act.preview_playback_notes.empty()) {
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
+      for (const auto& n : lv_act.preview_playback_notes) {
+        pending_playback_.push_back(midi::ScheduledMidiNote{
+            .note = n.midi,
+            .velocity = n.velocity,
+            .start_ms = now_ms + n.start_ms,
+            .duration_ms = n.duration_ms,
+            .channel = n.channel,
+        });
+      }
     }
     if (lv_act.select_lesson_id.has_value()) {
       lesson_view_.set_revision_context(false);

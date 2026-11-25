@@ -18,7 +18,53 @@
       "summary": "Introduces the G-major key signature (F#) and graceful 3/4 waltz accompaniment (ONE-two-three).",
       "pattern_tip": "Every F in this score is F# automatically from the key signature\u2014spot the F#4 leading tone resolving to G4.",
       "technique_tip": "Keep beat 1 resonant in the left hand and beats 2-3 lighter for an authentic waltz lilt.",
-      "ballade_link": "Trains triple-meter weight balance foundational for 3/4 waltzes and 6/4 barcarolle phrasing."
+      "ballade_link": "Trains triple-meter weight balance foundational for 3/4 waltzes and 6/4 barcarolle phrasing.",
+      "concept_title": "Key Signatures (First Sharp F#) & The 3/4 Waltz Lilt",
+      "concept_paragraphs": [
+        "Once a piece lives in G Major, one sharp (F#) sits right at the clef so the score doesn't clutter every bar with accidentals. Train your eye to treat every F\u2014high or low\u2014as F# automatically.",
+        "In 3/4 waltz meter, feel each bar as one gentle pendulum swing: ONE (warm Left-Hand root) - two - three (lighter Right-Hand / inner response). Also spot V6/5 (D7/F#), putting F# right in the bass so it steps half-step upward into G!"
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Graceful waltz opening rising from G (I) past D7/F# (V6/5) back to G."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Moves cleanly to Subdominant C (IV) and pauses openly on a D Half Cadence (V)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Recapitulates the theme through C and D7 for a poised G-major ending."
+        }
+      ],
+      "practice_steps": [
+        "1. Trace all F# keys on the keyboard before starting\u2014never play F natural here!",
+        "2. Practice RH waltz tune alone feeling beat 1's natural downbeat lean.",
+        "3. Add LH chordal accompaniment softly so beats 2-3 never overpower beat 1.",
+        "4. Run Steady Pulse at 60%, 80%, then 100% (88 BPM)."
+      ],
+      "audio_examples": [
+        {
+          "label": "Why V6/5 Loves Stepping to I (G - D7/F# - G)",
+          "caption": "Notice the smooth bass line G -> F# -> G",
+          "chords": [
+            "G",
+            "D7/F#",
+            "G"
+          ]
+        },
+        {
+          "label": "Three-Chord G-Major Waltz Cadence",
+          "caption": "G -> C -> D7 -> G",
+          "chords": [
+            "G",
+            "C",
+            "D7",
+            "G"
+          ]
+        }
+      ]
     }
   },
   "measures": [

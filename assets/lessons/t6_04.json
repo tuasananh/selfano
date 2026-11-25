@@ -18,7 +18,60 @@
       "summary": "Trains the iconic 6/4 barcarolle-waltz accompaniment and singing G-minor melody of Ballade No. 1.",
       "pattern_tip": "Hear each 6/4 bar as two graceful three-beat groups: bass on beat 1, warm inner chord on beat 2, breath on beat 3.",
       "technique_tip": "Keep the left hand light and buoyant on the bass-to-chord leaps so the right-hand cantabile melody floats above.",
-      "ballade_link": "Direct rhythmic, harmonic (i -> iv -> V7/V -> V7 -> bII6 -> i6/4 -> V7 -> i), and textural bridge to Op. 23 mm. 8-23."
+      "ballade_link": "Direct rhythmic, harmonic (i -> iv -> V7/V -> V7 -> bII6 -> i6/4 -> V7 -> i), and textural bridge to Op. 23 mm. 8-23.",
+      "concept_title": "6/4 Barcarolle Lilt & Synthesis of Op. 23 Harmony",
+      "concept_paragraphs": [
+        "Welcome to the summit of Selfano's curriculum! Here the opening Moderato of Ballade No. 1 unites everything you built across Tiers 1-6: the G-minor key signature (Tier 3), wide bass-to-chord leaps (Tier 2/5), secondary V7/V & V7/VI modulations (Tier 4), and the tragic bII6 -> i6/4 -> V7 -> i finale (Tier 6).",
+        "Feel the 6/4 meter not as six heavy beats, but as two three-beat barcarolle sighs per bar: rich bass root on beat 1, warm mid chord on beat 2, and weightless breath on beat 3."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Singing Moderato opening gently alternating Tonic Gm (i) and Dominant D7 (V7)."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Climbs through Cm (iv) and bright A7 (V7/V) into heartfelt D7 resolution."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Opens into warm Eb (VI) and Bb (III) via F7 (V7/VI) before darkening again."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Summits through the Neapolitan Ab/C (bII6) -> Gm/D (i6/4) -> D7 -> Gm cadence."
+        }
+      ],
+      "practice_steps": [
+        "1. Map the 16-bar harmony first in Chord Skeleton mode, spotting A7 (Bar 6) and Ab/C (Bar 14).",
+        "2. Keep LH 6/4 accompaniment undulating smoothly\u2014beat 1 anchors, beat 2 cushions, beat 3 breathes.",
+        "3. Play the RH melody alone singing out every half-step sigh before combining hands.",
+        "4. Progress calmly from 60% through 80% up to 96 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Op. 23 Grand Cadential Arc (Phrase D)",
+          "caption": "Gm -> Ab/C (bII6) -> Gm/D (i6/4) -> D7 -> Gm",
+          "chords": [
+            "Gm",
+            "Ab/C",
+            "Gm/D",
+            "D7",
+            "Gm"
+          ]
+        },
+        {
+          "label": "Phrase C Warm Modulation to Bb via F7",
+          "caption": "Eb -> F7 (V7/VI) -> Bb -> Cm7 -> Gm",
+          "chords": [
+            "Eb",
+            "F7",
+            "Bb",
+            "Cm7",
+            "Gm"
+          ]
+        }
+      ]
     }
   },
   "measures": [

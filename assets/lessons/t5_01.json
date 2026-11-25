@@ -18,7 +18,50 @@
       "summary": "Complete 16-bar Chopin prelude in A Major (3 sharps) opening with an authentic quarter-note pickup (anacrusis) into mazurka-like 2-bar arches and a luminous F#7 (V7/ii) climax.",
       "pattern_tip": "Feel the beat-3 pickup breathe into beat 1 of each odd measure: Bars 1-4 (E7 -> A), Bars 5-8 (E7 -> A), peaking at F#7 (V7/ii) in Bars 11-12.",
       "technique_tip": "Voice the top soprano note of every right-hand chord while keeping the left-hand leaps light and pedal-supported.",
-      "ballade_link": "Trains Chopin's wide left-hand stride, three-sharp reading, and secondary-dominant voicing."
+      "ballade_link": "Trains Chopin's wide left-hand stride, three-sharp reading, and secondary-dominant voicing.",
+      "concept_title": "Anacrusis Pickup Breathing & Romantic Chord Voicing in A Major",
+      "concept_paragraphs": [
+        "Chopin's beloved Prelude Op. 28 No. 7 opens not on beat 1, but on an unhurried quarter-note pickup (anacrusis) on beat 3\u2014just like taking a gentle breath before speaking. Each two-bar phrase follows that exact rhythmic lilt (beat 3 -> bar 1 -> beat 1 of bar 2).",
+        "Across Bars 11-12, notice the radiant emotional climax: F#7 (V7/ii, with an expressive A#) swells into Bm (ii) before relaxing tenderly home to A Major."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Pickup - Bar 4)",
+          "role": "Luminous E7 dominant sigh resolving warmly onto A Major (I) over gentle stride chords."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Repeated mazurka-like arch deepening harmonic tenderness."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Climactic turn via bright F#7 (V7/ii, A#) blooming onto B minor (ii)."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Delicate E7 -> A echo fading gently into peace."
+        }
+      ],
+      "practice_steps": [
+        "1. Feel the pickup measure count-in ('1 - 2 - breath on 3!') before landing Bar 1.",
+        "2. Run Skeleton mode to map the LH bass-to-chord shifts and highlight the Bar 11 F#7 climax.",
+        "3. Voice the TOP melody note of every RH chord louder than the inner voices.",
+        "4. Play unhurried and singing at 84 BPM, letting beats 2-3 breathe naturally."
+      ],
+      "audio_examples": [
+        {
+          "label": "The Iconic F#7 (V7/ii) -> Bm Climax vs. Regular E7 -> A",
+          "caption": "E7 -> A | F#7 (A#!) -> Bm -> E7 -> A",
+          "chords": [
+            "E7",
+            "A",
+            "F#7",
+            "Bm",
+            "E7",
+            "A"
+          ]
+        }
+      ]
     }
   },
   "measures": [
