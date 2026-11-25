@@ -6,6 +6,7 @@
 #include <expected>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -25,6 +26,14 @@ class LessonLibrary {
 public:
   [[nodiscard]] std::expected<void, std::string>
   load_built_in_from_directory(const std::filesystem::path& dir);
+
+  [[nodiscard]] std::expected<void, std::string>
+  save_imported_lesson(const std::filesystem::path& lessons_dir, const LessonScore& score);
+  [[nodiscard]] std::vector<std::string>
+  load_imported_lessons_from_directory(const std::filesystem::path& lessons_dir,
+                                       std::span<const std::string> ids);
+  [[nodiscard]] std::expected<void, std::string>
+  delete_imported_lesson_file(const std::filesystem::path& lessons_dir, std::string_view id);
 
   void add_or_replace_lesson(LessonScore score);
   bool remove_lesson(std::string_view id);

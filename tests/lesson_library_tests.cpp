@@ -1,6 +1,7 @@
 #include "core/chord_symbol.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/lesson_library.hpp"
+#include "core/musicxml_importer.hpp"
 
 #include <array>
 #include <catch2/catch_test_macros.hpp>
@@ -8,6 +9,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 using namespace selfano::core;
 
@@ -97,4 +99,69 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
   }
   REQUIRE(hops == 27U);
   REQUIRE(cur == "t6_04");
+}
+
+TEST_CASE("LessonLibrary My Books CRUD saves, reloads, updates, and deletes imported lessons",
+          "[lesson_library]") {
+  const auto temp_dir =
+      std::filesystem::temp_directory_path() / "selfano_my_books_crud_test_lessons";
+  std::error_code ec;
+  std::filesystem::remove_all(temp_dir, ec);
+
+  constexpr const char* kXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>My Books Etude</work-title></work>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths><mode>major</mode></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  auto imp = import_musicxml_string(kXml);
+  REQUIRE(imp.has_value());
+  const std::string id = imp->score.meta.id;
+
+  LessonLibrary lib;
+  REQUIRE(lib.save_imported_lesson(temp_dir, imp->score).has_value());
+  REQUIRE(std::filesystem::exists(temp_dir / (id + ".json")));
+  REQUIRE(lib.imported_lessons().size() == 1U);
+
+  // Reload in fresh library instance
+  LessonLibrary reloaded;
+  const std::vector<std::string> ids{id, "missing_id"};
+  const auto loaded_ids = reloaded.load_imported_lessons_from_directory(temp_dir, ids);
+  REQUIRE(loaded_ids == std::vector<std::string>{id});
+  const auto* found = reloaded.find_lesson(id);
+  REQUIRE(found != nullptr);
+  REQUIRE(found->meta.title == "My Books Etude");
+
+  // Edit title, BPM, and bar harmony then re-save
+  LessonScore edited = *found;
+  edited.meta.title = "Edited Etude";
+  edited.meta.target_bpm = 104.0;
+  edited.measures[0].harmony.push_back(HarmonicAnnotation{0, "C", "I"});
+  REQUIRE(reloaded.save_imported_lesson(temp_dir, edited).has_value());
+
+  LessonLibrary reloaded2;
+  (void)reloaded2.load_imported_lessons_from_directory(temp_dir,
+                                                       std::span<const std::string>{&id, 1U});
+  const auto* found2 = reloaded2.find_lesson(id);
+  REQUIRE(found2 != nullptr);
+  REQUIRE(found2->meta.title == "Edited Etude");
+  REQUIRE(found2->meta.target_bpm == 104.0);
+  REQUIRE(found2->measures[0].harmony.size() == 1U);
+
+  // Delete removes file and entry
+  REQUIRE(reloaded2.delete_imported_lesson_file(temp_dir, id).has_value());
+  REQUIRE_FALSE(std::filesystem::exists(temp_dir / (id + ".json")));
+  REQUIRE(reloaded2.find_lesson(id) == nullptr);
+
+  std::filesystem::remove_all(temp_dir, ec);
 }

@@ -26,6 +26,14 @@ read_text_file(const std::filesystem::path& path) {
   return ss.str();
 }
 
+[[nodiscard]] bool is_safe_lesson_id(std::string_view id) noexcept {
+  if (id.empty() || id.find('/') != std::string_view::npos ||
+      id.find('\\') != std::string_view::npos || id.find("..") != std::string_view::npos) {
+    return false;
+  }
+  return true;
+}
+
 } // namespace
 
 std::expected<void, std::string>
@@ -111,6 +119,104 @@ LessonLibrary::load_built_in_from_directory(const std::filesystem::path& dir) {
   for (auto& imp : existing_imported) {
     lessons_.push_back(std::move(imp));
   }
+  return {};
+}
+
+std::expected<void, std::string>
+LessonLibrary::save_imported_lesson(const std::filesystem::path& lessons_dir,
+                                    const LessonScore& score) {
+  if (!is_safe_lesson_id(score.meta.id)) {
+    return std::unexpected("Invalid imported lesson id");
+  }
+  LessonScore normalized = score;
+  normalized.meta.is_imported = true;
+  normalized.meta.tier = 0U;
+  if (const auto valid = validate_lesson_score(normalized); !valid.has_value()) {
+    return std::unexpected(valid.error().front());
+  }
+
+  std::error_code ec;
+  if (!lessons_dir.empty()) {
+    std::filesystem::create_directories(lessons_dir, ec);
+    if (ec) {
+      return std::unexpected(
+          std::format("Failed creating directory {}: {}", lessons_dir.string(), ec.message()));
+    }
+  }
+
+  const auto target = lessons_dir / (normalized.meta.id + ".json");
+  const auto tmp = lessons_dir / (normalized.meta.id + ".json.tmp");
+  const std::string payload = lesson_score_to_json(normalized);
+  {
+    std::ofstream ofs(tmp, std::ios::out | std::ios::binary | std::ios::trunc);
+    if (!ofs.is_open()) {
+      return std::unexpected(std::format("Unable to open temp file {}", tmp.string()));
+    }
+    ofs.write(payload.data(), static_cast<std::streamsize>(payload.size()));
+    ofs.flush();
+    if (!ofs.good()) {
+      return std::unexpected(std::format("Failed writing {}", tmp.string()));
+    }
+  }
+
+  std::filesystem::rename(tmp, target, ec);
+  if (ec) {
+    std::filesystem::remove(tmp, ec);
+    return std::unexpected(std::format("Failed renaming {} to {}", tmp.string(), target.string()));
+  }
+
+  add_or_replace_lesson(std::move(normalized));
+  return {};
+}
+
+std::vector<std::string>
+LessonLibrary::load_imported_lessons_from_directory(const std::filesystem::path& lessons_dir,
+                                                    std::span<const std::string> ids) {
+  std::vector<std::string> loaded_ids;
+  std::error_code ec;
+  if (!std::filesystem::exists(lessons_dir, ec) || ec) {
+    return loaded_ids;
+  }
+
+  for (const auto& id : ids) {
+    if (!is_safe_lesson_id(id)) {
+      continue;
+    }
+    const auto path = lessons_dir / (id + ".json");
+    const auto text = read_text_file(path);
+    if (!text.has_value()) {
+      continue;
+    }
+    auto parsed = lesson_score_from_json(*text);
+    if (!parsed.has_value()) {
+      continue;
+    }
+    parsed->meta.is_imported = true;
+    parsed->meta.tier = 0U;
+    if (!validate_lesson_score(*parsed).has_value()) {
+      continue;
+    }
+    loaded_ids.push_back(parsed->meta.id);
+    add_or_replace_lesson(std::move(*parsed));
+  }
+  return loaded_ids;
+}
+
+std::expected<void, std::string>
+LessonLibrary::delete_imported_lesson_file(const std::filesystem::path& lessons_dir,
+                                           std::string_view id) {
+  if (!is_safe_lesson_id(id)) {
+    return std::unexpected("Invalid imported lesson id");
+  }
+  const auto path = lessons_dir / (std::string(id) + ".json");
+  std::error_code ec;
+  if (std::filesystem::exists(path, ec) && !ec) {
+    std::filesystem::remove(path, ec);
+    if (ec) {
+      return std::unexpected(std::format("Failed deleting {}: {}", path.string(), ec.message()));
+    }
+  }
+  (void)remove_lesson(id);
   return {};
 }
 
