@@ -293,7 +293,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends ninja-build zip
 
       - name: Setup Emscripten SDK
-        uses: emscripten-core/setup-emsdk@v15
+        uses: emscripten-core/setup-emsdk@v16
         with:
           version: latest
           actions-cache-folder: emsdk-cache
