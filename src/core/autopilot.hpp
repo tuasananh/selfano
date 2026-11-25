@@ -46,7 +46,7 @@ enum class AutopilotState : std::uint8_t {
 
 struct SessionSummary {
   int duration_sec{0};
-  std::string weekly_key_name{};
+  std::string weekly_key_name;
   std::uint32_t warmup_runs{0};
   double flashcard_accuracy{0.0};
   double flashcard_avg_rt_ms{0.0};
@@ -55,7 +55,7 @@ struct SessionSummary {
   std::uint32_t etude_bars_read{0};
   std::uint32_t lesson_runs_completed{0};
   std::uint32_t lesson_revisions_completed{0};
-  std::string active_lesson_title{};
+  std::string active_lesson_title;
   std::uint32_t companion_reps{0};
   std::uint32_t srs_cards_reviewed{0};
   std::uint32_t ear_melodies_solved{0};

@@ -12,85 +12,178 @@ namespace {
 
 inline constexpr std::array<FlashcardShapeMeta, 40> kShapeBank{{
     // 10 Landmark anchors
-    {"landmark:treble:C4", "Landmark: Middle C4 (Treble)", FlashcardShapeKind::Landmark,
-     Clef::Treble},
-    {"landmark:treble:G4", "Landmark: Treble G4", FlashcardShapeKind::Landmark, Clef::Treble},
-    {"landmark:treble:C5", "Landmark: Treble C5", FlashcardShapeKind::Landmark, Clef::Treble},
-    {"landmark:treble:G5", "Landmark: Treble G5", FlashcardShapeKind::Landmark, Clef::Treble},
-    {"landmark:treble:C6", "Landmark: High C6", FlashcardShapeKind::Landmark, Clef::Treble},
-    {"landmark:bass:C4", "Landmark: Middle C4 (Bass)", FlashcardShapeKind::Landmark, Clef::Bass},
-    {"landmark:bass:F3", "Landmark: Bass F3", FlashcardShapeKind::Landmark, Clef::Bass},
-    {"landmark:bass:C3", "Landmark: Bass C3", FlashcardShapeKind::Landmark, Clef::Bass},
-    {"landmark:bass:F2", "Landmark: Bass F2", FlashcardShapeKind::Landmark, Clef::Bass},
-    {"landmark:bass:C2", "Landmark: Low C2", FlashcardShapeKind::Landmark, Clef::Bass},
+    {.shape_id = "landmark:treble:C4",
+     .display_name = "Landmark: Middle C4 (Treble)",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Treble},
+    {.shape_id = "landmark:treble:G4",
+     .display_name = "Landmark: Treble G4",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Treble},
+    {.shape_id = "landmark:treble:C5",
+     .display_name = "Landmark: Treble C5",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Treble},
+    {.shape_id = "landmark:treble:G5",
+     .display_name = "Landmark: Treble G5",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Treble},
+    {.shape_id = "landmark:treble:C6",
+     .display_name = "Landmark: High C6",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Treble},
+    {.shape_id = "landmark:bass:C4",
+     .display_name = "Landmark: Middle C4 (Bass)",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Bass},
+    {.shape_id = "landmark:bass:F3",
+     .display_name = "Landmark: Bass F3",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Bass},
+    {.shape_id = "landmark:bass:C3",
+     .display_name = "Landmark: Bass C3",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Bass},
+    {.shape_id = "landmark:bass:F2",
+     .display_name = "Landmark: Bass F2",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Bass},
+    {.shape_id = "landmark:bass:C2",
+     .display_name = "Landmark: Low C2",
+     .kind = FlashcardShapeKind::Landmark,
+     .clef = Clef::Bass},
 
     // 12 Treble intervals (6 harmonic + 6 melodic)
-    {"interval:treble:harmonic:2nd", "Treble Harmonic 2nd", FlashcardShapeKind::HarmonicInterval,
-     Clef::Treble},
-    {"interval:treble:harmonic:3rd", "Treble Harmonic 3rd", FlashcardShapeKind::HarmonicInterval,
-     Clef::Treble},
-    {"interval:treble:harmonic:4th", "Treble Harmonic 4th", FlashcardShapeKind::HarmonicInterval,
-     Clef::Treble},
-    {"interval:treble:harmonic:5th", "Treble Harmonic 5th", FlashcardShapeKind::HarmonicInterval,
-     Clef::Treble},
-    {"interval:treble:harmonic:6th", "Treble Harmonic 6th", FlashcardShapeKind::HarmonicInterval,
-     Clef::Treble},
-    {"interval:treble:harmonic:octave", "Treble Harmonic Octave",
-     FlashcardShapeKind::HarmonicInterval, Clef::Treble},
-    {"interval:treble:melodic:2nd", "Treble Melodic 2nd", FlashcardShapeKind::MelodicInterval,
-     Clef::Treble},
-    {"interval:treble:melodic:3rd", "Treble Melodic 3rd", FlashcardShapeKind::MelodicInterval,
-     Clef::Treble},
-    {"interval:treble:melodic:4th", "Treble Melodic 4th", FlashcardShapeKind::MelodicInterval,
-     Clef::Treble},
-    {"interval:treble:melodic:5th", "Treble Melodic 5th", FlashcardShapeKind::MelodicInterval,
-     Clef::Treble},
-    {"interval:treble:melodic:6th", "Treble Melodic 6th", FlashcardShapeKind::MelodicInterval,
-     Clef::Treble},
-    {"interval:treble:melodic:octave", "Treble Melodic Octave", FlashcardShapeKind::MelodicInterval,
-     Clef::Treble},
+    {.shape_id = "interval:treble:harmonic:2nd",
+     .display_name = "Treble Harmonic 2nd",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:harmonic:3rd",
+     .display_name = "Treble Harmonic 3rd",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:harmonic:4th",
+     .display_name = "Treble Harmonic 4th",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:harmonic:5th",
+     .display_name = "Treble Harmonic 5th",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:harmonic:6th",
+     .display_name = "Treble Harmonic 6th",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:harmonic:octave",
+     .display_name = "Treble Harmonic Octave",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:melodic:2nd",
+     .display_name = "Treble Melodic 2nd",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:melodic:3rd",
+     .display_name = "Treble Melodic 3rd",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:melodic:4th",
+     .display_name = "Treble Melodic 4th",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:melodic:5th",
+     .display_name = "Treble Melodic 5th",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:melodic:6th",
+     .display_name = "Treble Melodic 6th",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Treble},
+    {.shape_id = "interval:treble:melodic:octave",
+     .display_name = "Treble Melodic Octave",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Treble},
 
     // 12 Bass intervals (6 harmonic + 6 melodic)
-    {"interval:bass:harmonic:2nd", "Bass Harmonic 2nd", FlashcardShapeKind::HarmonicInterval,
-     Clef::Bass},
-    {"interval:bass:harmonic:3rd", "Bass Harmonic 3rd", FlashcardShapeKind::HarmonicInterval,
-     Clef::Bass},
-    {"interval:bass:harmonic:4th", "Bass Harmonic 4th", FlashcardShapeKind::HarmonicInterval,
-     Clef::Bass},
-    {"interval:bass:harmonic:5th", "Bass Harmonic 5th", FlashcardShapeKind::HarmonicInterval,
-     Clef::Bass},
-    {"interval:bass:harmonic:6th", "Bass Harmonic 6th", FlashcardShapeKind::HarmonicInterval,
-     Clef::Bass},
-    {"interval:bass:harmonic:octave", "Bass Harmonic Octave", FlashcardShapeKind::HarmonicInterval,
-     Clef::Bass},
-    {"interval:bass:melodic:2nd", "Bass Melodic 2nd", FlashcardShapeKind::MelodicInterval,
-     Clef::Bass},
-    {"interval:bass:melodic:3rd", "Bass Melodic 3rd", FlashcardShapeKind::MelodicInterval,
-     Clef::Bass},
-    {"interval:bass:melodic:4th", "Bass Melodic 4th", FlashcardShapeKind::MelodicInterval,
-     Clef::Bass},
-    {"interval:bass:melodic:5th", "Bass Melodic 5th", FlashcardShapeKind::MelodicInterval,
-     Clef::Bass},
-    {"interval:bass:melodic:6th", "Bass Melodic 6th", FlashcardShapeKind::MelodicInterval,
-     Clef::Bass},
-    {"interval:bass:melodic:octave", "Bass Melodic Octave", FlashcardShapeKind::MelodicInterval,
-     Clef::Bass},
+    {.shape_id = "interval:bass:harmonic:2nd",
+     .display_name = "Bass Harmonic 2nd",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:harmonic:3rd",
+     .display_name = "Bass Harmonic 3rd",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:harmonic:4th",
+     .display_name = "Bass Harmonic 4th",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:harmonic:5th",
+     .display_name = "Bass Harmonic 5th",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:harmonic:6th",
+     .display_name = "Bass Harmonic 6th",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:harmonic:octave",
+     .display_name = "Bass Harmonic Octave",
+     .kind = FlashcardShapeKind::HarmonicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:melodic:2nd",
+     .display_name = "Bass Melodic 2nd",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:melodic:3rd",
+     .display_name = "Bass Melodic 3rd",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:melodic:4th",
+     .display_name = "Bass Melodic 4th",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:melodic:5th",
+     .display_name = "Bass Melodic 5th",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:melodic:6th",
+     .display_name = "Bass Melodic 6th",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Bass},
+    {.shape_id = "interval:bass:melodic:octave",
+     .display_name = "Bass Melodic Octave",
+     .kind = FlashcardShapeKind::MelodicInterval,
+     .clef = Clef::Bass},
 
     // 6 Triad inversions
-    {"triad:treble:root", "Treble Triad (Root)", FlashcardShapeKind::TriadInversion, Clef::Treble},
-    {"triad:treble:inv1", "Treble Triad (1st Inv)", FlashcardShapeKind::TriadInversion,
-     Clef::Treble},
-    {"triad:treble:inv2", "Treble Triad (2nd Inv)", FlashcardShapeKind::TriadInversion,
-     Clef::Treble},
-    {"triad:bass:root", "Bass Triad (Root)", FlashcardShapeKind::TriadInversion, Clef::Bass},
-    {"triad:bass:inv1", "Bass Triad (1st Inv)", FlashcardShapeKind::TriadInversion, Clef::Bass},
-    {"triad:bass:inv2", "Bass Triad (2nd Inv)", FlashcardShapeKind::TriadInversion, Clef::Bass},
+    {.shape_id = "triad:treble:root",
+     .display_name = "Treble Triad (Root)",
+     .kind = FlashcardShapeKind::TriadInversion,
+     .clef = Clef::Treble},
+    {.shape_id = "triad:treble:inv1",
+     .display_name = "Treble Triad (1st Inv)",
+     .kind = FlashcardShapeKind::TriadInversion,
+     .clef = Clef::Treble},
+    {.shape_id = "triad:treble:inv2",
+     .display_name = "Treble Triad (2nd Inv)",
+     .kind = FlashcardShapeKind::TriadInversion,
+     .clef = Clef::Treble},
+    {.shape_id = "triad:bass:root",
+     .display_name = "Bass Triad (Root)",
+     .kind = FlashcardShapeKind::TriadInversion,
+     .clef = Clef::Bass},
+    {.shape_id = "triad:bass:inv1",
+     .display_name = "Bass Triad (1st Inv)",
+     .kind = FlashcardShapeKind::TriadInversion,
+     .clef = Clef::Bass},
+    {.shape_id = "triad:bass:inv2",
+     .display_name = "Bass Triad (2nd Inv)",
+     .kind = FlashcardShapeKind::TriadInversion,
+     .clef = Clef::Bass},
 }};
 
 [[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
   std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::sort(out.begin(), out.end());
-  out.erase(std::unique(out.begin(), out.end()), out.end());
+  std::ranges::sort(out);
+  out.erase(std::ranges::unique(out).begin(), out.end());
   return out;
 }
 
@@ -117,7 +210,8 @@ inline constexpr std::array<FlashcardShapeMeta, 40> kShapeBank{{
     octave -= 1;
   }
   const auto letter = static_cast<NoteLetter>(letter_idx);
-  return SpelledNote{letter, key_accidental_for(key, letter), octave};
+  return SpelledNote{
+      .letter = letter, .accidental = key_accidental_for(key, letter), .octave = octave};
 }
 
 [[nodiscard]] std::string interval_quality_label(int semitones, int diatonic_span) {
@@ -442,7 +536,7 @@ std::vector<WeakShapeSummary> FlashcardEngine::weakest_shapes(std::size_t max_co
     });
   }
 
-  std::sort(list.begin(), list.end(), [](const WeakShapeSummary& a, const WeakShapeSummary& b) {
+  std::ranges::sort(list, [](const WeakShapeSummary& a, const WeakShapeSummary& b) {
     if (a.weight != b.weight) {
       return a.weight > b.weight;
     }
@@ -495,7 +589,8 @@ FlashcardPrompt FlashcardEngine::instantiate_shape(const FlashcardShapeMeta& met
 
   if (meta.kind == FlashcardShapeKind::Landmark) {
     const auto [letter, octave] = landmark_from_id(meta.shape_id);
-    const SpelledNote note{letter, key_accidental_for(key_, letter), octave};
+    const SpelledNote note{
+        .letter = letter, .accidental = key_accidental_for(key_, letter), .octave = octave};
     const auto midi = to_midi(note);
     const MidiPitch m = midi.has_value() ? *midi : kMiddleCMidi;
     prompt.detail_label = format_note(note);
@@ -526,7 +621,9 @@ FlashcardPrompt FlashcardEngine::instantiate_shape(const FlashcardShapeMeta& met
     }
 
     if (pairs.empty()) {
-      const SpelledNote lo{NoteLetter::C, Accidental::Natural, meta.clef == Clef::Treble ? 4 : 3};
+      const SpelledNote lo{.letter = NoteLetter::C,
+                           .accidental = Accidental::Natural,
+                           .octave = meta.clef == Clef::Treble ? 4 : 3};
       const SpelledNote hi = spelled_from_step_in_key(diatonic_step(lo) + span, key_);
       pairs.emplace_back(lo, hi);
     }

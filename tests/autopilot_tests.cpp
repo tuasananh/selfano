@@ -29,8 +29,11 @@ TEST_CASE("AutopilotSession handles non-abrupt transitions, pause, repeat, skip,
   REQUIRE(session.state() == AutopilotState::Running);
   REQUIRE(session.current_block_index() == 0);
   REQUIRE(session.current_block().stage == AutopilotStage::Stage1WarmUp);
-  REQUIRE(session.next_block().has_value());
-  REQUIRE(session.next_block()->stage == AutopilotStage::Stage2AFlashcards);
+  const auto next = session.next_block();
+  REQUIRE(next.has_value());
+  if (next.has_value()) {
+    REQUIRE(next->stage == AutopilotStage::Stage2AFlashcards);
+  }
   REQUIRE(session.block_remaining_sec() == 300.0);
 
   SECTION("Pause freezes elapsed time and resume continues") {

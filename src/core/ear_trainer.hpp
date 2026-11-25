@@ -45,7 +45,7 @@ struct EarTrainerProgress {
 };
 
 struct EarPrompt {
-  KeySignature key{0, Mode::Major};
+  KeySignature key{.fifths = 0, .mode = Mode::Major};
   EarDifficultyTier tier{EarDifficultyTier::Tier1Steps};
   std::string tonic_chord_symbol;
   std::vector<SpelledNote> tonic_chord_notes;
@@ -91,7 +91,7 @@ public:
 private:
   void generate_prompt();
 
-  KeySignature key_{0, Mode::Major};
+  KeySignature key_{.fifths = 0, .mode = Mode::Major};
   std::mt19937 rng_;
   EarTrainerProgress progress_{};
   EarTrainerState state_{EarTrainerState::Listening};
@@ -100,7 +100,7 @@ private:
   bool had_mistake_on_current_{false};
   std::uint32_t melodies_solved_{0};
   std::uint32_t replay_count_{0};
-  std::string last_hint_{};
+  std::string last_hint_;
 };
 
 } // namespace selfano::core

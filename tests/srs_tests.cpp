@@ -112,7 +112,9 @@ TEST_CASE("SrsDeck supports CRUD, due queue ordering, and reviewing cards by ID"
   // Review due card id2 as Good -> moves out of today's due queue
   const auto reviewed = deck.review_card_by_id(id2, SrsRating::Good, today);
   REQUIRE(reviewed.has_value());
-  REQUIRE(reviewed->due_epoch_day == today + 1);
+  if (reviewed.has_value()) {
+    REQUIRE(reviewed->due_epoch_day == today + 1);
+  }
   REQUIRE(deck.due_count(today) == 1);
   REQUIRE(deck.session_reviews() == 1);
 

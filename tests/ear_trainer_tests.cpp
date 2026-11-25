@@ -1,5 +1,4 @@
 #include "core/ear_trainer.hpp"
-#include "core/weekly_key.hpp"
 
 #include <array>
 #include <catch2/catch_test_macros.hpp>
@@ -14,7 +13,8 @@ std::set<std::uint8_t> allowed_key_pcs(KeySignature key) {
   std::set<std::uint8_t> pcs;
   for (int i = 0; i < 7; ++i) {
     const auto letter = static_cast<NoteLetter>(i);
-    pcs.insert(pitch_class(SpelledNote{letter, key_accidental_for(key, letter), 4}));
+    pcs.insert(pitch_class(
+        SpelledNote{.letter = letter, .accidental = key_accidental_for(key, letter), .octave = 4}));
   }
   return pcs;
 }
@@ -24,11 +24,11 @@ std::set<std::uint8_t> allowed_key_pcs(KeySignature key) {
 TEST_CASE("EarTrainer generates deterministic in-key tonic chords and tier-constrained melodies",
           "[ear_trainer]") {
   const std::array<KeySignature, 5> keys{{
-      {0, Mode::Major},
-      {-1, Mode::Minor},
-      {1, Mode::Major},
-      {-3, Mode::Major},
-      {3, Mode::Minor},
+      {.fifths = 0, .mode = Mode::Major},
+      {.fifths = -1, .mode = Mode::Minor},
+      {.fifths = 1, .mode = Mode::Major},
+      {.fifths = -3, .mode = Mode::Major},
+      {.fifths = 3, .mode = Mode::Minor},
   }};
 
   for (const auto key : keys) {
@@ -81,7 +81,7 @@ TEST_CASE("EarTrainer generates deterministic in-key tonic chords and tier-const
 
 TEST_CASE("EarTrainer evaluates note-by-note with directional hints, replay, and staff reveal",
           "[ear_trainer]") {
-  EarTrainer trainer(KeySignature{-1, Mode::Minor}, 888U, EarTrainerProgress{});
+  EarTrainer trainer(KeySignature{.fifths = -1, .mode = Mode::Minor}, 888U, EarTrainerProgress{});
   REQUIRE(trainer.state() == EarTrainerState::Listening);
   REQUIRE(trainer.matched_count() == 0);
 
@@ -126,7 +126,7 @@ TEST_CASE("EarTrainer evaluates note-by-note with directional hints, replay, and
 
 TEST_CASE("EarTrainer auto-promotes tier after 3 clean first-try solves unless manually locked",
           "[ear_trainer]") {
-  EarTrainer trainer(KeySignature{0, Mode::Major}, 1234U, EarTrainerProgress{});
+  EarTrainer trainer(KeySignature{.fifths = 0, .mode = Mode::Major}, 1234U, EarTrainerProgress{});
   REQUIRE(trainer.progress().tier == EarDifficultyTier::Tier1Steps);
 
   auto solve_clean = [&]() {

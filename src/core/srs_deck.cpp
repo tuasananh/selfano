@@ -102,7 +102,7 @@ std::vector<SrsCard> SrsDeck::due_cards(std::int64_t today_epoch_day) const {
       out.push_back(c);
     }
   }
-  std::sort(out.begin(), out.end(), [](const SrsCard& a, const SrsCard& b) {
+  std::ranges::sort(out, [](const SrsCard& a, const SrsCard& b) {
     if (a.due_epoch_day != b.due_epoch_day) {
       return a.due_epoch_day < b.due_epoch_day;
     }

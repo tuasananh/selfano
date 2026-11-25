@@ -8,13 +8,16 @@ namespace selfano::ui {
 
 namespace {
 
-DesignSystemContext g_ds{};
+[[nodiscard]] DesignSystemContext& g_ds() noexcept {
+  static DesignSystemContext ctx{};
+  return ctx;
+}
 std::unordered_map<ImGuiID, float> g_anim_values{};
 float g_frame_dt_sec{1.0f / 60.0f};
 
 [[nodiscard]] constexpr ImVec4 rgba(int r, int g, int b, float a = 1.0f) noexcept {
-  return ImVec4(static_cast<float>(r) / 255.0f, static_cast<float>(g) / 255.0f,
-                static_cast<float>(b) / 255.0f, a);
+  return {static_cast<float>(r) / 255.0f, static_cast<float>(g) / 255.0f,
+          static_cast<float>(b) / 255.0f, a};
 }
 
 [[nodiscard]] ThemeColors make_light_colors() noexcept {
@@ -171,9 +174,9 @@ void apply_imgui_style(const ThemeColors& c, float dpi_scale) {
 
   col[ImGuiCol_Header] = c.accent_soft;
   col[ImGuiCol_HeaderHovered] = ImVec4(c.accent.x, c.accent.y, c.accent.z,
-                                       g_ds.active_theme == AppTheme::Dark ? 0.28f : 0.16f);
+                                       g_ds().active_theme == AppTheme::Dark ? 0.28f : 0.16f);
   col[ImGuiCol_HeaderActive] = ImVec4(c.accent.x, c.accent.y, c.accent.z,
-                                      g_ds.active_theme == AppTheme::Dark ? 0.38f : 0.24f);
+                                      g_ds().active_theme == AppTheme::Dark ? 0.38f : 0.24f);
 
   col[ImGuiCol_Separator] = c.hairline;
   col[ImGuiCol_SeparatorHovered] = c.accent;
@@ -217,29 +220,32 @@ void apply_imgui_style(const ThemeColors& c, float dpi_scale) {
 } // namespace
 
 void init_design_system(const AppFonts& fonts, AppTheme theme, float dpi_scale, float ui_zoom) {
-  g_ds.fonts = fonts;
-  g_ds.dpi_scale = (dpi_scale > 0.0f) ? dpi_scale : 1.0f;
-  g_ds.ui_zoom = std::clamp(ui_zoom, kMinUiZoom, kMaxUiZoom);
+  auto& ctx = g_ds();
+  ctx.fonts = fonts;
+  ctx.dpi_scale = (dpi_scale > 0.0f) ? dpi_scale : 1.0f;
+  ctx.ui_zoom = std::clamp(ui_zoom, kMinUiZoom, kMaxUiZoom);
   set_app_theme(theme);
 }
 
 void set_app_theme(AppTheme theme) {
-  g_ds.active_theme = theme;
-  g_ds.colors = (theme == AppTheme::Dark) ? make_dark_colors() : make_light_colors();
-  apply_imgui_style(g_ds.colors, g_ds.dpi_scale * g_ds.ui_zoom);
+  auto& ctx = g_ds();
+  ctx.active_theme = theme;
+  ctx.colors = (theme == AppTheme::Dark) ? make_dark_colors() : make_light_colors();
+  apply_imgui_style(ctx.colors, ctx.dpi_scale * ctx.ui_zoom);
 }
 
 void set_ui_zoom(float zoom) {
+  auto& ctx = g_ds();
   const float snapped = std::round(std::clamp(zoom, kMinUiZoom, kMaxUiZoom) * 20.0f) / 20.0f;
-  if (std::abs(snapped - g_ds.ui_zoom) < 0.001f) {
+  if (std::abs(snapped - ctx.ui_zoom) < 0.001f) {
     return;
   }
-  g_ds.ui_zoom = snapped;
-  apply_imgui_style(g_ds.colors, g_ds.dpi_scale * g_ds.ui_zoom);
+  ctx.ui_zoom = snapped;
+  apply_imgui_style(ctx.colors, ctx.dpi_scale * ctx.ui_zoom);
 }
 
 void adjust_ui_zoom(float delta) {
-  set_ui_zoom(g_ds.ui_zoom + delta);
+  set_ui_zoom(g_ds().ui_zoom + delta);
 }
 
 void reset_ui_zoom() {
@@ -247,35 +253,36 @@ void reset_ui_zoom() {
 }
 
 void set_show_piano_key_hints(bool show) noexcept {
-  g_ds.show_piano_key_hints = show;
+  g_ds().show_piano_key_hints = show;
 }
 
 const DesignSystemContext& ds() noexcept {
-  return g_ds;
+  return g_ds();
 }
 
 const ThemeColors& colors() noexcept {
-  return g_ds.colors;
+  return g_ds().colors;
 }
 
 AppTheme active_theme() noexcept {
-  return g_ds.active_theme;
+  return g_ds().active_theme;
 }
 
 bool is_dark_theme() noexcept {
-  return g_ds.active_theme == AppTheme::Dark;
+  return g_ds().active_theme == AppTheme::Dark;
 }
 
 float ui_zoom() noexcept {
-  return g_ds.ui_zoom;
+  return g_ds().ui_zoom;
 }
 
 float effective_ui_scale() noexcept {
-  return g_ds.dpi_scale * g_ds.ui_zoom;
+  const auto& ctx = g_ds();
+  return ctx.dpi_scale * ctx.ui_zoom;
 }
 
 bool show_piano_key_hints() noexcept {
-  return g_ds.show_piano_key_hints;
+  return g_ds().show_piano_key_hints;
 }
 
 ImU32 to_u32(ImVec4 c) noexcept {
@@ -326,10 +333,11 @@ bool type_is_semibold(TypeStyle style) noexcept {
 }
 
 ImFont* font_for_style(TypeStyle style) noexcept {
-  if (type_is_semibold(style) && g_ds.fonts.ui_semibold != nullptr) {
-    return g_ds.fonts.ui_semibold;
+  const auto& ctx = g_ds();
+  if (type_is_semibold(style) && ctx.fonts.ui_semibold != nullptr) {
+    return ctx.fonts.ui_semibold;
   }
-  return g_ds.fonts.ui_regular;
+  return ctx.fonts.ui_regular;
 }
 
 float draw_font_size(float unscaled_px) noexcept {
@@ -368,7 +376,7 @@ void draw_card_shadow(ImDrawList* dl, ImVec2 min, ImVec2 max, float rounding, fl
         static_cast<std::uint32_t>(std::clamp(static_cast<float>(a) * intensity, 0.0f, 255.0f));
     return (col & ~(0xFFU << IM_COL32_A_SHIFT)) | (sa << IM_COL32_A_SHIFT);
   };
-  const auto& c = g_ds.colors;
+  const auto& c = g_ds().colors;
   dl->AddRectFilled(ImVec2(min.x - 1.0f, min.y + 3.0f), ImVec2(max.x + 1.0f, max.y + 7.0f),
                     scale_col(c.shadow_outer), rounding + 3.0f);
   dl->AddRectFilled(ImVec2(min.x, min.y + 2.0f), ImVec2(max.x, max.y + 4.0f),

@@ -9,8 +9,6 @@
 #include "imgui.h"
 
 #include <algorithm>
-#include <format>
-#include <string>
 
 namespace selfano::ui {
 
@@ -34,10 +32,13 @@ bool draw_piano_remote_overlay(bool& is_open, bool& piano_remote_enabled,
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
                         ImVec4(0.0f, 0.0f, 0.0f, is_dark_theme() ? 0.56f : 0.34f));
-  constexpr ImGuiWindowFlags kDimFlags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-      ImGuiWindowFlags_NoBringToFrontOnFocus;
+  constexpr auto kDimFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoFocusOnAppearing) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus));
   if (ImGui::Begin("##pr_dim_backdrop", nullptr, kDimFlags)) {
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
       is_open = false;
@@ -60,9 +61,11 @@ bool draw_piano_remote_overlay(bool& is_open, bool& piano_remote_enabled,
   ImGui::PushStyleColor(ImGuiCol_WindowBg, c.card_elevated_bg);
   ImGui::PushStyleColor(ImGuiCol_Border, c.hairline_strong);
 
-  constexpr ImGuiWindowFlags kOverlayFlags = ImGuiWindowFlags_NoTitleBar |
-                                             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                                             ImGuiWindowFlags_NoSavedSettings;
+  constexpr auto kOverlayFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoTitleBar) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings));
 
   if (ImGui::Begin("##piano_remote_overlay_win", nullptr, kOverlayFlags)) {
     // Header

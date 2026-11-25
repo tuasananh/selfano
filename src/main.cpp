@@ -43,6 +43,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -79,8 +80,8 @@ struct CliOptions {
   AppMode initial_mode{AppMode::Home};
   selfano::core::AutopilotStage initial_free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
   int initial_dev_subtab{0};
-  std::optional<selfano::ui::ShowcasePreset> showcase_preset{};
-  std::optional<selfano::ui::AppTheme> theme_override{};
+  std::optional<selfano::ui::ShowcasePreset> showcase_preset;
+  std::optional<selfano::ui::AppTheme> theme_override;
   bool open_keymap{false};
   bool force_key_hints{false};
 };
@@ -121,7 +122,7 @@ struct SessionBaselines {
 
 [[nodiscard]] std::filesystem::path resolve_profile_path(const std::string& cli_override) {
   if (!cli_override.empty()) {
-    return std::filesystem::path(cli_override);
+    return {cli_override};
   }
 #ifdef __EMSCRIPTEN__
   return std::filesystem::path("/persist/profile.json");
@@ -131,7 +132,7 @@ struct SessionBaselines {
   if (pref_dir != nullptr) {
     return std::filesystem::path(pref_dir.get()) / "profile.json";
   }
-  return std::filesystem::path("profile.json");
+  return {"profile.json"};
 #endif
 }
 
@@ -144,7 +145,7 @@ resolve_imported_lessons_dir(const std::filesystem::path& profile_path) {
   if (profile_path.has_parent_path()) {
     return profile_path.parent_path() / "lessons";
   }
-  return std::filesystem::path("lessons");
+  return {"lessons"};
 #endif
 }
 
@@ -567,7 +568,7 @@ struct AppContext {
   bool sidebar_collapsed{false};
   bool show_piano_remote_overlay{false};
   int dev_subtab{0};
-  std::string hud_toast_text{};
+  std::string hud_toast_text;
   double hud_toast_ms{-10000.0};
   std::array<bool, 128> remote_suppressed_notes{};
 #ifdef __EMSCRIPTEN__
@@ -660,8 +661,8 @@ struct AppContext {
       lesson_view.set_import_error(saved.error());
       return;
     }
-    if (std::find(profile.imported_lesson_ids.begin(), profile.imported_lesson_ids.end(),
-                  score.meta.id) == profile.imported_lesson_ids.end()) {
+    if (std::ranges::find(profile.imported_lesson_ids, score.meta.id) ==
+        profile.imported_lesson_ids.end()) {
       profile.imported_lesson_ids.push_back(score.meta.id);
     }
     (void)select_active_lesson(score.meta.id, now_ms, true);
@@ -693,7 +694,7 @@ struct AppContext {
     if (ctx == nullptr) {
       return;
     }
-    std::lock_guard lock(ctx->import_dialog_mutex);
+    std::scoped_lock lock(ctx->import_dialog_mutex);
     if (filelist == nullptr) {
       ctx->pending_import_error = SDL_GetError();
       return;
@@ -708,8 +709,8 @@ struct AppContext {
     selfano_web_open_file_picker();
 #else
     static const SDL_DialogFileFilter kFilters[] = {
-        {"MusicXML Scores", "musicxml;xml;mxl"},
-        {"All Files", "*"},
+        {.name = "MusicXML Scores", .pattern = "musicxml;xml;mxl"},
+        {.name = "All Files", .pattern = "*"},
     };
     SDL_ShowOpenFileDialog(on_open_file_dialog, this, window, kFilters, 2, nullptr, false);
 #endif
@@ -737,7 +738,7 @@ struct AppContext {
     std::vector<std::string> paths;
     std::string dlg_err;
     {
-      std::lock_guard lock(import_dialog_mutex);
+      std::scoped_lock lock(import_dialog_mutex);
       paths.swap(pending_import_paths);
       dlg_err.swap(pending_import_error);
     }
@@ -868,7 +869,10 @@ struct AppContext {
       for (std::size_t i = 0; i < in_ports.size(); ++i) {
         if (in_ports[i].port_name == profile.preferences.preferred_midi_in ||
             in_ports[i].display_name == profile.preferences.preferred_midi_in) {
-          (void)midi_engine.open_input_port(i);
+          if (const auto res = midi_engine.open_input_port(i); !res.has_value()) {
+            std::cerr << "Warning: failed to open preferred MIDI input port: " << res.error()
+                      << '\n';
+          }
           break;
         }
       }
@@ -878,7 +882,10 @@ struct AppContext {
       for (std::size_t i = 0; i < out_ports.size(); ++i) {
         if (out_ports[i].port_name == profile.preferences.preferred_midi_out ||
             out_ports[i].display_name == profile.preferences.preferred_midi_out) {
-          (void)midi_engine.open_output_port(i);
+          if (const auto res = midi_engine.open_output_port(i); !res.has_value()) {
+            std::cerr << "Warning: failed to open preferred MIDI output port: " << res.error()
+                      << '\n';
+          }
           break;
         }
       }
@@ -1067,10 +1074,26 @@ struct AppContext {
         send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
       }
       const std::array<selfano::midi::ScheduledMidiNote, 4> test_notes{{
-          {60, 96, now_ms + 0.0, 650.0, 0},
-          {64, 96, now_ms + 70.0, 580.0, 0},
-          {67, 96, now_ms + 140.0, 510.0, 0},
-          {72, 100, now_ms + 210.0, 440.0, 0},
+          {.note = 60,
+           .velocity = 96,
+           .start_ms = now_ms + 0.0,
+           .duration_ms = 650.0,
+           .channel = 0},
+          {.note = 64,
+           .velocity = 96,
+           .start_ms = now_ms + 70.0,
+           .duration_ms = 580.0,
+           .channel = 0},
+          {.note = 67,
+           .velocity = 96,
+           .start_ms = now_ms + 140.0,
+           .duration_ms = 510.0,
+           .channel = 0},
+          {.note = 72,
+           .velocity = 100,
+           .start_ms = now_ms + 210.0,
+           .duration_ms = 440.0,
+           .channel = 0},
       }};
       playback_scheduler.schedule_batch(test_notes);
     }
@@ -1199,6 +1222,9 @@ struct AppContext {
 
     auto cycle_free_stage = [&](int delta) {
       constexpr std::size_t kCount = selfano::core::kAutopilotBlocks.size();
+      if (kCount == 0U) {
+        return;
+      }
       std::size_t idx = 0;
       if (app_mode == AppMode::FreePractice) {
         for (std::size_t i = 0; i < kCount; ++i) {
@@ -1780,20 +1806,36 @@ struct AppContext {
         const char* badge;
       };
       const std::array<StageNavEntry, 6> stage_nav{{
-          {"##nav_s1", "Key Warm-Up", selfano::ui::IconId::Scale,
-           selfano::core::AutopilotStage::Stage1WarmUp, nullptr},
-          {"##nav_s2a", "Flashcards", selfano::ui::IconId::Bolt,
-           selfano::core::AutopilotStage::Stage2AFlashcards, nullptr},
-          {"##nav_s2b", "Continuous Etudes", selfano::ui::IconId::MusicNote,
-           selfano::core::AutopilotStage::Stage2BEtudes, nullptr},
-          {"##nav_s3", "Guided Lessons", selfano::ui::IconId::Chords,
-           selfano::core::AutopilotStage::Stage3Lessons,
-           due_lessons_badge.empty() ? nullptr : due_lessons_badge.c_str()},
-          {"##nav_s4a", "Retention Deck", selfano::ui::IconId::Layers,
-           selfano::core::AutopilotStage::Stage4ASrs,
-           due_badge.empty() ? nullptr : due_badge.c_str()},
-          {"##nav_s4b", "Ear Trainer", selfano::ui::IconId::Headphones,
-           selfano::core::AutopilotStage::Stage4BEarTrainer, nullptr},
+          {.id = "##nav_s1",
+           .label = "Key Warm-Up",
+           .icon = selfano::ui::IconId::Scale,
+           .stage = selfano::core::AutopilotStage::Stage1WarmUp,
+           .badge = nullptr},
+          {.id = "##nav_s2a",
+           .label = "Flashcards",
+           .icon = selfano::ui::IconId::Bolt,
+           .stage = selfano::core::AutopilotStage::Stage2AFlashcards,
+           .badge = nullptr},
+          {.id = "##nav_s2b",
+           .label = "Continuous Etudes",
+           .icon = selfano::ui::IconId::MusicNote,
+           .stage = selfano::core::AutopilotStage::Stage2BEtudes,
+           .badge = nullptr},
+          {.id = "##nav_s3",
+           .label = "Guided Lessons",
+           .icon = selfano::ui::IconId::Chords,
+           .stage = selfano::core::AutopilotStage::Stage3Lessons,
+           .badge = due_lessons_badge.empty() ? nullptr : due_lessons_badge.c_str()},
+          {.id = "##nav_s4a",
+           .label = "Retention Deck",
+           .icon = selfano::ui::IconId::Layers,
+           .stage = selfano::core::AutopilotStage::Stage4ASrs,
+           .badge = due_badge.empty() ? nullptr : due_badge.c_str()},
+          {.id = "##nav_s4b",
+           .label = "Ear Trainer",
+           .icon = selfano::ui::IconId::Headphones,
+           .stage = selfano::core::AutopilotStage::Stage4BEarTrainer,
+           .badge = nullptr},
       }};
 
       for (const auto& entry : stage_nav) {
@@ -1996,7 +2038,9 @@ struct AppContext {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags =
+        static_cast<ImGuiConfigFlags>(static_cast<unsigned>(io.ConfigFlags) |
+                                      static_cast<unsigned>(ImGuiConfigFlags_NavEnableKeyboard));
     io.IniFilename = nullptr;
 
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
@@ -2067,7 +2111,10 @@ struct AppContext {
 
 #ifndef __EMSCRIPTEN__
     if (!profile_loaded_cleanly && !std::filesystem::exists(profile_path)) {
-      (void)selfano::core::save_profile_file(profile_path, profile);
+      if (const auto res = selfano::core::save_profile_file(profile_path, profile);
+          !res.has_value()) {
+        std::cerr << "Warning: failed to save initial profile: " << res.error() << '\n';
+      }
     }
 #endif
 
@@ -2173,10 +2220,8 @@ struct AppContext {
     SDL_Event event{};
     while (SDL_PollEvent(&event)) {
       ImGui_ImplSDL3_ProcessEvent(&event);
-      if (event.type == SDL_EVENT_QUIT) {
-        done = true;
-      } else if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
-                 event.window.windowID == SDL_GetWindowID(window)) {
+      if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
+                                           event.window.windowID == SDL_GetWindowID(window))) {
         done = true;
       } else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
         const auto rel = qwerty_mapper.release_all(now_ms);
@@ -2254,7 +2299,7 @@ struct AppContext {
         }
       } else if (event.type == SDL_EVENT_DROP_FILE) {
         if (event.drop.data != nullptr && has_musicxml_extension(event.drop.data)) {
-          std::lock_guard lock(import_dialog_mutex);
+          std::scoped_lock lock(import_dialog_mutex);
           pending_import_paths.emplace_back(event.drop.data);
         }
       }
@@ -2387,10 +2432,14 @@ struct AppContext {
     const float scale = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
-    constexpr ImGuiWindowFlags kRootFlags =
-        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    constexpr auto kRootFlags = static_cast<ImGuiWindowFlags>(
+        static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
+        static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+        static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+        static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
+        static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus) |
+        static_cast<unsigned>(ImGuiWindowFlags_NoScrollbar) |
+        static_cast<unsigned>(ImGuiWindowFlags_NoScrollWithMouse));
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -2798,25 +2847,35 @@ void emscripten_tick_trampoline(void* arg) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-  const CliOptions cli = parse_cli(argc, argv);
+  try {
+    const CliOptions cli = parse_cli(argc, argv);
 
 #ifdef __EMSCRIPTEN__
-  g_web_app = std::make_unique<AppContext>();
-  if (!g_web_app->init(cli)) {
-    g_web_app.reset();
-    return 1;
-  }
-  emscripten_set_main_loop_arg(&emscripten_tick_trampoline, g_web_app.get(), 0, false);
-  return 0;
+    g_web_app = std::make_unique<AppContext>();
+    if (!g_web_app->init(cli)) {
+      g_web_app.reset();
+      return 1;
+    }
+    emscripten_set_main_loop_arg(&emscripten_tick_trampoline, g_web_app.get(), 0, false);
+    return 0;
 #else
-  auto app = std::make_unique<AppContext>();
-  if (!app->init(cli)) {
+    auto app = std::make_unique<AppContext>();
+    if (!app->init(cli)) {
+      return 1;
+    }
+    while (!app->done) {
+      app->tick();
+    }
+    app->shutdown();
+    return 0;
+#endif
+  } catch (const std::exception& e) {
+    std::fputs("Fatal error: ", stderr);
+    std::fputs(e.what(), stderr);
+    std::fputc('\n', stderr);
+    return 1;
+  } catch (...) {
+    std::fputs("Fatal error: unknown exception\n", stderr);
     return 1;
   }
-  while (!app->done) {
-    app->tick();
-  }
-  app->shutdown();
-  return 0;
-#endif
 }

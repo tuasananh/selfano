@@ -21,7 +21,7 @@ namespace {
                                   core::Clef clef, NoteFeedback fb = NoteFeedback::Neutral,
                                   std::string played_label = {}) {
   return StaffNote{
-      .note = core::SpelledNote{letter, acc, octave},
+      .note = core::SpelledNote{.letter = letter, .accidental = acc, .octave = octave},
       .clef = clef,
       .feedback = fb,
       .played_label = std::move(played_label),
@@ -38,7 +38,7 @@ void append_triad(StaffChord& chord, const core::Triad& triad, core::Clef clef,
 } // namespace
 
 StaffShowcase::StaffShowcase() {
-  options_.key = core::KeySignature{1, core::Mode::Major}; // G Major default
+  options_.key = core::KeySignature{.fifths = 1, .mode = core::Mode::Major}; // G Major default
   options_.view_mode = StaffViewMode::GrandStaff;
   options_.staff_space = 15.0f;
   options_.grand_staff_gap_spaces = 6.5f;
@@ -50,7 +50,7 @@ void StaffShowcase::set_preset(ShowcasePreset preset) {
   if (preset_ != preset) {
     preset_ = preset;
     if (preset_ == ShowcasePreset::ClassicalNotationSpecimen) {
-      options_.key = core::KeySignature{-2, core::Mode::Minor};
+      options_.key = core::KeySignature{.fifths = -2, .mode = core::Mode::Minor};
     }
     rebuild_measures();
   }
@@ -289,14 +289,14 @@ void StaffShowcase::rebuild_measures() {
   }
 
   if (preset_ == ShowcasePreset::ClassicalNotationSpecimen) {
-    options_.key = core::KeySignature{-2, core::Mode::Minor};
-    options_.time_signature = core::TimeSignature{6, 8};
+    options_.key = core::KeySignature{.fifths = -2, .mode = core::Mode::Minor};
+    options_.time_signature = core::TimeSignature{.numerator = 6, .denominator = 8};
     options_.show_harmony_labels = true;
     options_.show_fingerings = true;
 
     auto ln = [](core::NoteLetter l, core::Accidental a, int oct, std::uint8_t f = 0,
                  bool ts = false, bool tp = false) {
-      const core::SpelledNote sp{l, a, oct};
+      const core::SpelledNote sp{.letter = l, .accidental = a, .octave = oct};
       return core::LessonNote{
           .spelled = sp,
           .midi = core::to_midi(sp).value_or(60),
@@ -309,184 +309,189 @@ void StaffShowcase::rebuild_measures() {
     using D = core::NoteBaseDuration;
     core::LessonMeasure m1{};
     m1.bar_number = 1;
-    m1.harmony = {{0, "Gm", "i"}};
+    m1.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
     m1.treble_events = {
-        {0,
-         {D::Eighth, true},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 3)}},
-        {360,
-         {D::Sixteenth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 4)}},
-        {480,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 3)}},
-        {720,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 2)}},
-        {960,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1)}},
-        {1200,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::A, core::Accidental::Natural, 4, 2)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 3)}},
+        {.start_tick = 360,
+         .duration = {.base = D::Sixteenth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 4)}},
+        {.start_tick = 480,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 3)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 2)}},
+        {.start_tick = 960,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1)}},
+        {.start_tick = 1200,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::A, core::Accidental::Natural, 4, 2)}},
     };
     m1.bass_events = {
-        {0,
-         {D::Quarter, true},
-         false,
-         0,
-         {ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5)}},
-        {720,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 2)}},
-        {960,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::G, core::Accidental::Natural, 3, 1)}},
-        {1200,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::B, core::Accidental::Flat, 3, 2)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Quarter, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 2)}},
+        {.start_tick = 960,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 3, 1)}},
+        {.start_tick = 1200,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::B, core::Accidental::Flat, 3, 2)}},
     };
 
     core::LessonMeasure m2{};
     m2.bar_number = 2;
-    m2.harmony = {{0, "Ab/C", "bII6"}};
+    m2.harmony = {{.start_tick = 0, .chord_symbol = "Ab/C", .roman_numeral = "bII6"}};
     m2.treble_events = {
-        {0,
-         {D::Sixteenth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 3)}},
-        {120,
-         {D::Sixteenth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Flat, 5, 4)}},
-        {240,
-         {D::Sixteenth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 5)}},
-        {360,
-         {D::Sixteenth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 3)}},
-        {480,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::A, core::Accidental::Flat, 4, 2)}},
-        {720,
-         {D::Quarter, false},
-         false,
-         0,
-         {ln(core::NoteLetter::F, core::Accidental::Natural, 4, 1)}},
-        {1200,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::E, core::Accidental::Flat, 4, 2, true, false)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Sixteenth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 3)}},
+        {.start_tick = 120,
+         .duration = {.base = D::Sixteenth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Flat, 5, 4)}},
+        {.start_tick = 240,
+         .duration = {.base = D::Sixteenth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 5)}},
+        {.start_tick = 360,
+         .duration = {.base = D::Sixteenth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 3)}},
+        {.start_tick = 480,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::A, core::Accidental::Flat, 4, 2)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Quarter, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Natural, 4, 1)}},
+        {.start_tick = 1200,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 4, 2, true, false)}},
     };
     m2.bass_events = {
-        {0, {D::Half, true}, false, 0, {ln(core::NoteLetter::C, core::Accidental::Natural, 3, 5)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Half, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 3, 5)}},
     };
 
     core::LessonMeasure m3{};
     m3.bar_number = 3;
-    m3.harmony = {{0, "D7", "V7"}};
+    m3.harmony = {{.start_tick = 0, .chord_symbol = "D7", .roman_numeral = "V7"}};
     m3.treble_events = {
-        {0,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::E, core::Accidental::Flat, 4, 2, false, true)}},
-        {240,
-         {D::Quarter, false},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Natural, 4, 1)}},
-        {720,
-         {D::Quarter, true},
-         false,
-         0,
-         {ln(core::NoteLetter::F, core::Accidental::Sharp, 4, 2, true, false)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 4, 2, false, true)}},
+        {.start_tick = 240,
+         .duration = {.base = D::Quarter, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 4, 1)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Quarter, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Sharp, 4, 2, true, false)}},
     };
     m3.bass_events = {
-        {0,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 5)}},
-        {240,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::A, core::Accidental::Natural, 3, 2)}},
-        {480,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::C, core::Accidental::Natural, 4, 1)}},
-        {720,
-         {D::Quarter, true},
-         false,
-         0,
-         {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 5)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 5)}},
+        {.start_tick = 240,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::A, core::Accidental::Natural, 3, 2)}},
+        {.start_tick = 480,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 4, 1)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Quarter, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 5)}},
     };
 
     core::LessonMeasure m4{};
     m4.bar_number = 4;
-    m4.harmony = {{0, "Gm", "i"}};
+    m4.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
     m4.treble_events = {
-        {0,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::F, core::Accidental::Sharp, 4, 2, false, true)}},
-        {240,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1)}},
-        {480,
-         {D::Eighth, false},
-         false,
-         0,
-         {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 3)}},
-        {720,
-         {D::Quarter, true},
-         false,
-         0,
-         {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 2)}},
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Sharp, 4, 2, false, true)}},
+        {.start_tick = 240,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1)}},
+        {.start_tick = 480,
+         .duration = {.base = D::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 3)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Quarter, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 2)}},
     };
     m4.bass_events = {
-        {0,
-         {D::Half, true},
-         false,
-         0,
-         {
-             ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5),
-             ln(core::NoteLetter::D, core::Accidental::Natural, 3, 2),
-             ln(core::NoteLetter::G, core::Accidental::Natural, 3, 1),
-         }},
+        {.start_tick = 0,
+         .duration = {.base = D::Half, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes =
+             {
+                 ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5),
+                 ln(core::NoteLetter::D, core::Accidental::Natural, 3, 2),
+                 ln(core::NoteLetter::G, core::Accidental::Natural, 3, 1),
+             }},
     };
 
     const std::array<core::LessonMeasure, 4> spec{m1, m2, m3, m4};
@@ -534,9 +539,12 @@ void StaffShowcase::draw(ImFont* smufl_font, ImFont* ui_font, const char* smufl_
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);
   ImGui::SetNextWindowSize(viewport->WorkSize);
-  constexpr ImGuiWindowFlags kRootFlags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+  constexpr auto kRootFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus));
 
   if (!ImGui::Begin("Selfano - Phase 1 Static Grand Staff Showcase", nullptr, kRootFlags)) {
     ImGui::End();
@@ -565,12 +573,12 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
     core::Mode mode;
   };
   constexpr std::array<QuickKey, 6> kQuickKeys{{
-      {"C Maj", 0, core::Mode::Major},
-      {"G Maj", 1, core::Mode::Major},
-      {"D Maj", 2, core::Mode::Major},
-      {"Bb Maj", -2, core::Mode::Major},
-      {"Eb Maj", -3, core::Mode::Major},
-      {"F# Maj", 6, core::Mode::Major},
+      {.label = "C Maj", .fifths = 0, .mode = core::Mode::Major},
+      {.label = "G Maj", .fifths = 1, .mode = core::Mode::Major},
+      {.label = "D Maj", .fifths = 2, .mode = core::Mode::Major},
+      {.label = "Bb Maj", .fifths = -2, .mode = core::Mode::Major},
+      {.label = "Eb Maj", .fifths = -3, .mode = core::Mode::Major},
+      {.label = "F# Maj", .fifths = 6, .mode = core::Mode::Major},
   }};
 
   const float scale = ImGui::GetStyle().FontScaleDpi;
@@ -583,7 +591,7 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
     const std::string btn_id = std::format("{}##qk_{}", qk.label, idx);
     if (pill_button(btn_id.c_str(), active ? ButtonTone::Primary : ButtonTone::Secondary,
                     IconId::None, 28.0f)) {
-      options_.key = core::KeySignature{qk.fifths, qk.mode};
+      options_.key = core::KeySignature{.fifths = qk.fifths, .mode = qk.mode};
       changed = true;
     }
   }
@@ -593,7 +601,7 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
   const std::string current_key_name = core::format_key_name(options_.key);
   if (ImGui::BeginCombo("##KeyCombo", current_key_name.c_str())) {
     for (int f = -7; f <= 7; ++f) {
-      const core::KeySignature k{f, options_.key.mode};
+      const core::KeySignature k{.fifths = f, .mode = options_.key.mode};
       const std::string name = core::format_key_name(k);
       const bool selected = (options_.key == k);
       if (ImGui::Selectable(name.c_str(), selected)) {

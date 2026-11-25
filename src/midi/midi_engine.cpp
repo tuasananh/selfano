@@ -526,7 +526,7 @@ namespace {
 
 struct MidiEngine::Impl {
   // Declared first so it strictly outlives observer and midi_in callbacks.
-  SpscQueue<MidiNoteEvent, 1024> input_queue{};
+  SpscQueue<MidiNoteEvent, 1024> input_queue;
   std::atomic<bool> ports_dirty{false};
 
   std::unique_ptr<libremidi::observer> observer;
@@ -611,17 +611,15 @@ struct MidiEngine::Impl {
       // Handle hotplug unplug AND automatic hot-reconnect when the desired port reappears.
       if (midi_in != nullptr) {
         if (midi_in->is_port_open() && !active_input_port_name.empty()) {
-          const bool still_present =
-              std::any_of(raw_inputs.begin(), raw_inputs.end(),
-                          [this](const auto& p) { return p.port_name == active_input_port_name; });
+          const bool still_present = std::ranges::any_of(
+              raw_inputs, [this](const auto& p) { return p.port_name == active_input_port_name; });
           if (!still_present) {
             (void)midi_in->close_port();
             active_input_port_name.clear();
           }
         } else if (!midi_in->is_port_open() && !desired_input_port_name.empty()) {
-          const auto it = std::find_if(raw_inputs.begin(), raw_inputs.end(), [this](const auto& p) {
-            return p.port_name == desired_input_port_name;
-          });
+          const auto it = std::ranges::find_if(
+              raw_inputs, [this](const auto& p) { return p.port_name == desired_input_port_name; });
           if (it != raw_inputs.end() &&
               midi_in->open_port(*it, "Selfano MIDI In") == stdx::error{}) {
             active_input_port_name = it->port_name;
@@ -632,18 +630,17 @@ struct MidiEngine::Impl {
 
       if (midi_out != nullptr) {
         if (midi_out->is_port_open() && !active_output_port_name.empty()) {
-          const bool still_present =
-              std::any_of(raw_outputs.begin(), raw_outputs.end(),
-                          [this](const auto& p) { return p.port_name == active_output_port_name; });
+          const bool still_present = std::ranges::any_of(raw_outputs, [this](const auto& p) {
+            return p.port_name == active_output_port_name;
+          });
           if (!still_present) {
             (void)midi_out->close_port();
             active_output_port_name.clear();
           }
         } else if (!midi_out->is_port_open() && !desired_output_port_name.empty()) {
-          const auto it =
-              std::find_if(raw_outputs.begin(), raw_outputs.end(), [this](const auto& p) {
-                return p.port_name == desired_output_port_name;
-              });
+          const auto it = std::ranges::find_if(raw_outputs, [this](const auto& p) {
+            return p.port_name == desired_output_port_name;
+          });
           if (it != raw_outputs.end() &&
               midi_out->open_port(*it, "Selfano MIDI Out") == stdx::error{}) {
             active_output_port_name = it->port_name;

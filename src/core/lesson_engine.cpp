@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <set>
 
 namespace selfano::core {
 
@@ -14,8 +13,8 @@ namespace {
 
 [[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
   std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::sort(out.begin(), out.end());
-  out.erase(std::unique(out.begin(), out.end()), out.end());
+  std::ranges::sort(out);
+  out.erase(std::ranges::unique(out).begin(), out.end());
   return out;
 }
 
@@ -39,7 +38,8 @@ namespace {
     const auto m = static_cast<MidiPitch>(bass_midi);
     const auto sp = spell_midi_in_key(m, key);
     notes.push_back(LessonNote{
-        .spelled = sp.value_or(SpelledNote{NoteLetter::C, Accidental::Natural, 3}),
+        .spelled = sp.value_or(
+            SpelledNote{.letter = NoteLetter::C, .accidental = Accidental::Natural, .octave = 3}),
         .midi = m,
         .finger = 5,
     });
@@ -51,7 +51,7 @@ namespace {
   std::vector<MidiPitch> rh_pitches;
   rh_pitches.push_back(static_cast<MidiPitch>(root_midi));
   for (int offset = 1; offset < 12; ++offset) {
-    const std::uint8_t pc = static_cast<std::uint8_t>((chord.root_pc + offset) % 12U);
+    const auto pc = static_cast<std::uint8_t>((chord.root_pc + offset) % 12U);
     if (chord.contains_pitch_class(pc)) {
       rh_pitches.push_back(static_cast<MidiPitch>(root_midi + offset));
     }
@@ -60,7 +60,8 @@ namespace {
     const MidiPitch m = rh_pitches[i];
     const auto sp = spell_midi_in_key(m, key);
     notes.push_back(LessonNote{
-        .spelled = sp.value_or(SpelledNote{NoteLetter::C, Accidental::Natural, 4}),
+        .spelled = sp.value_or(
+            SpelledNote{.letter = NoteLetter::C, .accidental = Accidental::Natural, .octave = 4}),
         .midi = m,
         .finger = static_cast<std::uint8_t>(std::min<std::size_t>(5U, i * 2U + 1U)),
     });
@@ -72,16 +73,16 @@ namespace {
   std::vector<RhythmicValue> out;
   int rem = total_ticks;
   constexpr std::array<RhythmicValue, 10> kDesc{{
-      {NoteBaseDuration::Whole, true},
-      {NoteBaseDuration::Whole, false},
-      {NoteBaseDuration::Half, true},
-      {NoteBaseDuration::Half, false},
-      {NoteBaseDuration::Quarter, true},
-      {NoteBaseDuration::Quarter, false},
-      {NoteBaseDuration::Eighth, true},
-      {NoteBaseDuration::Eighth, false},
-      {NoteBaseDuration::Sixteenth, true},
-      {NoteBaseDuration::Sixteenth, false},
+      {.base = NoteBaseDuration::Whole, .dotted = true},
+      {.base = NoteBaseDuration::Whole, .dotted = false},
+      {.base = NoteBaseDuration::Half, .dotted = true},
+      {.base = NoteBaseDuration::Half, .dotted = false},
+      {.base = NoteBaseDuration::Quarter, .dotted = true},
+      {.base = NoteBaseDuration::Quarter, .dotted = false},
+      {.base = NoteBaseDuration::Eighth, .dotted = true},
+      {.base = NoteBaseDuration::Eighth, .dotted = false},
+      {.base = NoteBaseDuration::Sixteenth, .dotted = true},
+      {.base = NoteBaseDuration::Sixteenth, .dotted = false},
   }};
   while (rem > 0) {
     bool matched = false;
@@ -355,8 +356,8 @@ void LessonEngine::rebuild_slice_and_targets() {
 
     const int mticks = bar_meters[b].measure_ticks();
     std::vector<HarmonicAnnotation> sorted_ha = src.harmony;
-    std::sort(sorted_ha.begin(), sorted_ha.end(),
-              [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
+    std::ranges::sort(sorted_ha,
+                      [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
 
     if (sorted_ha.empty() && last_chord.has_value()) {
       const auto vals = split_ticks_to_values(mticks);
@@ -374,8 +375,16 @@ void LessonEngine::rebuild_slice_and_targets() {
           n.tie_start = tie_s;
           n.tie_stop = tie_p;
         }
-        sk.treble_events.push_back(LessonEvent{t, vals[vi], false, 0, std::move(tr_notes)});
-        sk.bass_events.push_back(LessonEvent{t, vals[vi], false, 0, std::move(bs_notes)});
+        sk.treble_events.push_back(LessonEvent{.start_tick = t,
+                                               .duration = vals[vi],
+                                               .is_rest = false,
+                                               .voice = 0,
+                                               .notes = std::move(tr_notes)});
+        sk.bass_events.push_back(LessonEvent{.start_tick = t,
+                                             .duration = vals[vi],
+                                             .is_rest = false,
+                                             .voice = 0,
+                                             .notes = std::move(bs_notes)});
         t += vals[vi].ticks();
       }
     } else if (!sorted_ha.empty()) {
@@ -406,14 +415,24 @@ void LessonEngine::rebuild_slice_and_targets() {
               n.tie_start = tie_s;
               n.tie_stop = tie_p;
             }
-            sk.treble_events.push_back(LessonEvent{t, vals[vi], false, 0, std::move(tr_notes)});
-            sk.bass_events.push_back(LessonEvent{t, vals[vi], false, 0, std::move(bs_notes)});
+            sk.treble_events.push_back(LessonEvent{.start_tick = t,
+                                                   .duration = vals[vi],
+                                                   .is_rest = false,
+                                                   .voice = 0,
+                                                   .notes = std::move(tr_notes)});
+            sk.bass_events.push_back(LessonEvent{.start_tick = t,
+                                                 .duration = vals[vi],
+                                                 .is_rest = false,
+                                                 .voice = 0,
+                                                 .notes = std::move(bs_notes)});
             t += vals[vi].ticks();
           }
         } else {
           for (const auto& rv : vals) {
-            sk.treble_events.push_back(LessonEvent{t, rv, true, 0, {}});
-            sk.bass_events.push_back(LessonEvent{t, rv, true, 0, {}});
+            sk.treble_events.push_back(LessonEvent{
+                .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+            sk.bass_events.push_back(LessonEvent{
+                .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
             t += rv.ticks();
           }
         }
@@ -421,16 +440,24 @@ void LessonEngine::rebuild_slice_and_targets() {
       if (sorted_ha.front().start_tick > 0) {
         int t = 0;
         for (const auto& rv : split_ticks_to_values(sorted_ha.front().start_tick)) {
-          sk.treble_events.insert(sk.treble_events.begin(), LessonEvent{t, rv, true, 0, {}});
-          sk.bass_events.insert(sk.bass_events.begin(), LessonEvent{t, rv, true, 0, {}});
+          sk.treble_events.insert(
+              sk.treble_events.begin(),
+              LessonEvent{
+                  .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+          sk.bass_events.insert(
+              sk.bass_events.begin(),
+              LessonEvent{
+                  .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
           t += rv.ticks();
         }
       }
     } else {
       int t = 0;
       for (const auto& rv : split_ticks_to_values(mticks)) {
-        sk.treble_events.push_back(LessonEvent{t, rv, true, 0, {}});
-        sk.bass_events.push_back(LessonEvent{t, rv, true, 0, {}});
+        sk.treble_events.push_back(
+            LessonEvent{.start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+        sk.bass_events.push_back(
+            LessonEvent{.start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
         t += rv.ticks();
       }
     }
@@ -451,8 +478,8 @@ void LessonEngine::rebuild_slice_and_targets() {
 
     if (config_.practice_mode == LessonPracticeMode::ChordSkeleton) {
       std::vector<HarmonicAnnotation> sorted_ha = score_.measures[b].harmony;
-      std::sort(sorted_ha.begin(), sorted_ha.end(),
-                [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
+      std::ranges::sort(sorted_ha,
+                        [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
       for (const auto& ha : sorted_ha) {
         const auto parsed = parse_chord_symbol(ha.chord_symbol);
         if (!parsed.has_value()) {
@@ -676,8 +703,9 @@ LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> 
       return res;
     }
     const std::size_t local_bar = current_bar_in_slice();
-    const TimeSignature cur_meter =
-        slice_bar_meters_.empty() ? TimeSignature{4, 4} : slice_bar_meters_[local_bar];
+    const TimeSignature cur_meter = slice_bar_meters_.empty()
+                                        ? TimeSignature{.numerator = 4, .denominator = 4}
+                                        : slice_bar_meters_[local_bar];
     const double ms_per_beat = 60000.0 / std::max(30.0, effective_bpm());
     const double ms_per_tick =
         ms_per_beat / static_cast<double>(std::max(1, cur_meter.beat_ticks()));
@@ -795,7 +823,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
           ordered.push_back(&ev);
         }
       }
-      std::sort(ordered.begin(), ordered.end(), [](const LessonEvent* a, const LessonEvent* c) {
+      std::ranges::sort(ordered, [](const LessonEvent* a, const LessonEvent* c) {
         return a->start_tick < c->start_tick;
       });
 
@@ -804,7 +832,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
         const double ev_dur_ms = static_cast<double>(ev->duration.ticks()) * ms_per_tick;
         for (const auto& n : ev->notes) {
           if (n.tie_stop) {
-            auto it = std::find_if(open_ties.begin(), open_ties.end(), [&](const OpenTie& ot) {
+            auto it = std::ranges::find_if(open_ties, [&](const OpenTie& ot) {
               return ot.staff_id == staff_id && ot.midi == n.midi;
             });
             if (it != open_ties.end()) {
@@ -866,7 +894,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
     });
   }
 
-  std::sort(out.begin(), out.end(), [](const LessonPlaybackNote& a, const LessonPlaybackNote& b) {
+  std::ranges::sort(out, [](const LessonPlaybackNote& a, const LessonPlaybackNote& b) {
     if (a.start_ms != b.start_ms) {
       return a.start_ms < b.start_ms;
     }
@@ -908,7 +936,7 @@ double LessonEngine::playhead_beat_in_bar(std::size_t local_bar_idx) const noexc
   if (local_bar_idx >= slice_bar_start_ticks_.size()) {
     return 0.0;
   }
-  const double start = static_cast<double>(slice_bar_start_ticks_[local_bar_idx]);
+  const auto start = static_cast<double>(slice_bar_start_ticks_[local_bar_idx]);
   const double beat_ticks_d =
       static_cast<double>(std::max(1, slice_bar_meters_[local_bar_idx].beat_ticks()));
   return std::max(0.0, (elapsed_ticks_ - start) / beat_ticks_d);
@@ -920,8 +948,8 @@ double LessonEngine::playhead_global_beat() const noexcept {
   }
   double beats = 0.0;
   for (std::size_t i = 0; i < slice_bar_meters_.size(); ++i) {
-    const double start = static_cast<double>(slice_bar_start_ticks_[i]);
-    const double len = static_cast<double>(slice_bar_meters_[i].measure_ticks());
+    const auto start = static_cast<double>(slice_bar_start_ticks_[i]);
+    const auto len = static_cast<double>(slice_bar_meters_[i].measure_ticks());
     const double beat_ticks_d = static_cast<double>(std::max(1, slice_bar_meters_[i].beat_ticks()));
     if (elapsed_ticks_ <= start + len || i + 1U == slice_bar_meters_.size()) {
       const double in_bar = std::clamp((elapsed_ticks_ - start) / beat_ticks_d, 0.0,
@@ -946,7 +974,7 @@ bool LessonEngine::is_mid_bar() const noexcept {
     return false;
   }
   const double beat = playhead_beat_in_bar(b);
-  const double pulses = static_cast<double>(slice_bar_meters_[b].pulse_count());
+  const auto pulses = static_cast<double>(slice_bar_meters_[b].pulse_count());
   return beat > 0.25 && beat < (pulses - 0.15);
 }
 

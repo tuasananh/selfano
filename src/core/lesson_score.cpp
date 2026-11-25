@@ -96,7 +96,8 @@ using json = nlohmann::json;
   if (num <= 0 || num > 32 || (den != 2 && den != 4 && den != 8 && den != 16)) {
     return std::unexpected(std::format("Invalid time signature {}/{}", num, den));
   }
-  return TimeSignature{static_cast<std::uint8_t>(num), static_cast<std::uint8_t>(den)};
+  return TimeSignature{.numerator = static_cast<std::uint8_t>(num),
+                       .denominator = static_cast<std::uint8_t>(den)};
 }
 
 [[nodiscard]] json serialize_event(const LessonEvent& ev) {
@@ -275,7 +276,7 @@ void validate_staff_events(std::uint32_t bar_number, std::string_view staff_name
   }
 
   for (auto& [voice, spans] : voice_spans) {
-    std::sort(spans.begin(), spans.end());
+    std::ranges::sort(spans);
     int sum = 0;
     int prev_end = 0;
     for (const auto& [s, e] : spans) {
@@ -305,7 +306,7 @@ void validate_staff_events(std::uint32_t bar_number, std::string_view staff_name
   for (std::size_t i = 0; i < events.size(); ++i) {
     order[i] = i;
   }
-  std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+  std::ranges::sort(order, [&](std::size_t a, std::size_t b) {
     if (events[a].start_tick != events[b].start_tick) {
       return events[a].start_tick < events[b].start_tick;
     }
@@ -316,7 +317,7 @@ void validate_staff_events(std::uint32_t bar_number, std::string_view staff_name
     const auto& ev = events[idx];
     for (const auto& n : ev.notes) {
       if (n.tie_stop) {
-        const auto it = std::find(open_ties.begin(), open_ties.end(), n.midi);
+        const auto it = std::ranges::find(open_ties, n.midi);
         if (it == open_ties.end()) {
           errors.push_back(std::format("Bar {} {} has orphan tie_stop on MIDI {}", bar_number,
                                        staff_name, n.midi));
@@ -369,7 +370,7 @@ std::expected<SpelledNote, std::string> parse_spelled_note(std::string_view text
 
   std::size_t pos = 1U;
   Accidental acc = Accidental::Natural;
-  if (text.substr(pos).starts_with("##") || text.substr(pos).starts_with("x")) {
+  if (text.substr(pos).starts_with("##") || text.substr(pos).starts_with('x')) {
     acc = Accidental::DoubleSharp;
     pos += text.substr(pos).starts_with("##") ? 2U : 1U;
   } else if (text.substr(pos).starts_with("bb")) {
@@ -395,21 +396,21 @@ std::expected<SpelledNote, std::string> parse_spelled_note(std::string_view text
     return std::unexpected(std::format("Invalid octave in '{}'", text));
   }
 
-  return SpelledNote{letter, acc, octave};
+  return SpelledNote{.letter = letter, .accidental = acc, .octave = octave};
 }
 
 std::optional<RhythmicValue> quantize_ticks_to_rhythmic_value(int ticks) noexcept {
   constexpr std::array<RhythmicValue, 10> kCandidates{{
-      {NoteBaseDuration::Whole, true},
-      {NoteBaseDuration::Whole, false},
-      {NoteBaseDuration::Half, true},
-      {NoteBaseDuration::Half, false},
-      {NoteBaseDuration::Quarter, true},
-      {NoteBaseDuration::Quarter, false},
-      {NoteBaseDuration::Eighth, true},
-      {NoteBaseDuration::Eighth, false},
-      {NoteBaseDuration::Sixteenth, true},
-      {NoteBaseDuration::Sixteenth, false},
+      {.base = NoteBaseDuration::Whole, .dotted = true},
+      {.base = NoteBaseDuration::Whole, .dotted = false},
+      {.base = NoteBaseDuration::Half, .dotted = true},
+      {.base = NoteBaseDuration::Half, .dotted = false},
+      {.base = NoteBaseDuration::Quarter, .dotted = true},
+      {.base = NoteBaseDuration::Quarter, .dotted = false},
+      {.base = NoteBaseDuration::Eighth, .dotted = true},
+      {.base = NoteBaseDuration::Eighth, .dotted = false},
+      {.base = NoteBaseDuration::Sixteenth, .dotted = true},
+      {.base = NoteBaseDuration::Sixteenth, .dotted = false},
   }};
   for (const auto& rv : kCandidates) {
     if (rv.ticks() == ticks) {
@@ -445,8 +446,7 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
   std::vector<MidiPitch> treble_open_ties;
   std::vector<MidiPitch> bass_open_ties;
 
-  for (std::size_t i = 0; i < score.measures.size(); ++i) {
-    const auto& m = score.measures[i];
+  for (const auto& m : score.measures) {
     if (m.key_change.has_value() && (m.key_change->fifths < -7 || m.key_change->fifths > 7)) {
       errors.push_back(std::format("Bar {} invalid key_change fifths", m.bar_number));
     }

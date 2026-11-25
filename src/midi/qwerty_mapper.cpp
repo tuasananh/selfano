@@ -61,12 +61,16 @@ std::optional<MidiNoteEvent> QwertyMapper::on_key_down(QwertyKey key, double tim
 
 std::optional<MidiNoteEvent> QwertyMapper::on_key_up(QwertyKey key, double timestamp_ms) {
   const auto idx = static_cast<std::size_t>(key);
-  if (idx >= active_notes_.size() || !active_notes_[idx].has_value()) {
+  if (idx >= active_notes_.size()) {
+    return std::nullopt;
+  }
+  auto& slot = active_notes_[idx];
+  if (!slot.has_value()) {
     return std::nullopt;
   }
 
-  const std::uint8_t note = *active_notes_[idx];
-  active_notes_[idx].reset();
+  const std::uint8_t note = *slot;
+  slot.reset();
   return MidiNoteEvent{
       .note = note,
       .velocity = 0,

@@ -13,7 +13,8 @@ namespace {
     letter_idx += 7;
     octave -= 1;
   }
-  return SpelledNote{static_cast<NoteLetter>(letter_idx), acc, octave};
+  return SpelledNote{
+      .letter = static_cast<NoteLetter>(letter_idx), .accidental = acc, .octave = octave};
 }
 
 [[nodiscard]] constexpr std::expected<Triad, std::string_view>
@@ -27,14 +28,20 @@ apply_inversion(NoteLetter root_letter, Accidental root_acc, TriadQuality qualit
     out = {
         root_notes[1],
         root_notes[2],
-        SpelledNote{root_notes[0].letter, root_notes[0].accidental, root_notes[0].octave + 1},
+        SpelledNote{.letter = root_notes[0].letter,
+                    .accidental = root_notes[0].accidental,
+                    .octave = root_notes[0].octave + 1},
     };
     break;
   case Inversion::Second:
     out = {
         root_notes[2],
-        SpelledNote{root_notes[0].letter, root_notes[0].accidental, root_notes[0].octave + 1},
-        SpelledNote{root_notes[1].letter, root_notes[1].accidental, root_notes[1].octave + 1},
+        SpelledNote{.letter = root_notes[0].letter,
+                    .accidental = root_notes[0].accidental,
+                    .octave = root_notes[0].octave + 1},
+        SpelledNote{.letter = root_notes[1].letter,
+                    .accidental = root_notes[1].accidental,
+                    .octave = root_notes[1].octave + 1},
     };
     break;
   }
@@ -73,7 +80,7 @@ build_scale(KeySignature key, ScaleType scale_type, int start_octave, int octave
   }
 
   const Mode effective_mode = (scale_type == ScaleType::Major) ? Mode::Major : Mode::Minor;
-  const KeySignature effective_key{key.fifths, effective_mode};
+  const KeySignature effective_key{.fifths = key.fifths, .mode = effective_mode};
   const auto tonic = tonic_of(effective_key);
   const int base_step = diatonic_step(tonic.letter, start_octave);
   const int total_notes = octaves * 7 + 1;
@@ -160,7 +167,11 @@ std::expected<Triad, std::string_view> build_diatonic_triad(KeySignature key, in
   const bool raise_leading = (key.mode == Mode::Minor) && harmonic_minor_dominant &&
                              (degree_1_to_7 == 5 || degree_1_to_7 == 7);
 
-  auto spell_step = [&](int step) -> std::expected<SpelledNote, std::string_view> {
+  struct SpelledMidi {
+    SpelledNote note;
+    MidiPitch midi;
+  };
+  auto spell_step = [&](int step) -> std::expected<SpelledMidi, std::string_view> {
     const int l_idx = ((step % 7) + 7) % 7;
     const auto letter = static_cast<NoteLetter>(l_idx);
     int acc_val = static_cast<int>(key_accidental_for(key, letter));
@@ -171,10 +182,11 @@ std::expected<Triad, std::string_view> build_diatonic_triad(KeySignature key, in
       return std::unexpected("Triad note requires triple accidental");
     }
     const auto note = note_from_diatonic_step(step, static_cast<Accidental>(acc_val));
-    if (const auto midi = to_midi(note); !midi.has_value()) {
+    const auto midi = to_midi(note);
+    if (!midi.has_value()) {
       return std::unexpected(midi.error());
     }
-    return note;
+    return SpelledMidi{.note = note, .midi = *midi};
   };
 
   const auto n0 = spell_step(root_step);
@@ -190,9 +202,9 @@ std::expected<Triad, std::string_view> build_diatonic_triad(KeySignature key, in
     return std::unexpected(n2.error());
   }
 
-  const int m0 = static_cast<int>(to_midi(*n0).value());
-  const int m1 = static_cast<int>(to_midi(*n1).value());
-  const int m2 = static_cast<int>(to_midi(*n2).value());
+  const int m0 = static_cast<int>(n0->midi);
+  const int m1 = static_cast<int>(n1->midi);
+  const int m2 = static_cast<int>(n2->midi);
 
   TriadQuality quality = TriadQuality::Major;
   const int third_span = m1 - m0;
@@ -209,7 +221,8 @@ std::expected<Triad, std::string_view> build_diatonic_triad(KeySignature key, in
     return std::unexpected("Unsupported diatonic triad interval structure");
   }
 
-  return apply_inversion(n0->letter, n0->accidental, quality, {*n0, *n1, *n2}, inversion);
+  return apply_inversion(n0->note.letter, n0->note.accidental, quality,
+                         {n0->note, n1->note, n2->note}, inversion);
 }
 
 std::string format_chord_symbol(NoteLetter root, Accidental accidental, TriadQuality quality) {

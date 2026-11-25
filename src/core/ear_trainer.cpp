@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdlib>
 #include <format>
+#include <utility>
 
 namespace selfano::core {
 
@@ -26,7 +27,8 @@ struct PoolNote {
       oct -= 1;
     }
     const auto letter = static_cast<NoteLetter>(l_idx);
-    const SpelledNote sn{letter, key_accidental_for(key, letter), oct};
+    const SpelledNote sn{
+        .letter = letter, .accidental = key_accidental_for(key, letter), .octave = oct};
     const auto m = to_midi(sn);
     if (m.has_value() && *m >= 60U && *m <= 79U) {
       pool.push_back(PoolNote{.spelled = sn, .midi = *m});
@@ -255,7 +257,7 @@ void EarTrainer::generate_prompt() {
 
     std::vector<std::size_t> candidates;
     for (int idx = lo; idx <= hi; ++idx) {
-      if (static_cast<std::size_t>(idx) != cur_idx) {
+      if (std::cmp_not_equal(idx, cur_idx)) {
         candidates.push_back(static_cast<std::size_t>(idx));
       }
     }

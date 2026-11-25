@@ -7,6 +7,7 @@
 #include <cmath>
 #include <format>
 #include <limits>
+#include <utility>
 
 namespace selfano::core {
 
@@ -14,8 +15,8 @@ namespace {
 
 [[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
   std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::sort(out.begin(), out.end());
-  out.erase(std::unique(out.begin(), out.end()), out.end());
+  std::ranges::sort(out);
+  out.erase(std::ranges::unique(out).begin(), out.end());
   return out;
 }
 
@@ -29,8 +30,8 @@ pick_triad_in_midi_range(KeySignature key, int degree, bool harmonic_dom,
       continue;
     }
     const auto root_midi = to_midi(triad->notes[0]);
-    if (root_midi.has_value() && static_cast<int>(*root_midi) >= min_root_midi &&
-        static_cast<int>(*root_midi) <= max_root_midi) {
+    if (root_midi.has_value() && std::cmp_greater_equal(*root_midi, min_root_midi) &&
+        std::cmp_less_equal(*root_midi, max_root_midi)) {
       return triad;
     }
   }
@@ -76,7 +77,7 @@ pick_bass_root_below(KeySignature key, int degree, bool harmonic_dom, int max_ex
       continue;
     }
     const auto m = to_midi(triad->notes[0]);
-    if (!m.has_value() || static_cast<int>(*m) >= max_exclusive_midi) {
+    if (!m.has_value() || std::cmp_greater_equal(*m, max_exclusive_midi)) {
       continue;
     }
     if (!fallback.has_value()) {
@@ -198,7 +199,7 @@ void WarmUpEngine::begin_pass(WarmUpPacingMode mode, double bpm, bool with_count
   pacing_mode_ = mode;
   current_bpm_ = std::clamp(bpm, kMinWarmUpBpm, kMaxWarmUpBpm);
   current_step_index_ = 0;
-  std::fill(feedback_.begin(), feedback_.end(), WarmUpStepFeedback::Pending);
+  std::ranges::fill(feedback_, WarmUpStepFeedback::Pending);
   last_played_midi_.clear();
   pass_attempts_ = 0;
   pass_correct_ = 0;
@@ -611,13 +612,13 @@ void WarmUpEngine::rebuild_steps() {
         bool descending;
       };
       const std::array<InvSlot, 7> arc{{
-          {*c0, "Root", false},
-          {*c1, "1st", false},
-          {*c2, "2nd", false},
-          {*c3, "8va", false},
-          {*c2, "2nd", true},
-          {*c1, "1st", true},
-          {*c0, "Root", true},
+          {.triad = *c0, .suffix = "Root", .descending = false},
+          {.triad = *c1, .suffix = "1st", .descending = false},
+          {.triad = *c2, .suffix = "2nd", .descending = false},
+          {.triad = *c3, .suffix = "8va", .descending = false},
+          {.triad = *c2, .suffix = "2nd", .descending = true},
+          {.triad = *c1, .suffix = "1st", .descending = true},
+          {.triad = *c0, .suffix = "Root", .descending = true},
       }};
 
       const char* hand_tag = (clef == Clef::Treble) ? "RH" : "LH";
@@ -683,10 +684,10 @@ void WarmUpEngine::rebuild_steps() {
           Triad lh;
         };
         const std::array<CadenceSlot, 4> slots{{
-            {1, *rh_tonic, *lh_tonic},
-            {4, *rh_iv, *lh_iv},
-            {5, *rh_v, *lh_v},
-            {1, *rh_tonic, *lh_tonic},
+            {.degree = 1, .rh = *rh_tonic, .lh = *lh_tonic},
+            {.degree = 4, .rh = *rh_iv, .lh = *lh_iv},
+            {.degree = 5, .rh = *rh_v, .lh = *lh_v},
+            {.degree = 1, .rh = *rh_tonic, .lh = *lh_tonic},
         }};
 
         for (const auto& slot : slots) {

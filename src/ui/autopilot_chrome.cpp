@@ -199,7 +199,7 @@ bool draw_autopilot_transition(const core::AutopilotSession& autopilot) {
   const ImVec2 ring_center(ring_pos.x + inner_w * 0.5f, ring_pos.y + ring_r + 4.0f * scale);
   ImGui::Dummy(ImVec2(inner_w, ring_r * 2.0f + 12.0f * scale));
 
-  const float rem = static_cast<float>(autopilot.transition_remaining_sec());
+  const auto rem = static_cast<float>(autopilot.transition_remaining_sec());
   const float frac = std::clamp(rem / 3.0f, 0.0f, 1.0f);
   ImDrawList* dl = ImGui::GetWindowDrawList();
   progress_ring(dl, ring_center, ring_r, 5.5f * scale, frac, to_u32(c.control_bg),
@@ -274,19 +274,33 @@ AutopilotRecapActions draw_autopilot_recap(const core::SessionSummary& sum) {
       ImVec4 accent;
     };
     const std::array<MetricTile, 6> tiles{{
-        {"KEY WARM-UP", std::format("{}", sum.warmup_runs), "completed runs", c.accent},
-        {"FLASHCARDS", std::format("{:.0f}%", sum.flashcard_accuracy * 100.0),
-         std::format("Avg {:.0f} ms", sum.flashcard_avg_rt_ms), c.indigo},
-        {"ETUDES", std::format("{} bars", sum.etude_bars_read),
-         std::format("{:.0f}% accuracy", sum.etude_accuracy * 100.0), c.success},
-        {"GUIDED LESSONS", std::format("{}", sum.lesson_runs_completed),
-         sum.lesson_revisions_completed > 0
-             ? std::format("{} revision(s) done", sum.lesson_revisions_completed)
-             : (sum.active_lesson_title.empty() ? std::string("curriculum runs")
-                                                : sum.active_lesson_title),
-         c.accent},
-        {"RETENTION DECK", std::format("{}", sum.srs_cards_reviewed), "cards reviewed", c.warning},
-        {"EAR TRAINER", std::format("{}", sum.ear_melodies_solved), "melodies solved", c.success},
+        {.kicker = "KEY WARM-UP",
+         .value = std::format("{}", sum.warmup_runs),
+         .sub = "completed runs",
+         .accent = c.accent},
+        {.kicker = "FLASHCARDS",
+         .value = std::format("{:.0f}%", sum.flashcard_accuracy * 100.0),
+         .sub = std::format("Avg {:.0f} ms", sum.flashcard_avg_rt_ms),
+         .accent = c.indigo},
+        {.kicker = "ETUDES",
+         .value = std::format("{} bars", sum.etude_bars_read),
+         .sub = std::format("{:.0f}% accuracy", sum.etude_accuracy * 100.0),
+         .accent = c.success},
+        {.kicker = "GUIDED LESSONS",
+         .value = std::format("{}", sum.lesson_runs_completed),
+         .sub = sum.lesson_revisions_completed > 0
+                    ? std::format("{} revision(s) done", sum.lesson_revisions_completed)
+                    : (sum.active_lesson_title.empty() ? std::string("curriculum runs")
+                                                       : sum.active_lesson_title),
+         .accent = c.accent},
+        {.kicker = "RETENTION DECK",
+         .value = std::format("{}", sum.srs_cards_reviewed),
+         .sub = "cards reviewed",
+         .accent = c.warning},
+        {.kicker = "EAR TRAINER",
+         .value = std::format("{}", sum.ear_melodies_solved),
+         .sub = "melodies solved",
+         .accent = c.success},
     }};
 
     if (ImGui::BeginTable("##recap_grid", 3, ImGuiTableFlags_SizingStretchSame)) {

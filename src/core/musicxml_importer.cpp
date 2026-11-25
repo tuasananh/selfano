@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <format>
 #include <fstream>
-#include <limits>
 #include <map>
 #include <miniz.h>
 #include <optional>
@@ -103,16 +102,16 @@ struct ZipReaderGuard {
   std::vector<RhythmicValue> out;
   int rem = total_ticks;
   constexpr std::array<RhythmicValue, 10> kDesc{{
-      {NoteBaseDuration::Whole, true},
-      {NoteBaseDuration::Whole, false},
-      {NoteBaseDuration::Half, true},
-      {NoteBaseDuration::Half, false},
-      {NoteBaseDuration::Quarter, true},
-      {NoteBaseDuration::Quarter, false},
-      {NoteBaseDuration::Eighth, true},
-      {NoteBaseDuration::Eighth, false},
-      {NoteBaseDuration::Sixteenth, true},
-      {NoteBaseDuration::Sixteenth, false},
+      {.base = NoteBaseDuration::Whole, .dotted = true},
+      {.base = NoteBaseDuration::Whole, .dotted = false},
+      {.base = NoteBaseDuration::Half, .dotted = true},
+      {.base = NoteBaseDuration::Half, .dotted = false},
+      {.base = NoteBaseDuration::Quarter, .dotted = true},
+      {.base = NoteBaseDuration::Quarter, .dotted = false},
+      {.base = NoteBaseDuration::Eighth, .dotted = true},
+      {.base = NoteBaseDuration::Eighth, .dotted = false},
+      {.base = NoteBaseDuration::Sixteenth, .dotted = true},
+      {.base = NoteBaseDuration::Sixteenth, .dotted = false},
   }};
   while (rem >= 120) {
     bool matched = false;
@@ -187,7 +186,7 @@ struct ZipReaderGuard {
   return out;
 }
 
-[[nodiscard]] std::string map_harmony_kind_suffix(std::string_view kind) noexcept {
+[[nodiscard]] std::string_view map_harmony_kind_suffix(std::string_view kind) noexcept {
   if (kind.empty() || kind == "major") {
     return "";
   }
@@ -249,19 +248,19 @@ struct ZipReaderGuard {
                                                                bool dotted) noexcept {
   const std::string t = trim_copy(type_text);
   if (t == "16th") {
-    return RhythmicValue{NoteBaseDuration::Sixteenth, dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Sixteenth, .dotted = dotted};
   }
   if (t == "eighth") {
-    return RhythmicValue{NoteBaseDuration::Eighth, dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Eighth, .dotted = dotted};
   }
   if (t == "quarter") {
-    return RhythmicValue{NoteBaseDuration::Quarter, dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = dotted};
   }
   if (t == "half") {
-    return RhythmicValue{NoteBaseDuration::Half, dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Half, .dotted = dotted};
   }
   if (t == "whole") {
-    return RhythmicValue{NoteBaseDuration::Whole, dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Whole, .dotted = dotted};
   }
   return std::nullopt;
 }
@@ -340,7 +339,7 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
 
   // Primary voice 0 must cover [0, measure_ticks) cleanly without overlaps
   auto& v0 = by_voice[0U];
-  std::sort(v0.begin(), v0.end(), [](const RawEvent& a, const RawEvent& b) {
+  std::ranges::sort(v0, [](const RawEvent& a, const RawEvent& b) {
     if (a.start_tick != b.start_tick) {
       return a.start_tick < b.start_tick;
     }
@@ -378,8 +377,8 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
     if (voice_id == 0U) {
       continue;
     }
-    std::sort(vec.begin(), vec.end(),
-              [](const RawEvent& a, const RawEvent& b) { return a.start_tick < b.start_tick; });
+    std::ranges::sort(
+        vec, [](const RawEvent& a, const RawEvent& b) { return a.start_tick < b.start_tick; });
     int v_cursor = 0;
     for (const auto& ev : vec) {
       if (ev.is_rest) {
@@ -411,7 +410,7 @@ void repair_staff_ties(std::vector<LessonMeasure>& measures, bool treble,
     for (std::size_t i = 0; i < events.size(); ++i) {
       order[i] = i;
     }
-    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+    std::ranges::sort(order, [&](std::size_t a, std::size_t b) {
       if (events[a].start_tick != events[b].start_tick) {
         return events[a].start_tick < events[b].start_tick;
       }
@@ -422,7 +421,7 @@ void repair_staff_ties(std::vector<LessonMeasure>& measures, bool treble,
       auto& ev = events[idx];
       for (auto& n : ev.notes) {
         if (n.tie_stop) {
-          const auto it = std::find(open_ties.begin(), open_ties.end(), n.midi);
+          const auto it = std::ranges::find(open_ties, n.midi);
           if (it == open_ties.end()) {
             n.tie_stop = false;
             repaired = true;
@@ -446,7 +445,7 @@ void repair_staff_ties(std::vector<LessonMeasure>& measures, bool treble,
       for (auto it_e = events.rbegin(); it_e != events.rend() && !open_ties.empty(); ++it_e) {
         for (auto& n : it_e->notes) {
           if (n.tie_start) {
-            const auto found = std::find(open_ties.begin(), open_ties.end(), n.midi);
+            const auto found = std::ranges::find(open_ties, n.midi);
             if (found != open_ties.end()) {
               n.tie_start = false;
               open_ties.erase(found);
@@ -479,8 +478,8 @@ void repair_staff_ties(std::vector<LessonMeasure>& measures, bool treble,
     }
   }
   std::string lower(part_name);
-  std::transform(lower.begin(), lower.end(), lower.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::ranges::transform(lower, lower.begin(),
+                         [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
   return lower.find("piano") != std::string::npos || lower.find("keyboard") != std::string::npos ||
          lower.find("klavier") != std::string::npos;
 }
@@ -630,8 +629,8 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   score.meta.title = title;
   score.meta.composer_source = composer;
   score.meta.is_imported = true;
-  score.meta.key = KeySignature{0, Mode::Major};
-  score.meta.time_signature = TimeSignature{4, 4};
+  score.meta.key = KeySignature{.fifths = 0, .mode = Mode::Major};
+  score.meta.time_signature = TimeSignature{.numerator = 4, .denominator = 4};
   score.meta.target_bpm = std::clamp(options.default_bpm, 36.0, 220.0);
 
   std::vector<pugi::xml_node> primary_measures;
@@ -657,8 +656,8 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
 
   int divisions = 1;
   int bass_divisions = 1;
-  KeySignature cur_key{0, Mode::Major};
-  TimeSignature cur_meter{4, 4};
+  KeySignature cur_key{.fifths = 0, .mode = Mode::Major};
+  TimeSignature cur_meter{.numerator = 4, .denominator = 4};
   bool initial_key_set = false;
   bool initial_meter_set = false;
   bool found_tempo = false;
@@ -692,8 +691,8 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
           const auto beats = parse_int_sv(time_node.child_value("beats"));
           const auto btype = parse_int_sv(time_node.child_value("beat-type"));
           if (beats.has_value() && btype.has_value()) {
-            TimeSignature ts{static_cast<std::uint8_t>(std::clamp(*beats, 1, 16)),
-                             static_cast<std::uint8_t>(std::clamp(*btype, 2, 16))};
+            TimeSignature ts{.numerator = static_cast<std::uint8_t>(std::clamp(*beats, 1, 16)),
+                             .denominator = static_cast<std::uint8_t>(std::clamp(*btype, 2, 16))};
             if (ts.is_valid()) {
               cur_meter = ts;
               measure_ticks = ts.measure_ticks();
@@ -776,7 +775,8 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
                                    parse_int_sv(root_n.child_value("root-alter")).value_or(0));
         if (!r_step.empty()) {
           const std::string kind = trim_copy(child.child_value("kind"));
-          std::string sym = r_step + map_harmony_kind_suffix(kind);
+          std::string sym = r_step;
+          sym += map_harmony_kind_suffix(kind);
           if (const pugi::xml_node bass_n = child.child("bass")) {
             const std::string b_step =
                 format_pitch_for_chord(bass_n.child_value("bass-step"),
@@ -848,7 +848,8 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
         }
 
         const int alter = parse_int_sv(pitch_n.child_value("alter")).value_or(0);
-        const SpelledNote sp{*letter, alter_to_accidental(alter), *octave};
+        const SpelledNote sp{
+            .letter = *letter, .accidental = alter_to_accidental(alter), .octave = *octave};
         const auto midi_opt = to_midi(sp);
         if (!midi_opt.has_value() || *midi_opt < kPianoLowestMidi ||
             *midi_opt > kPianoHighestMidi) {
@@ -972,9 +973,8 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   }
 
   // Build phrases from explicit rehearsal/double-bar marks if useful, else auto-slice 4-to-8 bars
-  std::sort(phrase_break_bars.begin(), phrase_break_bars.end());
-  phrase_break_bars.erase(std::unique(phrase_break_bars.begin(), phrase_break_bars.end()),
-                          phrase_break_bars.end());
+  std::ranges::sort(phrase_break_bars);
+  phrase_break_bars.erase(std::ranges::unique(phrase_break_bars).begin(), phrase_break_bars.end());
   if (!phrase_break_bars.empty() && score.measures.size() >= 4U) {
     std::vector<std::size_t> starts{0U};
     for (const std::size_t b : phrase_break_bars) {

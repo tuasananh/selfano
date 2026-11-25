@@ -10,7 +10,7 @@ namespace {
 spell_with_letter_and_accidental(MidiPitch midi, NoteLetter letter, Accidental acc) noexcept {
   const int semitone_offset = natural_semitone(letter) + static_cast<int>(acc);
   const int octave = ((static_cast<int>(midi) - semitone_offset) / 12) - 1;
-  return SpelledNote{letter, acc, octave};
+  return SpelledNote{.letter = letter, .accidental = acc, .octave = octave};
 }
 
 } // namespace
@@ -36,7 +36,7 @@ std::expected<SpelledNote, std::string_view> spell_midi_in_key(MidiPitch midi,
   for (int i = 0; i < 7; ++i) {
     const auto letter = static_cast<NoteLetter>(i);
     const Accidental acc = key_accidental_for(key, letter);
-    if (pitch_class(SpelledNote{letter, acc, 4}) == target_pc) {
+    if (pitch_class(SpelledNote{.letter = letter, .accidental = acc, .octave = 4}) == target_pc) {
       return spell_with_letter_and_accidental(midi, letter, acc);
     }
   }
@@ -48,7 +48,8 @@ std::expected<SpelledNote, std::string_view> spell_midi_in_key(MidiPitch midi,
     const int raised_acc_val = static_cast<int>(key_accidental_for(key, seventh_letter)) + 1;
     if (raised_acc_val >= -2 && raised_acc_val <= 2) {
       const auto raised_acc = static_cast<Accidental>(raised_acc_val);
-      if (pitch_class(SpelledNote{seventh_letter, raised_acc, 4}) == target_pc) {
+      if (pitch_class(SpelledNote{
+              .letter = seventh_letter, .accidental = raised_acc, .octave = 4}) == target_pc) {
         return spell_with_letter_and_accidental(midi, seventh_letter, raised_acc);
       }
     }
@@ -56,48 +57,48 @@ std::expected<SpelledNote, std::string_view> spell_midi_in_key(MidiPitch midi,
 
   // 3. Chromatic fallback: prefer naturals on white keys, and sharp/flat spelling matching key.
   constexpr std::array<TonicPitchClass, 12> kSharpChromatic{{
-      {NoteLetter::C, Accidental::Natural}, // 0
-      {NoteLetter::C, Accidental::Sharp},   // 1
-      {NoteLetter::D, Accidental::Natural}, // 2
-      {NoteLetter::D, Accidental::Sharp},   // 3
-      {NoteLetter::E, Accidental::Natural}, // 4
-      {NoteLetter::F, Accidental::Natural}, // 5
-      {NoteLetter::F, Accidental::Sharp},   // 6
-      {NoteLetter::G, Accidental::Natural}, // 7
-      {NoteLetter::G, Accidental::Sharp},   // 8
-      {NoteLetter::A, Accidental::Natural}, // 9
-      {NoteLetter::A, Accidental::Sharp},   // 10
-      {NoteLetter::B, Accidental::Natural}, // 11
+      {.letter = NoteLetter::C, .accidental = Accidental::Natural}, // 0
+      {.letter = NoteLetter::C, .accidental = Accidental::Sharp},   // 1
+      {.letter = NoteLetter::D, .accidental = Accidental::Natural}, // 2
+      {.letter = NoteLetter::D, .accidental = Accidental::Sharp},   // 3
+      {.letter = NoteLetter::E, .accidental = Accidental::Natural}, // 4
+      {.letter = NoteLetter::F, .accidental = Accidental::Natural}, // 5
+      {.letter = NoteLetter::F, .accidental = Accidental::Sharp},   // 6
+      {.letter = NoteLetter::G, .accidental = Accidental::Natural}, // 7
+      {.letter = NoteLetter::G, .accidental = Accidental::Sharp},   // 8
+      {.letter = NoteLetter::A, .accidental = Accidental::Natural}, // 9
+      {.letter = NoteLetter::A, .accidental = Accidental::Sharp},   // 10
+      {.letter = NoteLetter::B, .accidental = Accidental::Natural}, // 11
   }};
 
   constexpr std::array<TonicPitchClass, 12> kFlatChromatic{{
-      {NoteLetter::C, Accidental::Natural}, // 0
-      {NoteLetter::D, Accidental::Flat},    // 1
-      {NoteLetter::D, Accidental::Natural}, // 2
-      {NoteLetter::E, Accidental::Flat},    // 3
-      {NoteLetter::E, Accidental::Natural}, // 4
-      {NoteLetter::F, Accidental::Natural}, // 5
-      {NoteLetter::G, Accidental::Flat},    // 6
-      {NoteLetter::G, Accidental::Natural}, // 7
-      {NoteLetter::A, Accidental::Flat},    // 8
-      {NoteLetter::A, Accidental::Natural}, // 9
-      {NoteLetter::B, Accidental::Flat},    // 10
-      {NoteLetter::B, Accidental::Natural}, // 11
+      {.letter = NoteLetter::C, .accidental = Accidental::Natural}, // 0
+      {.letter = NoteLetter::D, .accidental = Accidental::Flat},    // 1
+      {.letter = NoteLetter::D, .accidental = Accidental::Natural}, // 2
+      {.letter = NoteLetter::E, .accidental = Accidental::Flat},    // 3
+      {.letter = NoteLetter::E, .accidental = Accidental::Natural}, // 4
+      {.letter = NoteLetter::F, .accidental = Accidental::Natural}, // 5
+      {.letter = NoteLetter::G, .accidental = Accidental::Flat},    // 6
+      {.letter = NoteLetter::G, .accidental = Accidental::Natural}, // 7
+      {.letter = NoteLetter::A, .accidental = Accidental::Flat},    // 8
+      {.letter = NoteLetter::A, .accidental = Accidental::Natural}, // 9
+      {.letter = NoteLetter::B, .accidental = Accidental::Flat},    // 10
+      {.letter = NoteLetter::B, .accidental = Accidental::Natural}, // 11
   }};
 
   constexpr std::array<TonicPitchClass, 12> kNeutralChromatic{{
-      {NoteLetter::C, Accidental::Natural}, // 0
-      {NoteLetter::C, Accidental::Sharp},   // 1
-      {NoteLetter::D, Accidental::Natural}, // 2
-      {NoteLetter::E, Accidental::Flat},    // 3
-      {NoteLetter::E, Accidental::Natural}, // 4
-      {NoteLetter::F, Accidental::Natural}, // 5
-      {NoteLetter::F, Accidental::Sharp},   // 6
-      {NoteLetter::G, Accidental::Natural}, // 7
-      {NoteLetter::A, Accidental::Flat},    // 8
-      {NoteLetter::A, Accidental::Natural}, // 9
-      {NoteLetter::B, Accidental::Flat},    // 10
-      {NoteLetter::B, Accidental::Natural}, // 11
+      {.letter = NoteLetter::C, .accidental = Accidental::Natural}, // 0
+      {.letter = NoteLetter::C, .accidental = Accidental::Sharp},   // 1
+      {.letter = NoteLetter::D, .accidental = Accidental::Natural}, // 2
+      {.letter = NoteLetter::E, .accidental = Accidental::Flat},    // 3
+      {.letter = NoteLetter::E, .accidental = Accidental::Natural}, // 4
+      {.letter = NoteLetter::F, .accidental = Accidental::Natural}, // 5
+      {.letter = NoteLetter::F, .accidental = Accidental::Sharp},   // 6
+      {.letter = NoteLetter::G, .accidental = Accidental::Natural}, // 7
+      {.letter = NoteLetter::A, .accidental = Accidental::Flat},    // 8
+      {.letter = NoteLetter::A, .accidental = Accidental::Natural}, // 9
+      {.letter = NoteLetter::B, .accidental = Accidental::Flat},    // 10
+      {.letter = NoteLetter::B, .accidental = Accidental::Natural}, // 11
   }};
 
   const auto& table =

@@ -56,51 +56,75 @@ TEST_CASE("parse_midi1_bytes normalizes NoteOn vel=0 and parses NoteOff and CC 6
     const std::array<std::uint8_t, 3> raw{0x90, 60, 100};
     const auto ev = parse_midi1_bytes(raw, 12.5, true);
     REQUIRE(ev.has_value());
-    REQUIRE(ev->note == 60);
-    REQUIRE(ev->velocity == 100);
-    REQUIRE(ev->is_note_on);
-    REQUIRE_FALSE(ev->is_soft_pedal);
-    REQUIRE(ev->from_hardware);
-    REQUIRE(ev->timestamp_ms == 12.5);
+    if (!ev.has_value()) {
+      return;
+    }
+    const auto ev_val = *ev;
+    REQUIRE(ev_val.note == 60);
+    REQUIRE(ev_val.velocity == 100);
+    REQUIRE(ev_val.is_note_on);
+    REQUIRE_FALSE(ev_val.is_soft_pedal);
+    REQUIRE(ev_val.from_hardware);
+    REQUIRE(ev_val.timestamp_ms == 12.5);
   }
 
   SECTION("NoteOn with velocity 0 normalizes to NoteOff") {
     const std::array<std::uint8_t, 3> raw{0x92, 64, 0};
     const auto ev = parse_midi1_bytes(raw, 20.0, true);
     REQUIRE(ev.has_value());
-    REQUIRE(ev->note == 64);
-    REQUIRE(ev->velocity == 0);
-    REQUIRE_FALSE(ev->is_note_on);
+    if (!ev.has_value()) {
+      return;
+    }
+    const auto ev_val = *ev;
+    REQUIRE(ev_val.note == 64);
+    REQUIRE(ev_val.velocity == 0);
+    REQUIRE_FALSE(ev_val.is_note_on);
   }
 
   SECTION("Explicit NoteOff") {
     const std::array<std::uint8_t, 3> raw{0x80, 67, 64};
     const auto ev = parse_midi1_bytes(raw, 25.0, true);
     REQUIRE(ev.has_value());
-    REQUIRE(ev->note == 67);
-    REQUIRE_FALSE(ev->is_note_on);
+    if (!ev.has_value()) {
+      return;
+    }
+    const auto ev_val = *ev;
+    REQUIRE(ev_val.note == 67);
+    REQUIRE_FALSE(ev_val.is_note_on);
   }
 
   SECTION("Soft Pedal CC 67 press and release preserve edge state") {
     const std::array<std::uint8_t, 3> press{0xB0, 67, 127};
     const auto ev_press = parse_midi1_bytes(press, 30.0, true);
     REQUIRE(ev_press.has_value());
-    REQUIRE(ev_press->is_soft_pedal);
-    REQUIRE(ev_press->is_note_on);
-    REQUIRE(ev_press->velocity == 127);
+    if (!ev_press.has_value()) {
+      return;
+    }
+    const auto press_val = *ev_press;
+    REQUIRE(press_val.is_soft_pedal);
+    REQUIRE(press_val.is_note_on);
+    REQUIRE(press_val.velocity == 127);
 
     const std::array<std::uint8_t, 3> threshold_on{0xB0, 67, 64};
     const auto ev_on64 = parse_midi1_bytes(threshold_on, 32.0, true);
     REQUIRE(ev_on64.has_value());
-    REQUIRE(ev_on64->is_soft_pedal);
-    REQUIRE(ev_on64->is_note_on);
+    if (!ev_on64.has_value()) {
+      return;
+    }
+    const auto on64_val = *ev_on64;
+    REQUIRE(on64_val.is_soft_pedal);
+    REQUIRE(on64_val.is_note_on);
 
     const std::array<std::uint8_t, 3> release{0xB0, 67, 63};
     const auto ev_rel = parse_midi1_bytes(release, 35.0, true);
     REQUIRE(ev_rel.has_value());
-    REQUIRE(ev_rel->is_soft_pedal);
-    REQUIRE_FALSE(ev_rel->is_note_on);
-    REQUIRE(ev_rel->velocity == 63);
+    if (!ev_rel.has_value()) {
+      return;
+    }
+    const auto rel_val = *ev_rel;
+    REQUIRE(rel_val.is_soft_pedal);
+    REQUIRE_FALSE(rel_val.is_note_on);
+    REQUIRE(rel_val.velocity == 63);
   }
 
   SECTION(
@@ -108,26 +132,38 @@ TEST_CASE("parse_midi1_bytes normalizes NoteOn vel=0 and parses NoteOff and CC 6
     const std::array<std::uint8_t, 3> sustain_on{0xB0, 64, 127};
     const auto ev_sus = parse_midi1_bytes(sustain_on, 40.0, true);
     REQUIRE(ev_sus.has_value());
-    REQUIRE(ev_sus->is_control_change());
-    REQUIRE_FALSE(ev_sus->is_note_message());
-    REQUIRE(ev_sus->data1 == 64);
-    REQUIRE(ev_sus->velocity == 127);
-    REQUIRE(ev_sus->is_note_on);
+    if (!ev_sus.has_value()) {
+      return;
+    }
+    const auto sus_val = *ev_sus;
+    REQUIRE(sus_val.is_control_change());
+    REQUIRE_FALSE(sus_val.is_note_message());
+    REQUIRE(sus_val.data1 == 64);
+    REQUIRE(sus_val.velocity == 127);
+    REQUIRE(sus_val.is_note_on);
 
     const std::array<std::uint8_t, 3> sost_off{0xB1, 66, 0};
     const auto ev_sost = parse_midi1_bytes(sost_off, 42.0, true);
     REQUIRE(ev_sost.has_value());
-    REQUIRE(ev_sost->is_control_change());
-    REQUIRE(ev_sost->channel == 1);
-    REQUIRE(ev_sost->data1 == 66);
-    REQUIRE_FALSE(ev_sost->is_note_on);
+    if (!ev_sost.has_value()) {
+      return;
+    }
+    const auto sost_val = *ev_sost;
+    REQUIRE(sost_val.is_control_change());
+    REQUIRE(sost_val.channel == 1);
+    REQUIRE(sost_val.data1 == 66);
+    REQUIRE_FALSE(sost_val.is_note_on);
 
     const std::array<std::uint8_t, 3> mod_wheel{0xB0, 1, 64};
     const auto ev_mod = parse_midi1_bytes(mod_wheel, 45.0, true);
     REQUIRE(ev_mod.has_value());
-    REQUIRE(ev_mod->is_control_change());
-    REQUIRE(ev_mod->data1 == 1);
-    REQUIRE(ev_mod->velocity == 64);
+    if (!ev_mod.has_value()) {
+      return;
+    }
+    const auto mod_val = *ev_mod;
+    REQUIRE(mod_val.is_control_change());
+    REQUIRE(mod_val.data1 == 1);
+    REQUIRE(mod_val.velocity == 64);
 
     const std::array<std::uint8_t, 2> short_msg{0x90, 60};
     REQUIRE_FALSE(parse_midi1_bytes(short_msg, 0.0, true).has_value());
@@ -143,9 +179,24 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
   REQUIRE(grouper.window_ms() == 100.0);
 
   SECTION("Rolled triad within 100 ms window groups into one sorted PlayedChord") {
-    grouper.push_event(MidiNoteEvent{64, 90, true, false, true, 1000.0});
-    grouper.push_event(MidiNoteEvent{60, 85, true, false, true, 1035.0});
-    grouper.push_event(MidiNoteEvent{67, 92, true, false, true, 1090.0});
+    grouper.push_event(MidiNoteEvent{.note = 64,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 1000.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 85,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 1035.0});
+    grouper.push_event(MidiNoteEvent{.note = 67,
+                                     .velocity = 92,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 1090.0});
 
     REQUIRE(grouper.held_notes()[60]);
     REQUIRE(grouper.held_notes()[64]);
@@ -163,9 +214,24 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
   }
 
   SECTION("Notes arriving outside window flush prior chord and begin a new chord") {
-    grouper.push_event(MidiNoteEvent{60, 90, true, false, false, 2000.0});
-    grouper.push_event(MidiNoteEvent{64, 90, true, false, false, 2050.0});
-    grouper.push_event(MidiNoteEvent{72, 90, true, false, false, 2150.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = false,
+                                     .timestamp_ms = 2000.0});
+    grouper.push_event(MidiNoteEvent{.note = 64,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = false,
+                                     .timestamp_ms = 2050.0});
+    grouper.push_event(MidiNoteEvent{.note = 72,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = false,
+                                     .timestamp_ms = 2150.0});
 
     auto chords = grouper.take_completed_chords();
     REQUIRE(chords.size() == 1);
@@ -178,16 +244,41 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
   }
 
   SECTION("NoteOff updates live 128-key held bitset cleanly") {
-    grouper.push_event(MidiNoteEvent{60, 100, true, false, true, 500.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 100,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 500.0});
     REQUIRE(grouper.held_notes()[60]);
-    grouper.push_event(MidiNoteEvent{60, 0, false, false, true, 520.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 0,
+                                     .is_note_on = false,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 520.0});
     REQUIRE_FALSE(grouper.held_notes()[60]);
   }
 
   SECTION("Immediate flush when expected chord cardinality is satisfied") {
-    grouper.push_event(MidiNoteEvent{60, 90, true, false, true, 3000.0});
-    grouper.push_event(MidiNoteEvent{64, 90, true, false, true, 3015.0});
-    grouper.push_event(MidiNoteEvent{67, 90, true, false, true, 3030.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 3000.0});
+    grouper.push_event(MidiNoteEvent{.note = 64,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 3015.0});
+    grouper.push_event(MidiNoteEvent{.note = 67,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 3030.0});
 
     REQUIRE(grouper.flush_if_cardinality(3, 3030.0));
     const auto chords = grouper.take_completed_chords();
@@ -203,8 +294,18 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
     grouper.set_window_ms(std::nan(""));
     REQUIRE(grouper.window_ms() == PolyphonicChordGrouper::kDefaultWindowMs);
 
-    grouper.push_event(MidiNoteEvent{60, 90, true, false, true, 4000.0});
-    grouper.push_event(MidiNoteEvent{60, 95, true, false, true, 4020.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 90,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 4000.0});
+    grouper.push_event(MidiNoteEvent{.note = 60,
+                                     .velocity = 95,
+                                     .is_note_on = true,
+                                     .is_soft_pedal = false,
+                                     .from_hardware = true,
+                                     .timestamp_ms = 4020.0});
     grouper.update(4150.0);
     const auto chords = grouper.take_completed_chords();
     REQUIRE(chords.size() == 1);
@@ -218,9 +319,12 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
 TEST_CASE("MidiPlaybackScheduler dispatches timed NoteOn, NoteOff, and panic cleanup",
           "[midi][scheduler]") {
   MidiPlaybackScheduler scheduler;
-  scheduler.schedule(ScheduledMidiNote{60, 96, 100.0, 250.0, 0});
-  scheduler.schedule(ScheduledMidiNote{64, 96, 100.0, 250.0, 0});
-  scheduler.schedule(ScheduledMidiNote{67, 90, 400.0, 200.0, 0});
+  scheduler.schedule(ScheduledMidiNote{
+      .note = 60, .velocity = 96, .start_ms = 100.0, .duration_ms = 250.0, .channel = 0});
+  scheduler.schedule(ScheduledMidiNote{
+      .note = 64, .velocity = 96, .start_ms = 100.0, .duration_ms = 250.0, .channel = 0});
+  scheduler.schedule(ScheduledMidiNote{
+      .note = 67, .velocity = 90, .start_ms = 400.0, .duration_ms = 200.0, .channel = 0});
 
   REQUIRE(scheduler.has_pending_or_active());
   REQUIRE(scheduler.update(50.0).empty());
@@ -247,11 +351,17 @@ TEST_CASE("MidiPlaybackScheduler dispatches timed NoteOn, NoteOff, and panic cle
   REQUIRE_FALSE(scheduler.has_pending_or_active());
 
   // Overlapping same-pitch retrigger emits clean NoteOff before new NoteOn and drops stale deadline
-  scheduler.schedule(ScheduledMidiNote{60, 0, 500.0, 200.0, 0}); // vel=0 rejected
+  scheduler.schedule(ScheduledMidiNote{.note = 60,
+                                       .velocity = 0,
+                                       .start_ms = 500.0,
+                                       .duration_ms = 200.0,
+                                       .channel = 0}); // vel=0 rejected
   REQUIRE_FALSE(scheduler.has_pending_or_active());
 
-  scheduler.schedule(ScheduledMidiNote{60, 96, 500.0, 300.0, 0});
-  scheduler.schedule(ScheduledMidiNote{60, 100, 650.0, 400.0, 0});
+  scheduler.schedule(ScheduledMidiNote{
+      .note = 60, .velocity = 96, .start_ms = 500.0, .duration_ms = 300.0, .channel = 0});
+  scheduler.schedule(ScheduledMidiNote{
+      .note = 60, .velocity = 100, .start_ms = 650.0, .duration_ms = 400.0, .channel = 0});
   const auto first_on = scheduler.update(500.0);
   REQUIRE(first_on.size() == 1);
   REQUIRE(first_on[0].is_note_on);
@@ -353,9 +463,11 @@ TEST_CASE("QwertyMapper maps keys to MIDI notes, suppresses repeats, and avoids 
   // 'A' maps to C4 (60), 'W' maps to C#4 (61), 'K' maps to C5 (72)
   const auto c4_down = mapper.on_key_down(QwertyKey::A, 100.0);
   REQUIRE(c4_down.has_value());
-  REQUIRE(c4_down->note == 60);
-  REQUIRE(c4_down->is_note_on);
-  REQUIRE_FALSE(c4_down->from_hardware);
+  if (c4_down.has_value()) {
+    REQUIRE(c4_down->note == 60);
+    REQUIRE(c4_down->is_note_on);
+    REQUIRE_FALSE(c4_down->from_hardware);
+  }
 
   // Key repeat must be ignored
   REQUIRE_FALSE(mapper.on_key_down(QwertyKey::A, 120.0).has_value());
@@ -365,13 +477,17 @@ TEST_CASE("QwertyMapper maps keys to MIDI notes, suppresses repeats, and avoids 
   REQUIRE(mapper.base_octave() == 5);
   const auto c4_up = mapper.on_key_up(QwertyKey::A, 150.0);
   REQUIRE(c4_up.has_value());
-  REQUIRE(c4_up->note == 60);
-  REQUIRE_FALSE(c4_up->is_note_on);
+  if (c4_up.has_value()) {
+    REQUIRE(c4_up->note == 60);
+    REQUIRE_FALSE(c4_up->is_note_on);
+  }
 
   // Next press of 'A' uses new octave (C5 = 72)
   const auto c5_down = mapper.on_key_down(QwertyKey::A, 180.0);
   REQUIRE(c5_down.has_value());
-  REQUIRE(c5_down->note == 72);
+  if (c5_down.has_value()) {
+    REQUIRE(c5_down->note == 72);
+  }
 
   // Clamp octave bounds [1..6]
   for (int i = 0; i < 10; ++i) {

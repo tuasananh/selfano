@@ -49,7 +49,7 @@ struct ChordSymbol {
   NoteLetter root_letter{NoteLetter::C};
   Accidental root_accidental{Accidental::Natural};
   std::uint8_t root_pc{0};
-  std::optional<std::uint8_t> bass_pc{};
+  std::optional<std::uint8_t> bass_pc;
   ChordQuality quality{ChordQuality::Major};
   std::uint16_t pitch_class_mask{0};
 

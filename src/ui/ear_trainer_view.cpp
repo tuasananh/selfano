@@ -31,7 +31,8 @@ namespace {
 
 } // namespace
 
-EarTrainerView::EarTrainerView() : engine_(core::KeySignature{0, core::Mode::Major}, 2026U) {
+EarTrainerView::EarTrainerView()
+    : engine_(core::KeySignature{.fifths = 0, .mode = core::Mode::Major}, 2026U) {
 }
 
 void EarTrainerView::set_key(core::KeySignature key) {

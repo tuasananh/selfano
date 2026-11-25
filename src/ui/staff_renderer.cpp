@@ -302,7 +302,7 @@ struct ClefSlot {
   bool rest_dotted{false};
   std::vector<const StaffNote*> notes;
   core::ChordLayout layout{};
-  std::optional<core::StemDirection> beamed_dir{};
+  std::optional<core::StemDirection> beamed_dir;
   float beamed_tip_y_spaces{0.0f};
   ImU32 stem_color{0};
 };
@@ -417,7 +417,8 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       beam_inputs.push_back(core::BeamEventInput{
           .event_index = i,
           .start_tick = s_slot.start_tick,
-          .duration_ticks = core::RhythmicValue{rbase, s_slot.rest_dotted}.ticks(),
+          .duration_ticks =
+              core::RhythmicValue{.base = rbase, .dotted = s_slot.rest_dotted}.ticks(),
           .base_duration = rbase,
           .dotted = s_slot.rest_dotted,
           .is_rest = true,
@@ -430,7 +431,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       beam_inputs.push_back(core::BeamEventInput{
           .event_index = i,
           .start_tick = s_slot.start_tick,
-          .duration_ticks = core::RhythmicValue{base_dur, s_slot.dotted}.ticks(),
+          .duration_ticks = core::RhythmicValue{.base = base_dur, .dotted = s_slot.dotted}.ticks(),
           .base_duration = base_dur,
           .dotted = s_slot.dotted,
           .is_rest = false,
@@ -526,14 +527,11 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
         sy_end = core::step_to_y(end_step, clef, bottom_y, space);
       }
 
-      float sx = slot.chord_x;
-      if (stem_dir == core::StemDirection::Up) {
-        sx = slot.chord_x + kStemUpAnchorXSpaces * space - stem_thickness * 0.5f;
-        sy_start -= kStemAnchorOffsetYSpaces * space;
-      } else {
-        sx = slot.chord_x + stem_thickness * 0.5f;
-        sy_start += kStemAnchorOffsetYSpaces * space;
-      }
+      const float sx = (stem_dir == core::StemDirection::Up)
+                           ? (slot.chord_x + kStemUpAnchorXSpaces * space - stem_thickness * 0.5f)
+                           : (slot.chord_x + stem_thickness * 0.5f);
+      sy_start += (stem_dir == core::StemDirection::Up) ? -(kStemAnchorOffsetYSpaces * space)
+                                                        : (kStemAnchorOffsetYSpaces * space);
       draw_list->AddLine(ImVec2(sx, sy_start), ImVec2(sx, sy_end), slot.stem_color, stem_thickness);
 
       if (!slot.beamed_dir.has_value() &&
@@ -760,7 +758,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   // 4. Key signatures
   const float keysig_x = clef_x + (std::max(kGClefWidthSpaces, kFClefWidthSpaces) + 0.65f) * s;
   const float keysig_step_x = 1.05f * s;
-  const std::size_t num_keysig = static_cast<std::size_t>(std::abs(options.key.fifths));
+  const auto num_keysig = static_cast<std::size_t>(std::abs(options.key.fifths));
 
   if (show_treble) {
     const auto ks_treble = core::key_signature_accidentals(options.key, core::Clef::Treble);
@@ -786,7 +784,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   // 4b. Time signature (arbitrary meter or legacy show_time_signature_4_4)
   std::optional<core::TimeSignature> header_meter = options.time_signature;
   if (!header_meter.has_value() && options.show_time_signature_4_4) {
-    header_meter = core::TimeSignature{4, 4};
+    header_meter = core::TimeSignature{.numerator = 4, .denominator = 4};
   }
 
   float content_left_x = keysig_x + static_cast<float>(num_keysig) * keysig_step_x +
@@ -821,7 +819,8 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   ImFont* ann_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
   ImFont* roman_font = (ds().fonts.ui_regular != nullptr) ? ds().fonts.ui_regular : ui_font;
 
-  core::TimeSignature active_meter = header_meter.value_or(core::TimeSignature{4, 4});
+  core::TimeSignature active_meter =
+      header_meter.value_or(core::TimeSignature{.numerator = 4, .denominator = 4});
   std::vector<core::TieEndpointRef> treble_ties;
   std::vector<core::TieEndpointRef> bass_ties;
 

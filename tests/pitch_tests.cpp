@@ -23,10 +23,12 @@ TEST_CASE("to_midi converts standard and enharmonic spelled notes accurately", "
   }
 
   SECTION("Out-of-range notes return unexpected error") {
-    const auto too_low = to_midi(SpelledNote{NoteLetter::C, Accidental::Flat, -1});
+    const auto too_low =
+        to_midi(SpelledNote{.letter = NoteLetter::C, .accidental = Accidental::Flat, .octave = -1});
     REQUIRE_FALSE(too_low.has_value());
 
-    const auto too_high = to_midi(SpelledNote{NoteLetter::G, Accidental::Sharp, 9});
+    const auto too_high =
+        to_midi(SpelledNote{.letter = NoteLetter::G, .accidental = Accidental::Sharp, .octave = 9});
     REQUIRE_FALSE(too_high.has_value());
   }
 }

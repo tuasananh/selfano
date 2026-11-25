@@ -1,7 +1,5 @@
 #include "core/etude_engine.hpp"
-#include "core/weekly_key.hpp"
 
-#include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
@@ -17,7 +15,7 @@ std::set<std::uint8_t> allowed_key_pitch_classes(KeySignature key) {
   for (int i = 0; i < 7; ++i) {
     const auto letter = static_cast<NoteLetter>(i);
     const Accidental acc = key_accidental_for(key, letter);
-    pcs.insert(pitch_class(SpelledNote{letter, acc, 4}));
+    pcs.insert(pitch_class(SpelledNote{.letter = letter, .accidental = acc, .octave = 4}));
   }
   return pcs;
 }
@@ -101,12 +99,12 @@ void verify_system_invariants(const EtudeSystem& sys, KeySignature key, EtudeHan
 TEST_CASE("EtudeEngine generates valid 4/4 systems within key, range, and max_jump constraints",
           "[etude]") {
   const std::array<KeySignature, 6> keys{{
-      {0, Mode::Major},
-      {1, Mode::Major},
-      {-1, Mode::Minor},
-      {-3, Mode::Major},
-      {3, Mode::Minor},
-      {6, Mode::Major},
+      {.fifths = 0, .mode = Mode::Major},
+      {.fifths = 1, .mode = Mode::Major},
+      {.fifths = -1, .mode = Mode::Minor},
+      {.fifths = -3, .mode = Mode::Major},
+      {.fifths = 3, .mode = Mode::Minor},
+      {.fifths = 6, .mode = Mode::Major},
   }};
   const std::array<EtudeHandMode, 3> hand_modes{{
       EtudeHandMode::RightHand,
@@ -137,8 +135,8 @@ TEST_CASE("EtudeEngine generates valid 4/4 systems within key, range, and max_ju
   }
 
   // Fixed seed determinism check
-  EtudeEngine a(EtudeConfig{.key = KeySignature{-2, Mode::Major}, .seed = 9001U});
-  EtudeEngine b(EtudeConfig{.key = KeySignature{-2, Mode::Major}, .seed = 9001U});
+  EtudeEngine a(EtudeConfig{.key = KeySignature{.fifths = -2, .mode = Mode::Major}, .seed = 9001U});
+  EtudeEngine b(EtudeConfig{.key = KeySignature{.fifths = -2, .mode = Mode::Major}, .seed = 9001U});
   REQUIRE(a.active_system().targets.size() == b.active_system().targets.size());
   for (std::size_t i = 0; i < a.active_system().targets.size(); ++i) {
     REQUIRE(a.active_system().targets[i].expected_midi ==
@@ -151,7 +149,7 @@ TEST_CASE("EtudeEngine Steady-Pulse mode runs 4-beat count-in, +-40% window, and
           "[etude]") {
   // 60 BPM = 1 beat per 1000 ms for clean deterministic arithmetic
   EtudeEngine engine(EtudeConfig{
-      .key = KeySignature{0, Mode::Major},
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
       .hand_mode = EtudeHandMode::RightHand,
       .timing_mode = EtudeTimingMode::SteadyPulse,
       .max_jump = EtudeMaxJump::Thirds,
@@ -226,7 +224,7 @@ TEST_CASE("EtudeEngine Steady-Pulse mode runs 4-beat count-in, +-40% window, and
 TEST_CASE("EtudeEngine Wait-for-Note mode holds playhead on error and promotes cleanly on bar 4",
           "[etude]") {
   EtudeEngine engine(EtudeConfig{
-      .key = KeySignature{1, Mode::Major},
+      .key = KeySignature{.fifths = 1, .mode = Mode::Major},
       .hand_mode = EtudeHandMode::EasyHandsTogether,
       .timing_mode = EtudeTimingMode::WaitForNote,
       .max_jump = EtudeMaxJump::Fifths,
@@ -247,8 +245,7 @@ TEST_CASE("EtudeEngine Wait-for-Note mode holds playhead on error and promotes c
   REQUIRE(engine.wait_target_index() == 0);
 
   // Wrong note marks target Missed and holds position
-  const MidiPitch bad =
-      static_cast<MidiPitch>(engine.active_system().targets[0].expected_midi[0] + 1U);
+  const auto bad = static_cast<MidiPitch>(engine.active_system().targets[0].expected_midi[0] + 1U);
   const auto miss = engine.submit_played_notes(std::array<MidiPitch, 1>{bad});
   REQUIRE(miss.status == EtudeInputStatus::Missed);
   REQUIRE(engine.wait_target_index() == 0);

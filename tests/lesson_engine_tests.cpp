@@ -10,8 +10,9 @@ namespace {
 
 [[nodiscard]] LessonNote ln(NoteLetter l, Accidental a, int oct, std::uint8_t f = 0,
                             bool ts = false, bool tp = false) {
-  const SpelledNote sp{l, a, oct};
-  return LessonNote{sp, to_midi(sp).value(), f, ts, tp};
+  const SpelledNote sp{.letter = l, .accidental = a, .octave = oct};
+  return LessonNote{
+      .spelled = sp, .midi = to_midi(sp).value(), .finger = f, .tie_start = ts, .tie_stop = tp};
 }
 
 [[nodiscard]] LessonScore make_sample_lesson() {
@@ -22,61 +23,61 @@ namespace {
       .order_in_tier = 1,
       .title = "Sample Study",
       .composer_source = "Test",
-      .key = KeySignature{0, Mode::Major},
-      .time_signature = TimeSignature{4, 4},
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+      .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
       .target_bpm = 100.0,
   };
 
   LessonMeasure m1{};
   m1.bar_number = 1;
-  m1.harmony = {{0, "C", "I"}};
+  m1.harmony = {{.start_tick = 0, .chord_symbol = "C", .roman_numeral = "I"}};
   m1.treble_events = {
-      {0,
-       {NoteBaseDuration::Half, false},
-       false,
-       0,
-       {ln(NoteLetter::E, Accidental::Natural, 4, 3)}},
-      {960,
-       {NoteBaseDuration::Half, false},
-       false,
-       0,
-       {ln(NoteLetter::G, Accidental::Natural, 4, 5, true, false)}},
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes = {ln(NoteLetter::E, Accidental::Natural, 4, 3)}},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes = {ln(NoteLetter::G, Accidental::Natural, 4, 5, true, false)}},
   };
   m1.bass_events = {
-      {0,
-       {NoteBaseDuration::Whole, false},
-       false,
-       0,
-       {ln(NoteLetter::C, Accidental::Natural, 3, 5)}},
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes = {ln(NoteLetter::C, Accidental::Natural, 3, 5)}},
   };
 
   LessonMeasure m2{};
   m2.bar_number = 2;
-  m2.harmony = {{0, "G7", "V7"}};
+  m2.harmony = {{.start_tick = 0, .chord_symbol = "G7", .roman_numeral = "V7"}};
   m2.treble_events = {
-      {0,
-       {NoteBaseDuration::Half, false},
-       false,
-       0,
-       {ln(NoteLetter::G, Accidental::Natural, 4, 5, false, true)}},
-      {960,
-       {NoteBaseDuration::Half, false},
-       false,
-       0,
-       {ln(NoteLetter::F, Accidental::Natural, 4, 4)}},
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes = {ln(NoteLetter::G, Accidental::Natural, 4, 5, false, true)}},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes = {ln(NoteLetter::F, Accidental::Natural, 4, 4)}},
   };
   m2.bass_events = {
-      {0,
-       {NoteBaseDuration::Whole, false},
-       false,
-       0,
-       {ln(NoteLetter::G, Accidental::Natural, 2, 5)}},
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes = {ln(NoteLetter::G, Accidental::Natural, 2, 5)}},
   };
 
   s.measures = {m1, m2};
   s.phrases = {
-      LessonPhrase{"Phrase A (Bar 1)", 0, 0},
-      LessonPhrase{"Phrase B (Bar 2)", 1, 1},
+      LessonPhrase{.label = "Phrase A (Bar 1)", .start_bar = 0, .end_bar = 0},
+      LessonPhrase{.label = "Phrase B (Bar 2)", .start_bar = 1, .end_bar = 1},
   };
   return s;
 }
@@ -87,7 +88,8 @@ TEST_CASE("LessonEngine builds targets respecting hand mode and excluding tie_st
           "[lesson_engine]") {
   LessonEngine engine;
   engine.load_score(make_sample_lesson(),
-                    LessonConfig{LessonPracticeMode::WaitForNote, LessonHandMode::HandsTogether});
+                    LessonConfig{.practice_mode = LessonPracticeMode::WaitForNote,
+                                 .hand_mode = LessonHandMode::HandsTogether});
 
   // Bar 1 tick 0 (C3+E4), Bar 1 tick 960 (G4 tie_start), Bar 2 tick 0 (G2 only! G4 is tie_stop),
   // Bar 2 tick 960 (F4)
@@ -108,7 +110,8 @@ TEST_CASE("LessonEngine builds targets respecting hand mode and excluding tie_st
 TEST_CASE("LessonEngine ChordSkeleton matches octave-flexible pitch classes", "[lesson_engine]") {
   LessonEngine engine;
   engine.load_score(make_sample_lesson(),
-                    LessonConfig{LessonPracticeMode::ChordSkeleton, LessonHandMode::HandsTogether});
+                    LessonConfig{.practice_mode = LessonPracticeMode::ChordSkeleton,
+                                 .hand_mode = LessonHandMode::HandsTogether});
 
   REQUIRE(engine.targets().size() == 2);
   REQUIRE(engine.targets()[0].pitch_class_match);
@@ -131,8 +134,9 @@ TEST_CASE("LessonEngine ChordSkeleton matches octave-flexible pitch classes", "[
 TEST_CASE("LessonEngine SteadyPulse runs 1-bar count-in, grades hit windows, and loops",
           "[lesson_engine]") {
   LessonEngine engine;
-  auto cfg = LessonConfig{LessonPracticeMode::SteadyPulse, LessonHandMode::RightHand,
-                          TempoLadderStep::Target100};
+  auto cfg = LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                          .hand_mode = LessonHandMode::RightHand,
+                          .tempo_step = TempoLadderStep::Target100};
   engine.load_score(make_sample_lesson(), cfg);
 
   REQUIRE_THAT(engine.effective_bpm(), WithinAbs(100.0, 1e-6)); // 600 ms / beat
@@ -183,8 +187,9 @@ TEST_CASE("LessonEngine build_demo_playback merges tied durations monotonically"
           "[lesson_engine]") {
   LessonEngine engine;
   engine.load_score(make_sample_lesson(),
-                    LessonConfig{LessonPracticeMode::WaitForNote, LessonHandMode::RightHand,
-                                 TempoLadderStep::Target100});
+                    LessonConfig{.practice_mode = LessonPracticeMode::WaitForNote,
+                                 .hand_mode = LessonHandMode::RightHand,
+                                 .tempo_step = TempoLadderStep::Target100});
   const auto demo = engine.build_demo_playback();
   // E4 (half=1200ms), G4 (half+half tied=2400ms), F4 (half=1200ms)
   REQUIRE(demo.size() == 3);

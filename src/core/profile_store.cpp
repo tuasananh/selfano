@@ -128,7 +128,7 @@ std::string format_epoch_day_iso(std::int64_t epoch_day) {
   // Howard Hinnant's civil_from_days algorithm (pure integer calendar math).
   const std::int64_t z = epoch_day + 719468;
   const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
-  const std::uint64_t doe = static_cast<std::uint64_t>(z - era * 146097);
+  const auto doe = static_cast<std::uint64_t>(z - era * 146097);
   const std::uint64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
   const std::int64_t y = static_cast<std::int64_t>(yoe) + era * 400;
   const std::uint64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);

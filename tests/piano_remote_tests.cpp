@@ -18,7 +18,9 @@ TEST_CASE("PianoRemote maps all 16 outer 88-key bindings and ignores playable ra
     REQUIRE(resolve_piano_remote_action(b.midi_note, ctx) == b.action);
     const auto found = find_piano_remote_binding(b.action);
     REQUIRE(found.has_value());
-    REQUIRE(found->midi_note == b.midi_note);
+    if (found.has_value()) {
+      REQUIRE(found->midi_note == b.midi_note);
+    }
   }
 
   // Playable core range C1 (24) .. B6 (95) must NEVER trigger remote commands.

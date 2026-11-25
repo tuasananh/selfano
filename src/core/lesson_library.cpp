@@ -27,11 +27,8 @@ read_text_file(const std::filesystem::path& path) {
 }
 
 [[nodiscard]] bool is_safe_lesson_id(std::string_view id) noexcept {
-  if (id.empty() || id.find('/') != std::string_view::npos ||
-      id.find('\\') != std::string_view::npos || id.find("..") != std::string_view::npos) {
-    return false;
-  }
-  return true;
+  return !id.empty() && id.find('/') == std::string_view::npos &&
+         id.find('\\') == std::string_view::npos && id.find("..") == std::string_view::npos;
 }
 
 } // namespace
@@ -231,8 +228,8 @@ void LessonLibrary::add_or_replace_lesson(LessonScore score) {
 }
 
 bool LessonLibrary::remove_lesson(std::string_view id) {
-  const auto it = std::find_if(lessons_.begin(), lessons_.end(),
-                               [id](const LessonScore& s) { return s.meta.id == id; });
+  const auto it =
+      std::ranges::find_if(lessons_, [id](const LessonScore& s) { return s.meta.id == id; });
   if (it == lessons_.end()) {
     return false;
   }
@@ -267,7 +264,7 @@ std::vector<const LessonScore*> LessonLibrary::lessons_in_tier(std::uint8_t tier
       out.push_back(&s);
     }
   }
-  std::sort(out.begin(), out.end(), [](const LessonScore* a, const LessonScore* b) {
+  std::ranges::sort(out, [](const LessonScore* a, const LessonScore* b) {
     return a->meta.order_in_tier < b->meta.order_in_tier;
   });
   return out;

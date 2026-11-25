@@ -1,7 +1,6 @@
 #include "core/flashcard_engine.hpp"
 #include "core/weekly_key.hpp"
 
-#include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <map>
@@ -93,7 +92,7 @@ TEST_CASE("compute_shape_weight and sampler strongly favor <85% accuracy and >15
   telemetry[weak_acc_id] = low_acc;
   telemetry[weak_rt_id] = slow_rt;
 
-  FlashcardEngine engine(KeySignature{0, Mode::Major}, 777U, 0.0);
+  FlashcardEngine engine(KeySignature{.fifths = 0, .mode = Mode::Major}, 777U, 0.0);
   engine.load_telemetry(telemetry);
 
   std::size_t weak_hits = 0;
@@ -120,7 +119,7 @@ TEST_CASE("compute_shape_weight and sampler strongly favor <85% accuracy and >15
 
 TEST_CASE("FlashcardEngine evaluates single-step and melodic 2-step prompts deterministically",
           "[flashcards]") {
-  const auto key = KeySignature{1, Mode::Major}; // G Major
+  const auto key = KeySignature{.fifths = 1, .mode = Mode::Major}; // G Major
   FlashcardEngine e1(key, 2025U, 1000.0);
   FlashcardEngine e2(key, 2025U, 1000.0);
 
@@ -159,7 +158,7 @@ TEST_CASE("FlashcardEngine evaluates single-step and melodic 2-step prompts dete
     REQUIRE(e1.submit_played_notes({}, t + 100.0).status == FlashcardEvalStatus::Ignored);
 
     // Wrong note on step 0 records 1 miss without double-counting retries
-    const MidiPitch wrong_note =
+    const auto wrong_note =
         static_cast<MidiPitch>((e1.current_prompt().steps[0].expected_midi[0] + 1U) % 127U);
     const auto err1 = e1.submit_played_notes(std::array<MidiPitch, 1>{wrong_note}, t + 300.0);
     REQUIRE(err1.status == FlashcardEvalStatus::Incorrect);

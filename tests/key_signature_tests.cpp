@@ -50,8 +50,8 @@ TEST_CASE("All 30 major and minor keys have accurate tonics, names, and accident
   // Verify all 30 names are unique
   std::set<std::string> seen_names;
   for (int f = -7; f <= 7; ++f) {
-    seen_names.insert(format_key_name(KeySignature{f, Mode::Major}));
-    seen_names.insert(format_key_name(KeySignature{f, Mode::Minor}));
+    seen_names.insert(format_key_name(KeySignature{.fifths = f, .mode = Mode::Major}));
+    seen_names.insert(format_key_name(KeySignature{.fifths = f, .mode = Mode::Minor}));
   }
   REQUIRE(seen_names.size() == 30);
 }
@@ -106,7 +106,7 @@ TEST_CASE("spell_midi_in_key handles enharmonics, leading tones, and 128x30 roun
   SECTION("Exact round-trip for every MIDI note 0..127 across all 30 keys") {
     for (int f = -7; f <= 7; ++f) {
       for (const Mode mode : {Mode::Major, Mode::Minor}) {
-        const KeySignature key{f, mode};
+        const KeySignature key{.fifths = f, .mode = mode};
         for (int m = 0; m <= 127; ++m) {
           const auto spelled = spell_midi_in_key(static_cast<MidiPitch>(m), key);
           REQUIRE(spelled.has_value());

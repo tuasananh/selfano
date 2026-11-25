@@ -141,7 +141,7 @@ FlashcardView::virtual_piano_highlights(const std::array<bool, 128>& held_notes)
     const auto& exp = prompt.steps[engine_.substep_index()].expected_midi;
     for (const core::MidiPitch m : engine_.last_played_midi()) {
       if (m < 128U) {
-        const bool ok = std::find(exp.begin(), exp.end(), m) != exp.end();
+        const bool ok = std::ranges::find(exp, m) != exp.end();
         if (ok) {
           hi.correct[m] = true;
         } else {

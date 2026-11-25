@@ -44,9 +44,9 @@ partition_warmup_bars(std::span<const core::WarmUpStep> steps) {
     const std::size_t start = i;
     const auto station = steps[i].station;
     const auto hand_clef = steps[i].solo_hand_clef;
-    const std::size_t max_in_bar = (station == core::WarmUpStation::VoiceLedCadence) ? 4U : 4U;
+    constexpr std::size_t kMaxInBar = 4U;
     while (i < steps.size() && steps[i].station == station &&
-           steps[i].solo_hand_clef == hand_clef && (i - start) < max_in_bar) {
+           steps[i].solo_hand_clef == hand_clef && (i - start) < kMaxInBar) {
       ++i;
     }
     bars.push_back(PagedStaffBar{.step_start = start, .step_count = i - start});
@@ -270,7 +270,7 @@ WarmUpView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) co
       for (const core::MidiPitch m : engine_.last_played_midi()) {
         if (m < 128U) {
           const auto& exp = steps[idx].expected_midi;
-          const bool ok = std::find(exp.begin(), exp.end(), m) != exp.end();
+          const bool ok = std::ranges::find(exp, m) != exp.end();
           if (ok) {
             hi.correct[m] = true;
           } else {
@@ -444,7 +444,7 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     }
 
     ImGui::Spacing();
-    float bpm_f = static_cast<float>(engine_.current_bpm());
+    auto bpm_f = static_cast<float>(engine_.current_bpm());
     ImGui::SetNextItemWidth(pop_w);
     if (ImGui::SliderFloat("##wu_bpm_slider", &bpm_f, static_cast<float>(core::kMinWarmUpBpm),
                            static_cast<float>(core::kMaxWarmUpBpm), "Pulse: %.0f BPM")) {
@@ -489,7 +489,7 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     int display_num = 1;
     for (const auto st : kAllStations) {
       const bool present =
-          std::any_of(steps.begin(), steps.end(), [st](const auto& s) { return s.station == st; });
+          std::ranges::any_of(steps, [st](const auto& s) { return s.station == st; });
       if (!present) {
         continue;
       }

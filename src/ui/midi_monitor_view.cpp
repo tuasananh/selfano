@@ -1,7 +1,5 @@
 #include "ui/midi_monitor_view.hpp"
 
-#include "core/pitch.hpp"
-
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
 #include "ui/widgets.hpp"
@@ -138,7 +136,8 @@ void MidiMonitorView::record_input_event(const midi::MidiNoteEvent& ev) {
     entry.type_label = "Control Change";
     entry.detail_label = std::format("{} (CC {})", cc_name(cc_num), cc_num);
   } else if (ev.kind == midi::MidiMessageKind::PitchBend) {
-    const int raw14 = (static_cast<int>(ev.data2) << 7) | static_cast<int>(ev.data1);
+    const int raw14 =
+        static_cast<int>((static_cast<unsigned>(ev.data2) << 7U) | static_cast<unsigned>(ev.data1));
     pitch_bend_value_ = raw14 - 8192;
     pitch_bend_seen_ = true;
     entry.type_label = "Pitch Bend";
@@ -470,8 +469,10 @@ MidiMonitorActions MidiMonitorView::draw(midi::MidiEngine& midi_engine, midi::Au
                          "Waiting for MIDI activity. Play keys, press pedals, or click a MIDI OUT "
                          "test button above.");
     } else if (ImGui::BeginTable("##mm_log_table", 7,
-                                 ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg |
-                                     ImGuiTableFlags_ScrollY)) {
+                                 static_cast<ImGuiTableFlags>(
+                                     static_cast<unsigned>(ImGuiTableFlags_SizingStretchProp) |
+                                     static_cast<unsigned>(ImGuiTableFlags_RowBg) |
+                                     static_cast<unsigned>(ImGuiTableFlags_ScrollY)))) {
       ImGui::TableSetupScrollFreeze(0, 1);
       ImGui::TableSetupColumn("Dir", ImGuiTableColumnFlags_WidthFixed, 54.0f * scale);
       ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 76.0f * scale);

@@ -57,8 +57,10 @@ TEST_CASE("MeasureAccidentalState tracks courtesy and cancellation naturals per 
   const auto g_maj = make_key_signature(1, Mode::Major).value();
   MeasureAccidentalState state{g_maj};
 
-  const auto fs4 = SpelledNote{NoteLetter::F, Accidental::Sharp, 4};
-  const auto f_nat4 = SpelledNote{NoteLetter::F, Accidental::Natural, 4};
+  const auto fs4 =
+      SpelledNote{.letter = NoteLetter::F, .accidental = Accidental::Sharp, .octave = 4};
+  const auto f_nat4 =
+      SpelledNote{.letter = NoteLetter::F, .accidental = Accidental::Natural, .octave = 4};
 
   REQUIRE_FALSE(state.resolve_and_record(fs4).has_value());
   REQUIRE(state.resolve_and_record(f_nat4) == Accidental::Natural);
@@ -75,41 +77,46 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
   const float expected_offset = w * kSecondOffsetRatio;
 
   SECTION("Stem directions relative to staff middle line") {
-    const std::array g4{ChordNoteLayoutInput{0, 32, std::nullopt}};
+    const std::array g4{
+        ChordNoteLayoutInput{.source_index = 0, .step = 32, .displayed_accidental = std::nullopt}};
     REQUIRE(layout_chord(g4, Clef::Treble).stem_direction == StemDirection::Up);
 
-    const std::array b4{ChordNoteLayoutInput{0, 34, std::nullopt}};
+    const std::array b4{
+        ChordNoteLayoutInput{.source_index = 0, .step = 34, .displayed_accidental = std::nullopt}};
     REQUIRE(layout_chord(b4, Clef::Treble).stem_direction == StemDirection::Down);
 
-    const std::array d5{ChordNoteLayoutInput{0, 36, std::nullopt}};
+    const std::array d5{
+        ChordNoteLayoutInput{.source_index = 0, .step = 36, .displayed_accidental = std::nullopt}};
     REQUIRE(layout_chord(d5, Clef::Treble).stem_direction == StemDirection::Down);
 
     const std::array c_triad_low{
-        ChordNoteLayoutInput{0, 28, std::nullopt},
-        ChordNoteLayoutInput{1, 30, std::nullopt},
-        ChordNoteLayoutInput{2, 32, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 28, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 30, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 2, .step = 32, .displayed_accidental = std::nullopt},
     };
     REQUIRE(layout_chord(c_triad_low, Clef::Treble).stem_direction == StemDirection::Up);
 
     const std::array a_triad_high{
-        ChordNoteLayoutInput{0, 33, std::nullopt},
-        ChordNoteLayoutInput{1, 35, std::nullopt},
-        ChordNoteLayoutInput{2, 37, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 33, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 35, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 2, .step = 37, .displayed_accidental = std::nullopt},
     };
     REQUIRE(layout_chord(a_triad_high, Clef::Treble).stem_direction == StemDirection::Down);
 
-    const std::array bass_b2{ChordNoteLayoutInput{0, 20, std::nullopt}};
+    const std::array bass_b2{
+        ChordNoteLayoutInput{.source_index = 0, .step = 20, .displayed_accidental = std::nullopt}};
     REQUIRE(layout_chord(bass_b2, Clef::Bass).stem_direction == StemDirection::Up);
 
-    const std::array bass_d3{ChordNoteLayoutInput{0, 22, std::nullopt}};
+    const std::array bass_d3{
+        ChordNoteLayoutInput{.source_index = 0, .step = 22, .displayed_accidental = std::nullopt}};
     REQUIRE(layout_chord(bass_d3, Clef::Bass).stem_direction == StemDirection::Down);
   }
 
   SECTION("2nd-interval offsets for Stem Up and Stem Down") {
     // Stem-up dyad F4-G4
     const std::array fg_up{
-        ChordNoteLayoutInput{0, 31, std::nullopt},
-        ChordNoteLayoutInput{1, 32, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 31, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 32, .displayed_accidental = std::nullopt},
     };
     const auto fg_layout = layout_chord(fg_up, Clef::Treble, w);
     REQUIRE(fg_layout.stem_direction == StemDirection::Up);
@@ -120,9 +127,9 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
     // Stem-up 3-note cluster C4-D4-E4
     const std::array cde_up{
-        ChordNoteLayoutInput{0, 28, std::nullopt},
-        ChordNoteLayoutInput{1, 29, std::nullopt},
-        ChordNoteLayoutInput{2, 30, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 28, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 29, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 2, .step = 30, .displayed_accidental = std::nullopt},
     };
     const auto cde_layout = layout_chord(cde_up, Clef::Treble, w);
     REQUIRE(cde_layout.stem_direction == StemDirection::Up);
@@ -132,8 +139,8 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
     // Stem-down dyad C5-D5
     const std::array cd_down{
-        ChordNoteLayoutInput{0, 35, std::nullopt},
-        ChordNoteLayoutInput{1, 36, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 35, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 36, .displayed_accidental = std::nullopt},
     };
     const auto cd_layout = layout_chord(cd_down, Clef::Treble, w);
     REQUIRE(cd_layout.stem_direction == StemDirection::Down);
@@ -144,9 +151,9 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
     // Stem-down 3-note cluster C5-D5-E5
     const std::array cde_down{
-        ChordNoteLayoutInput{0, 35, std::nullopt},
-        ChordNoteLayoutInput{1, 36, std::nullopt},
-        ChordNoteLayoutInput{2, 37, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 35, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 36, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 2, .step = 37, .displayed_accidental = std::nullopt},
     };
     const auto cde_down_layout = layout_chord(cde_down, Clef::Treble, w);
     REQUIRE(cde_down_layout.stem_direction == StemDirection::Down);
@@ -156,9 +163,9 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
     // Non-adjacent C4-E4-G4 triad has zero offsets
     const std::array c_triad{
-        ChordNoteLayoutInput{0, 28, std::nullopt},
-        ChordNoteLayoutInput{1, 30, std::nullopt},
-        ChordNoteLayoutInput{2, 32, std::nullopt},
+        ChordNoteLayoutInput{.source_index = 0, .step = 28, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 1, .step = 30, .displayed_accidental = std::nullopt},
+        ChordNoteLayoutInput{.source_index = 2, .step = 32, .displayed_accidental = std::nullopt},
     };
     const auto c_layout = layout_chord(c_triad, Clef::Treble, w);
     for (const auto& nh : c_layout.noteheads) {
@@ -169,8 +176,10 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
   SECTION("Accidental column stagger avoids vertical overlap within 5 diatonic steps") {
     // F#4(31) + A#4(33): 2 steps apart -> distinct columns 0 and 1
     const std::array close_two{
-        ChordNoteLayoutInput{0, 31, Accidental::Sharp},
-        ChordNoteLayoutInput{1, 33, Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 0, .step = 31, .displayed_accidental = Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 1, .step = 33, .displayed_accidental = Accidental::Sharp},
     };
     const auto close_layout = layout_chord(close_two, Clef::Treble, w);
     std::set<int> cols_two{close_layout.noteheads[0].accidental_column,
@@ -179,8 +188,10 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
     // F#4(31) + D#5(36): 5 steps apart -> both fit in column 0
     const std::array far_two{
-        ChordNoteLayoutInput{0, 31, Accidental::Sharp},
-        ChordNoteLayoutInput{1, 36, Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 0, .step = 31, .displayed_accidental = Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 1, .step = 36, .displayed_accidental = Accidental::Sharp},
     };
     const auto far_layout = layout_chord(far_two, Clef::Treble, w);
     REQUIRE(far_layout.noteheads[0].accidental_column == 0);
@@ -188,9 +199,12 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
     // 3 close accidentals C#4(28), D#4(29), E#4(30) -> columns 0, 1, 2
     const std::array close_three{
-        ChordNoteLayoutInput{0, 28, Accidental::Sharp},
-        ChordNoteLayoutInput{1, 29, Accidental::Sharp},
-        ChordNoteLayoutInput{2, 30, Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 0, .step = 28, .displayed_accidental = Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 1, .step = 29, .displayed_accidental = Accidental::Sharp},
+        ChordNoteLayoutInput{
+            .source_index = 2, .step = 30, .displayed_accidental = Accidental::Sharp},
     };
     const auto three_layout = layout_chord(close_three, Clef::Treble, w);
     std::set<int> cols_three{
@@ -203,8 +217,10 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 
   SECTION("Ledger lines union across multi-note chord") {
     const std::array low_dyad{
-        ChordNoteLayoutInput{0, 26, std::nullopt}, // A3 (28, 26)
-        ChordNoteLayoutInput{1, 28, std::nullopt}, // C4 (28)
+        ChordNoteLayoutInput{
+            .source_index = 0, .step = 26, .displayed_accidental = std::nullopt}, // A3 (28, 26)
+        ChordNoteLayoutInput{
+            .source_index = 1, .step = 28, .displayed_accidental = std::nullopt}, // C4 (28)
     };
     const auto low_layout = layout_chord(low_dyad, Clef::Treble, w);
     REQUIRE(low_layout.ledger_line_steps == std::vector<int>{26, 28});
@@ -214,16 +230,81 @@ TEST_CASE("layout_chord computes stem direction, 2nd-interval offsets, and accid
 TEST_CASE("compute_beam_groups groups 8th and 16th notes cleanly per meter", "[staff_layout]") {
   SECTION("4/4 beams in half-bar groups for 8ths and splits on rests") {
     std::vector<BeamEventInput> evs{
-        {0, 0, 240, NoteBaseDuration::Eighth, false, false, 2.0f, 30, 30},
-        {1, 240, 240, NoteBaseDuration::Eighth, false, false, 5.0f, 31, 31},
-        {2, 480, 240, NoteBaseDuration::Eighth, false, false, 8.0f, 32, 32},
-        {3, 720, 240, NoteBaseDuration::Eighth, false, false, 11.0f, 33, 33},
-        {4, 960, 240, NoteBaseDuration::Eighth, false, true, 14.0f, 34, 34}, // rest breaks group
-        {5, 1200, 240, NoteBaseDuration::Eighth, false, false, 17.0f, 36, 36},
-        {6, 1440, 240, NoteBaseDuration::Eighth, false, false, 20.0f, 35, 35},
-        {7, 1680, 240, NoteBaseDuration::Eighth, false, false, 23.0f, 34, 34},
+        {.event_index = 0,
+         .start_tick = 0,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 2.0f,
+         .min_step = 30,
+         .max_step = 30},
+        {.event_index = 1,
+         .start_tick = 240,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 5.0f,
+         .min_step = 31,
+         .max_step = 31},
+        {.event_index = 2,
+         .start_tick = 480,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 8.0f,
+         .min_step = 32,
+         .max_step = 32},
+        {.event_index = 3,
+         .start_tick = 720,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 11.0f,
+         .min_step = 33,
+         .max_step = 33},
+        {.event_index = 4,
+         .start_tick = 960,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = true,
+         .x_spaces = 14.0f,
+         .min_step = 34,
+         .max_step = 34}, // rest breaks group
+        {.event_index = 5,
+         .start_tick = 1200,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 17.0f,
+         .min_step = 36,
+         .max_step = 36},
+        {.event_index = 6,
+         .start_tick = 1440,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 20.0f,
+         .min_step = 35,
+         .max_step = 35},
+        {.event_index = 7,
+         .start_tick = 1680,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 23.0f,
+         .min_step = 34,
+         .max_step = 34},
     };
-    const auto groups = compute_beam_groups(evs, TimeSignature{4, 4}, Clef::Treble);
+    const auto groups =
+        compute_beam_groups(evs, TimeSignature{.numerator = 4, .denominator = 4}, Clef::Treble);
     REQUIRE(groups.size() == 2);
     REQUIRE(groups[0].event_indices == std::vector<std::size_t>{0, 1, 2, 3});
     REQUIRE(groups[0].stem_direction == StemDirection::Up);
@@ -235,14 +316,63 @@ TEST_CASE("compute_beam_groups groups 8th and 16th notes cleanly per meter", "[s
 
   SECTION("6/8 beams in compound dotted-quarter groups of 3 eighths") {
     std::vector<BeamEventInput> evs{
-        {0, 0, 240, NoteBaseDuration::Eighth, false, false, 2.0f, 31, 31},
-        {1, 240, 240, NoteBaseDuration::Eighth, false, false, 5.0f, 32, 32},
-        {2, 480, 240, NoteBaseDuration::Eighth, false, false, 8.0f, 33, 33},
-        {3, 720, 240, NoteBaseDuration::Eighth, false, false, 11.0f, 34, 34},
-        {4, 960, 240, NoteBaseDuration::Eighth, false, false, 14.0f, 35, 35},
-        {5, 1200, 240, NoteBaseDuration::Eighth, false, false, 17.0f, 36, 36},
+        {.event_index = 0,
+         .start_tick = 0,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 2.0f,
+         .min_step = 31,
+         .max_step = 31},
+        {.event_index = 1,
+         .start_tick = 240,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 5.0f,
+         .min_step = 32,
+         .max_step = 32},
+        {.event_index = 2,
+         .start_tick = 480,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 8.0f,
+         .min_step = 33,
+         .max_step = 33},
+        {.event_index = 3,
+         .start_tick = 720,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 11.0f,
+         .min_step = 34,
+         .max_step = 34},
+        {.event_index = 4,
+         .start_tick = 960,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 14.0f,
+         .min_step = 35,
+         .max_step = 35},
+        {.event_index = 5,
+         .start_tick = 1200,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 17.0f,
+         .min_step = 36,
+         .max_step = 36},
     };
-    const auto groups = compute_beam_groups(evs, TimeSignature{6, 8}, Clef::Treble);
+    const auto groups =
+        compute_beam_groups(evs, TimeSignature{.numerator = 6, .denominator = 8}, Clef::Treble);
     REQUIRE(groups.size() == 2);
     REQUIRE(groups[0].event_indices == std::vector<std::size_t>{0, 1, 2});
     REQUIRE(groups[1].event_indices == std::vector<std::size_t>{3, 4, 5});
@@ -250,13 +380,54 @@ TEST_CASE("compute_beam_groups groups 8th and 16th notes cleanly per meter", "[s
 
   SECTION("3/4 beams within quarter beats when mixing or on beat boundaries") {
     std::vector<BeamEventInput> evs{
-        {0, 0, 240, NoteBaseDuration::Eighth, false, false, 2.0f, 32, 32},
-        {1, 240, 240, NoteBaseDuration::Eighth, false, false, 5.0f, 33, 33},
-        {2, 480, 240, NoteBaseDuration::Eighth, false, false, 8.0f, 32, 32},
-        {3, 720, 240, NoteBaseDuration::Eighth, false, false, 11.0f, 31, 31},
-        {4, 960, 480, NoteBaseDuration::Quarter, false, false, 14.0f, 30, 30},
+        {.event_index = 0,
+         .start_tick = 0,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 2.0f,
+         .min_step = 32,
+         .max_step = 32},
+        {.event_index = 1,
+         .start_tick = 240,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 5.0f,
+         .min_step = 33,
+         .max_step = 33},
+        {.event_index = 2,
+         .start_tick = 480,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 8.0f,
+         .min_step = 32,
+         .max_step = 32},
+        {.event_index = 3,
+         .start_tick = 720,
+         .duration_ticks = 240,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 11.0f,
+         .min_step = 31,
+         .max_step = 31},
+        {.event_index = 4,
+         .start_tick = 960,
+         .duration_ticks = 480,
+         .base_duration = NoteBaseDuration::Quarter,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 14.0f,
+         .min_step = 30,
+         .max_step = 30},
     };
-    const auto groups = compute_beam_groups(evs, TimeSignature{3, 4}, Clef::Treble);
+    const auto groups =
+        compute_beam_groups(evs, TimeSignature{.numerator = 3, .denominator = 4}, Clef::Treble);
     REQUIRE(groups.size() == 2);
     REQUIRE(groups[0].event_indices == std::vector<std::size_t>{0, 1});
     REQUIRE(groups[1].event_indices == std::vector<std::size_t>{2, 3});
@@ -265,15 +436,64 @@ TEST_CASE("compute_beam_groups groups 8th and 16th notes cleanly per meter", "[s
   SECTION("Secondary 16th beams and dotted-8th + 16th fractional hooks") {
     std::vector<BeamEventInput> evs{
         // Beat 1: dotted 8th + lone 16th -> hook
-        {0, 0, 360, NoteBaseDuration::Eighth, true, false, 2.0f, 31, 31},
-        {1, 360, 120, NoteBaseDuration::Sixteenth, false, false, 6.0f, 32, 32},
+        {.event_index = 0,
+         .start_tick = 0,
+         .duration_ticks = 360,
+         .base_duration = NoteBaseDuration::Eighth,
+         .dotted = true,
+         .is_rest = false,
+         .x_spaces = 2.0f,
+         .min_step = 31,
+         .max_step = 31},
+        {.event_index = 1,
+         .start_tick = 360,
+         .duration_ticks = 120,
+         .base_duration = NoteBaseDuration::Sixteenth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 6.0f,
+         .min_step = 32,
+         .max_step = 32},
         // Beat 2: four 16ths -> full secondary beam
-        {2, 480, 120, NoteBaseDuration::Sixteenth, false, false, 9.0f, 32, 32},
-        {3, 600, 120, NoteBaseDuration::Sixteenth, false, false, 11.5f, 33, 33},
-        {4, 720, 120, NoteBaseDuration::Sixteenth, false, false, 14.0f, 34, 34},
-        {5, 840, 120, NoteBaseDuration::Sixteenth, false, false, 16.5f, 33, 33},
+        {.event_index = 2,
+         .start_tick = 480,
+         .duration_ticks = 120,
+         .base_duration = NoteBaseDuration::Sixteenth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 9.0f,
+         .min_step = 32,
+         .max_step = 32},
+        {.event_index = 3,
+         .start_tick = 600,
+         .duration_ticks = 120,
+         .base_duration = NoteBaseDuration::Sixteenth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 11.5f,
+         .min_step = 33,
+         .max_step = 33},
+        {.event_index = 4,
+         .start_tick = 720,
+         .duration_ticks = 120,
+         .base_duration = NoteBaseDuration::Sixteenth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 14.0f,
+         .min_step = 34,
+         .max_step = 34},
+        {.event_index = 5,
+         .start_tick = 840,
+         .duration_ticks = 120,
+         .base_duration = NoteBaseDuration::Sixteenth,
+         .dotted = false,
+         .is_rest = false,
+         .x_spaces = 16.5f,
+         .min_step = 33,
+         .max_step = 33},
     };
-    const auto groups = compute_beam_groups(evs, TimeSignature{2, 4}, Clef::Treble);
+    const auto groups =
+        compute_beam_groups(evs, TimeSignature{.numerator = 2, .denominator = 4}, Clef::Treble);
     REQUIRE(groups.size() == 2);
     REQUIRE(groups[0].secondary_beams.size() == 1);
     REQUIRE(groups[0].secondary_beams[0].is_hook);
@@ -286,12 +506,52 @@ TEST_CASE("resolve_tie_spans handles complete, outgoing, incoming ties and orien
           "[staff_layout]") {
   const std::vector<TieEndpointRef> refs{
       // Incoming tie from previous system at bar 0
-      TieEndpointRef{0, 0, 0, 62, 29, 2.0f, StemDirection::Up, 1, 0, false, true},
+      TieEndpointRef{.measure_index = 0,
+                     .event_index = 0,
+                     .note_index = 0,
+                     .midi = 62,
+                     .step = 29,
+                     .x_spaces = 2.0f,
+                     .stem_direction = StemDirection::Up,
+                     .chord_note_count = 1,
+                     .index_in_chord = 0,
+                     .tie_start = false,
+                     .tie_stop = true},
       // Complete tie from bar 0 to bar 1
-      TieEndpointRef{0, 1, 0, 67, 32, 10.0f, StemDirection::Up, 1, 0, true, false},
-      TieEndpointRef{1, 0, 0, 67, 32, 15.0f, StemDirection::Up, 1, 0, false, true},
+      TieEndpointRef{.measure_index = 0,
+                     .event_index = 1,
+                     .note_index = 0,
+                     .midi = 67,
+                     .step = 32,
+                     .x_spaces = 10.0f,
+                     .stem_direction = StemDirection::Up,
+                     .chord_note_count = 1,
+                     .index_in_chord = 0,
+                     .tie_start = true,
+                     .tie_stop = false},
+      TieEndpointRef{.measure_index = 1,
+                     .event_index = 0,
+                     .note_index = 0,
+                     .midi = 67,
+                     .step = 32,
+                     .x_spaces = 15.0f,
+                     .stem_direction = StemDirection::Up,
+                     .chord_note_count = 1,
+                     .index_in_chord = 0,
+                     .tie_start = false,
+                     .tie_stop = true},
       // Outgoing tie at bar 1 crossing system break
-      TieEndpointRef{1, 1, 0, 72, 35, 22.0f, StemDirection::Down, 1, 0, true, false},
+      TieEndpointRef{.measure_index = 1,
+                     .event_index = 1,
+                     .note_index = 0,
+                     .midi = 72,
+                     .step = 35,
+                     .x_spaces = 22.0f,
+                     .stem_direction = StemDirection::Down,
+                     .chord_note_count = 1,
+                     .index_in_chord = 0,
+                     .tie_start = true,
+                     .tie_stop = false},
   };
 
   const auto spans = resolve_tie_spans(refs);

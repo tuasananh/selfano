@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <numbers>
 
 namespace selfano::ui {
 
@@ -106,7 +107,7 @@ void draw_icon(ImDrawList* dl, IconId icon, ImVec2 c, float size, ImU32 col, flo
 
   case IconId::Headphones: {
     dl->PathClear();
-    dl->PathArcTo(ImVec2(c.x, c.y + r * 0.05f), r * 0.68f, 3.14159f, 6.28318f, 18);
+    dl->PathArcTo(ImVec2(c.x, c.y + r * 0.05f), r * 0.68f, std::numbers::pi_v<float>, 6.28318f, 18);
     dl->PathStroke(col, 0, s);
     dl->AddRectFilled(ImVec2(c.x - r * 0.82f, c.y + r * 0.02f),
                       ImVec2(c.x - r * 0.42f, c.y + r * 0.68f), col, 2.5f);

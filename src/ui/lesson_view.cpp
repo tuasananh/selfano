@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstring>
 #include <format>
 #include <string_view>
@@ -28,7 +27,7 @@ namespace {
   std::string out;
   for (std::size_t i = 0; i < notes.size(); ++i) {
     if (i > 0) {
-      out += "+";
+      out += '+';
     }
     const auto sp = core::spell_midi_in_key(notes[i], key);
     out += sp.has_value() ? core::format_note(*sp) : std::to_string(notes[i]);
@@ -298,10 +297,13 @@ void LessonView::draw_import_modal(LessonViewActions& actions) {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
                         ImVec4(0.0f, 0.0f, 0.0f, is_dark_theme() ? 0.62f : 0.38f));
-  constexpr ImGuiWindowFlags kDimFlags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-      ImGuiWindowFlags_NoBringToFrontOnFocus;
+  constexpr auto kDimFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoFocusOnAppearing) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus));
   if (ImGui::Begin("##imp_dim_bg", nullptr, kDimFlags)) {
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
       import_modal_open_ = false;
@@ -324,9 +326,11 @@ void LessonView::draw_import_modal(LessonViewActions& actions) {
   ImGui::PushStyleColor(ImGuiCol_WindowBg, c.card_elevated_bg);
   ImGui::PushStyleColor(ImGuiCol_Border, c.hairline_strong);
 
-  constexpr ImGuiWindowFlags kModalFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                           ImGuiWindowFlags_NoMove |
-                                           ImGuiWindowFlags_NoSavedSettings;
+  constexpr auto kModalFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoTitleBar) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings));
   if (ImGui::Begin("##import_preview_modal", nullptr, kModalFlags)) {
     {
       ScopedFont tf(TypeStyle::Title);
@@ -427,7 +431,8 @@ void LessonView::draw_import_modal(LessonViewActions& actions) {
             break;
           }
           if (import_draft_.measures[bi].harmony.empty()) {
-            import_draft_.measures[bi].harmony.push_back(core::HarmonicAnnotation{0, sym, {}});
+            import_draft_.measures[bi].harmony.push_back(core::HarmonicAnnotation{
+                .start_tick = 0, .chord_symbol = sym, .roman_numeral = {}});
           } else {
             import_draft_.measures[bi].harmony.front().chord_symbol = sym;
           }
@@ -480,10 +485,13 @@ void LessonView::draw_curriculum_modal(const core::LessonLibrary& library,
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
                         ImVec4(0.0f, 0.0f, 0.0f, is_dark_theme() ? 0.56f : 0.34f));
-  constexpr ImGuiWindowFlags kDimFlags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-      ImGuiWindowFlags_NoBringToFrontOnFocus;
+  constexpr auto kDimFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoDecoration) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoFocusOnAppearing) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoBringToFrontOnFocus));
   if (ImGui::Begin("##curr_dim_bg", nullptr, kDimFlags)) {
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
       curriculum_open_ = false;
@@ -506,9 +514,11 @@ void LessonView::draw_curriculum_modal(const core::LessonLibrary& library,
   ImGui::PushStyleColor(ImGuiCol_WindowBg, c.card_elevated_bg);
   ImGui::PushStyleColor(ImGuiCol_Border, c.hairline_strong);
 
-  constexpr ImGuiWindowFlags kModalFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                           ImGuiWindowFlags_NoMove |
-                                           ImGuiWindowFlags_NoSavedSettings;
+  constexpr auto kModalFlags =
+      static_cast<ImGuiWindowFlags>(static_cast<unsigned>(ImGuiWindowFlags_NoTitleBar) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoResize) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoMove) |
+                                    static_cast<unsigned>(ImGuiWindowFlags_NoSavedSettings));
   if (ImGui::Begin("##curriculum_browser_modal", nullptr, kModalFlags)) {
     {
       ScopedFont tf(TypeStyle::Title);

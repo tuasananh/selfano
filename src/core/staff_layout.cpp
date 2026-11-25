@@ -39,8 +39,8 @@ std::optional<Accidental> MeasureAccidentalState::resolve_and_record(const Spell
   const int step = diatonic_step(note);
   Accidental active = key_accidental_for(key_, note.letter);
 
-  auto it = std::find_if(active_overrides_.begin(), active_overrides_.end(),
-                         [step](const auto& entry) { return entry.first == step; });
+  auto it = std::ranges::find_if(active_overrides_,
+                                 [step](const auto& entry) { return entry.first == step; });
   if (it != active_overrides_.end()) {
     active = it->second;
   }
@@ -68,7 +68,7 @@ ChordLayout layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
 
   // 1. Sort ascending by diatonic step (stable tie-break on source_index).
   std::vector<ChordNoteLayoutInput> sorted(notes.begin(), notes.end());
-  std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
+  std::ranges::sort(sorted, [](const auto& a, const auto& b) {
     if (a.step != b.step) {
       return a.step < b.step;
     }
@@ -156,10 +156,9 @@ ChordLayout layout_chord(std::span<const ChordNoteLayoutInput> notes, Clef clef,
     const auto lines = compute_ledger_line_steps(nh.step, clef);
     result.ledger_line_steps.insert(result.ledger_line_steps.end(), lines.begin(), lines.end());
   }
-  std::sort(result.ledger_line_steps.begin(), result.ledger_line_steps.end());
-  result.ledger_line_steps.erase(
-      std::unique(result.ledger_line_steps.begin(), result.ledger_line_steps.end()),
-      result.ledger_line_steps.end());
+  std::ranges::sort(result.ledger_line_steps);
+  result.ledger_line_steps.erase(std::ranges::unique(result.ledger_line_steps).begin(),
+                                 result.ledger_line_steps.end());
 
   // 7. Stem endpoints (1 octave past furthest note, or reaching staff middle line).
   if (result.stem_direction == StemDirection::Up) {
@@ -317,14 +316,9 @@ namespace {
       });
     } else {
       const float xk = stem_x(i);
-      float x_other = xk;
-      if (i == 0U) {
-        const float span = std::max(0.0f, stem_x(1U) - xk);
-        x_other = xk + std::min(0.95f, span * 0.45f);
-      } else {
-        const float span = std::max(0.0f, xk - stem_x(i - 1U));
-        x_other = xk - std::min(0.95f, span * 0.45f);
-      }
+      const float x_other =
+          (i == 0U) ? (xk + std::min(0.95f, std::max(0.0f, stem_x(1U) - xk) * 0.45f))
+                    : (xk - std::min(0.95f, std::max(0.0f, xk - stem_x(i - 1U)) * 0.45f));
       const float x0 = std::min(xk, x_other);
       const float x1 = std::max(xk, x_other);
       out.secondary_beams.push_back(SecondaryBeamSegment{
@@ -400,8 +394,8 @@ std::vector<TieSpan> resolve_tie_spans(std::span<const TieEndpointRef> system_no
 
   for (const auto& ref : system_notes) {
     if (ref.tie_stop) {
-      const auto it = std::find_if(open_starts.begin(), open_starts.end(),
-                                   [&](const TieEndpointRef& s) { return s.midi == ref.midi; });
+      const auto it = std::ranges::find_if(
+          open_starts, [&](const TieEndpointRef& s) { return s.midi == ref.midi; });
       if (it != open_starts.end()) {
         spans.push_back(TieSpan{
             .kind = TieSpanKind::Complete,

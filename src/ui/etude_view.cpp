@@ -50,7 +50,7 @@ namespace {
   std::string out;
   for (std::size_t i = 0; i < notes.size(); ++i) {
     if (i > 0) {
-      out += "+";
+      out += '+';
     }
     const auto sp = core::spell_midi_in_key(notes[i], key);
     out += sp.has_value() ? core::format_note(*sp) : std::to_string(notes[i]);
@@ -347,7 +347,7 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
       ScopedFont sub(TypeStyle::Subheadline);
       ImGui::TextColored(c.text_secondary, "Tempo (%.0f BPM)", cfg.bpm);
     }
-    float bpm_f = static_cast<float>(cfg.bpm);
+    auto bpm_f = static_cast<float>(cfg.bpm);
     ImGui::SetNextItemWidth(pop_w);
     if (ImGui::SliderFloat("##et_bpm_pop", &bpm_f, 40.0f, 120.0f, "%.0f BPM")) {
       engine_.set_bpm(static_cast<double>(bpm_f));

@@ -39,7 +39,7 @@ void PolyphonicChordGrouper::push_event(const MidiNoteEvent& event) {
   }
 
   if (event.timestamp_ms - batch_start_ms_ <= window_ms_) {
-    if (std::find(active_notes_.begin(), active_notes_.end(), event.note) == active_notes_.end()) {
+    if (std::ranges::find(active_notes_, event.note) == active_notes_.end()) {
       active_notes_.push_back(event.note);
     }
     batch_from_hardware_ = batch_from_hardware_ || event.from_hardware;
@@ -90,8 +90,8 @@ void PolyphonicChordGrouper::flush_active_batch(double completed_ms) {
     return;
   }
 
-  std::sort(active_notes_.begin(), active_notes_.end());
-  active_notes_.erase(std::unique(active_notes_.begin(), active_notes_.end()), active_notes_.end());
+  std::ranges::sort(active_notes_);
+  active_notes_.erase(std::ranges::unique(active_notes_).begin(), active_notes_.end());
 
   completed_chords_.push_back(PlayedChord{
       .notes = active_notes_,

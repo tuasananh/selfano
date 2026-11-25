@@ -1,4 +1,3 @@
-#include "core/chord_symbol.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
@@ -7,7 +6,6 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <miniz.h>
 #include <string>
 #include <vector>
@@ -241,8 +239,8 @@ TEST_CASE("MusicXmlImporter parses Grand Staff MusicXML with backup, chord, ties
   // Bar 2 tie_stop preserved and LessonEngine excludes it from fresh MIDI attacks
   REQUIRE(score.measures[1].treble_events[0].notes[0].tie_stop);
   LessonEngine engine;
-  engine.load_score(score,
-                    LessonConfig{LessonPracticeMode::WaitForNote, LessonHandMode::RightHand});
+  engine.load_score(score, LessonConfig{.practice_mode = LessonPracticeMode::WaitForNote,
+                                        .hand_mode = LessonHandMode::RightHand});
   REQUIRE(engine.targets().size() == 5U); // G4, A4, Bb4, D5 (bar 1), C5 (bar 2) - tied D5 skipped
 }
 

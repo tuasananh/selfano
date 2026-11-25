@@ -21,8 +21,8 @@ constexpr bool is_black_key(int midi_note) noexcept {
 
 struct KeyRect {
   std::uint8_t midi{0};
-  ImVec2 min{};
-  ImVec2 max{};
+  ImVec2 min;
+  ImVec2 max;
 };
 
 } // namespace
@@ -118,7 +118,7 @@ void VirtualPiano::draw(const char* id, VirtualPianoMode mode,
     if (hit != mouse_held_note_) {
       release_mouse_key(now_ms, out_events);
       if (hit.has_value()) {
-        mouse_held_note_ = *hit;
+        mouse_held_note_ = hit;
         out_events.push_back(midi::MidiNoteEvent{
             .note = *hit,
             .velocity = 96,

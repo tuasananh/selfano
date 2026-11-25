@@ -19,7 +19,7 @@ void copy_to_buf(std::span<char> dst, std::string_view src) noexcept {
     return;
   }
   const std::size_t n = std::min(dst.size() - 1U, src.size());
-  std::copy_n(src.data(), n, dst.data());
+  std::ranges::copy(src.substr(0, n), dst.begin());
   dst[n] = '\0';
 }
 

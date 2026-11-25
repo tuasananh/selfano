@@ -21,7 +21,7 @@ TEST_CASE("kWeeklyKeyCycle defines classical/anime key progression and weekly ro
     REQUIRE(format_key_name(weekly_key_at(i)) == expected_first_14[i]);
     const auto found = find_weekly_key_index(weekly_key_at(i));
     REQUIRE(found.has_value());
-    REQUIRE(*found == i);
+    REQUIRE(found == i);
   }
 
   REQUIRE(weekly_key_at(24) == weekly_key_at(0));
@@ -77,10 +77,10 @@ TEST_CASE("WarmUpEngine generates 1- and 2-octave scales across all 24 keys with
       for (std::size_t s = 0; s < engine.steps().size(); ++s) {
         const auto& step = engine.steps()[s];
         REQUIRE(step.notes.size() == 2);
-        const auto bass_it = std::find_if(step.notes.begin(), step.notes.end(),
-                                          [](const auto& n) { return n.clef == Clef::Bass; });
-        const auto treble_it = std::find_if(step.notes.begin(), step.notes.end(),
-                                            [](const auto& n) { return n.clef == Clef::Treble; });
+        const auto bass_it =
+            std::ranges::find_if(step.notes, [](const auto& n) { return n.clef == Clef::Bass; });
+        const auto treble_it =
+            std::ranges::find_if(step.notes, [](const auto& n) { return n.clef == Clef::Treble; });
         REQUIRE(bass_it != step.notes.end());
         REQUIRE(treble_it != step.notes.end());
         REQUIRE(bass_it->midi < treble_it->midi);
@@ -89,7 +89,7 @@ TEST_CASE("WarmUpEngine generates 1- and 2-octave scales across all 24 keys with
         REQUIRE(step.expected_midi[0] == bass_it->midi);
         REQUIRE(step.expected_midi[1] == treble_it->midi);
         REQUIRE_FALSE(step.is_cadence);
-        REQUIRE(step.is_descending == (s > static_cast<std::size_t>(octaves * 7)));
+        REQUIRE(step.is_descending == (std::cmp_greater(s, octaves * 7)));
       }
     }
   }
@@ -97,10 +97,10 @@ TEST_CASE("WarmUpEngine generates 1- and 2-octave scales across all 24 keys with
 
 TEST_CASE("WarmUpEngine minor keys default to Harmonic minor and toggle to Natural minor",
           "[warmup]") {
-  const auto a_min = KeySignature{0, Mode::Minor};
-  const auto d_min = KeySignature{-1, Mode::Minor};
-  const auto fs_min = KeySignature{3, Mode::Minor};
-  const auto c_min = KeySignature{-3, Mode::Minor};
+  const auto a_min = KeySignature{.fifths = 0, .mode = Mode::Minor};
+  const auto d_min = KeySignature{.fifths = -1, .mode = Mode::Minor};
+  const auto fs_min = KeySignature{.fifths = 3, .mode = Mode::Minor};
+  const auto c_min = KeySignature{.fifths = -3, .mode = Mode::Minor};
 
   SECTION("A Minor Harmonic (default) vs Natural") {
     WarmUpEngine harm(WarmUpConfig{.key = a_min,
@@ -161,7 +161,7 @@ TEST_CASE("WarmUpEngine minor keys default to Harmonic minor and toggle to Natur
 }
 
 TEST_CASE("WarmUpEngine respects HandSelection in scale and cadence", "[warmup]") {
-  const auto c_maj = KeySignature{0, Mode::Major};
+  const auto c_maj = KeySignature{.fifths = 0, .mode = Mode::Major};
 
   WarmUpEngine ht(WarmUpConfig{.key = c_maj,
                                .octaves = 1,
@@ -196,7 +196,7 @@ TEST_CASE("WarmUpEngine respects HandSelection in scale and cadence", "[warmup]"
 TEST_CASE("WarmUpEngine evaluates input, advances automatically, and tracks telemetry",
           "[warmup]") {
   WarmUpEngine engine(WarmUpConfig{
-      .key = KeySignature{0, Mode::Major},
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
       .octaves = 1,
       .hand = HandSelection::RightOnly,
       .exercise = WarmUpExerciseKind::CadenceOnly,
@@ -225,7 +225,7 @@ TEST_CASE("WarmUpEngine evaluates input, advances automatically, and tracks tele
   // Play all 4 cadence chords correctly (testing duplicate/unsorted input normalization too)
   for (std::size_t i = 0; i < 4; ++i) {
     auto target = engine.steps()[i].expected_midi;
-    std::reverse(target.begin(), target.end());
+    std::ranges::reverse(target);
     target.push_back(target.front()); // duplicate note should still match
     const auto hit = engine.submit_played_notes(target);
     REQUIRE(hit.status == WarmUpEvalStatus::Correct);
@@ -307,7 +307,7 @@ TEST_CASE("WarmUpEngine FullCircuit builds all 4 stations across all 24 keys", "
 TEST_CASE("WarmUpEngine TonicArpeggio and TriadInversions generate exact pitches", "[warmup]") {
   SECTION("C Major 1-octave and 2-octave Tonic Arpeggio (RightOnly)") {
     WarmUpEngine arp1(WarmUpConfig{
-        .key = KeySignature{0, Mode::Major},
+        .key = KeySignature{.fifths = 0, .mode = Mode::Major},
         .octaves = 1,
         .hand = HandSelection::RightOnly,
         .exercise = WarmUpExerciseKind::ArpeggioOnly,
@@ -319,7 +319,7 @@ TEST_CASE("WarmUpEngine TonicArpeggio and TriadInversions generate exact pitches
     }
 
     WarmUpEngine arp2(WarmUpConfig{
-        .key = KeySignature{0, Mode::Major},
+        .key = KeySignature{.fifths = 0, .mode = Mode::Major},
         .octaves = 2,
         .hand = HandSelection::RightOnly,
         .exercise = WarmUpExerciseKind::ArpeggioOnly,
@@ -334,7 +334,7 @@ TEST_CASE("WarmUpEngine TonicArpeggio and TriadInversions generate exact pitches
 
   SECTION("C Major Triad Inversions arc Root -> 1st -> 2nd -> Root 8va -> 2nd -> 1st -> Root") {
     WarmUpEngine inv_rh(WarmUpConfig{
-        .key = KeySignature{0, Mode::Major},
+        .key = KeySignature{.fifths = 0, .mode = Mode::Major},
         .octaves = 1,
         .hand = HandSelection::RightOnly,
         .exercise = WarmUpExerciseKind::InversionsOnly,
@@ -353,7 +353,7 @@ TEST_CASE("WarmUpEngine TonicArpeggio and TriadInversions generate exact pitches
 TEST_CASE("WarmUpEngine VoiceLedCadence preserves common tones across all 24 keys", "[warmup]") {
   SECTION("C Major uses smooth I -> IV6/4 -> V6 -> I voicings") {
     WarmUpEngine cad(WarmUpConfig{
-        .key = KeySignature{0, Mode::Major},
+        .key = KeySignature{.fifths = 0, .mode = Mode::Major},
         .octaves = 1,
         .hand = HandSelection::RightOnly,
         .exercise = WarmUpExerciseKind::CadenceOnly,
@@ -367,7 +367,7 @@ TEST_CASE("WarmUpEngine VoiceLedCadence preserves common tones across all 24 key
 
   SECTION("A Minor Harmonic uses smooth i -> iv6/4 -> V6 -> i voicings") {
     WarmUpEngine cad(WarmUpConfig{
-        .key = KeySignature{0, Mode::Minor},
+        .key = KeySignature{.fifths = 0, .mode = Mode::Minor},
         .octaves = 1,
         .hand = HandSelection::RightOnly,
         .minor_mode = MinorScaleMode::Harmonic,
@@ -397,7 +397,7 @@ TEST_CASE("WarmUpEngine VoiceLedCadence preserves common tones across all 24 key
             out.push_back(static_cast<int>(n.midi));
           }
         }
-        std::sort(out.begin(), out.end());
+        std::ranges::sort(out);
         return out;
       };
       const auto rh0 = rh_notes(cad.steps()[0]);
@@ -412,8 +412,8 @@ TEST_CASE("WarmUpEngine VoiceLedCadence preserves common tones across all 24 key
       REQUIRE(rh2[2] == rh0[2]);
       // LH bass is strictly below RH lowest note on every cadence step
       for (const auto& step : cad.steps()) {
-        const auto bass_it = std::find_if(step.notes.begin(), step.notes.end(),
-                                          [](const auto& n) { return n.clef == Clef::Bass; });
+        const auto bass_it =
+            std::ranges::find_if(step.notes, [](const auto& n) { return n.clef == Clef::Bass; });
         REQUIRE(bass_it != step.notes.end());
         for (const auto& n : step.notes) {
           if (n.clef == Clef::Treble) {
@@ -428,7 +428,7 @@ TEST_CASE("WarmUpEngine VoiceLedCadence preserves common tones across all 24 key
 TEST_CASE("WarmUpEngine Adaptive 2-Phase Pacing, Guided Pulse evenness, and BPM ladder",
           "[warmup]") {
   WarmUpEngine engine(WarmUpConfig{
-      .key = KeySignature{0, Mode::Major},
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
       .octaves = 1,
       .hand = HandSelection::RightOnly,
       .exercise = WarmUpExerciseKind::CadenceOnly,

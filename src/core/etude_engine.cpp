@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <utility>
 
 namespace selfano::core {
 
@@ -25,8 +26,8 @@ struct RhythmSlot {
 
 [[nodiscard]] std::vector<MidiPitch> normalize_midi_set(std::span<const MidiPitch> notes) {
   std::vector<MidiPitch> out(notes.begin(), notes.end());
-  std::sort(out.begin(), out.end());
-  out.erase(std::unique(out.begin(), out.end()), out.end());
+  std::ranges::sort(out);
+  out.erase(std::ranges::unique(out).begin(), out.end());
   return out;
 }
 
@@ -41,9 +42,11 @@ struct RhythmSlot {
       oct -= 1;
     }
     const auto letter = static_cast<NoteLetter>(l_idx);
-    const SpelledNote sn{letter, key_accidental_for(key, letter), oct};
+    const SpelledNote sn{
+        .letter = letter, .accidental = key_accidental_for(key, letter), .octave = oct};
     const auto m = to_midi(sn);
-    if (m.has_value() && static_cast<int>(*m) >= min_midi && static_cast<int>(*m) <= max_midi) {
+    if (m.has_value() && std::cmp_greater_equal(*m, min_midi) &&
+        std::cmp_less_equal(*m, max_midi)) {
       pool.push_back(PoolNote{.spelled = sn, .midi = *m});
     }
   }
@@ -53,36 +56,38 @@ struct RhythmSlot {
 [[nodiscard]] const std::vector<RhythmSlot>& pick_melody_rhythm(bool is_cadence_bar,
                                                                 std::mt19937& rng) {
   static const std::array<std::vector<RhythmSlot>, 8> kBodyPatterns{{
-      {{0, EtudeDurationBeats::Quarter, false},
-       {1, EtudeDurationBeats::Quarter, false},
-       {2, EtudeDurationBeats::Quarter, false},
-       {3, EtudeDurationBeats::Quarter, false}},
-      {{0, EtudeDurationBeats::Half, false},
-       {2, EtudeDurationBeats::Quarter, false},
-       {3, EtudeDurationBeats::Quarter, false}},
-      {{0, EtudeDurationBeats::Quarter, false},
-       {1, EtudeDurationBeats::Quarter, false},
-       {2, EtudeDurationBeats::Half, false}},
-      {{0, EtudeDurationBeats::Half, false}, {2, EtudeDurationBeats::Half, false}},
-      {{0, EtudeDurationBeats::Quarter, false},
-       {1, EtudeDurationBeats::Quarter, true},
-       {2, EtudeDurationBeats::Quarter, false},
-       {3, EtudeDurationBeats::Quarter, false}},
-      {{0, EtudeDurationBeats::Half, false},
-       {2, EtudeDurationBeats::Quarter, true},
-       {3, EtudeDurationBeats::Quarter, false}},
-      {{0, EtudeDurationBeats::Quarter, false},
-       {1, EtudeDurationBeats::Quarter, false},
-       {2, EtudeDurationBeats::Half, true}},
-      {{0, EtudeDurationBeats::Whole, false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 1, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 3, .duration = EtudeDurationBeats::Quarter, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Half, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 3, .duration = EtudeDurationBeats::Quarter, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 1, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Half, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Half, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Half, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 1, .duration = EtudeDurationBeats::Quarter, .is_rest = true},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 3, .duration = EtudeDurationBeats::Quarter, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Half, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Quarter, .is_rest = true},
+       {.beat_start = 3, .duration = EtudeDurationBeats::Quarter, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 1, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Half, .is_rest = true}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Whole, .is_rest = false}},
   }};
 
   static const std::array<std::vector<RhythmSlot>, 3> kCadencePatterns{{
-      {{0, EtudeDurationBeats::Quarter, false},
-       {1, EtudeDurationBeats::Quarter, false},
-       {2, EtudeDurationBeats::Half, false}},
-      {{0, EtudeDurationBeats::Half, false}, {2, EtudeDurationBeats::Half, false}},
-      {{0, EtudeDurationBeats::Whole, false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 1, .duration = EtudeDurationBeats::Quarter, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Half, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Half, .is_rest = false},
+       {.beat_start = 2, .duration = EtudeDurationBeats::Half, .is_rest = false}},
+      {{.beat_start = 0, .duration = EtudeDurationBeats::Whole, .is_rest = false}},
   }};
 
   if (is_cadence_bar) {
@@ -156,7 +161,8 @@ struct RhythmSlot {
   const int t_idx = static_cast<int>(tonic.letter);
   for (const int offset : {0, 2, 4}) {
     const auto letter = static_cast<NoteLetter>((t_idx + offset) % 7);
-    const SpelledNote sn{letter, key_accidental_for(key, letter), 4};
+    const SpelledNote sn{
+        .letter = letter, .accidental = key_accidental_for(key, letter), .octave = 4};
     if (pitch_class(sn) == pc) {
       return true;
     }
@@ -351,7 +357,7 @@ EtudeInputResult EtudeEngine::submit_played_notes(std::span<const MidiPitch> pla
       ++hit_targets_;
       return EtudeInputResult{
           .status = EtudeInputStatus::Hit,
-          .target_index = *best_idx,
+          .target_index = best_idx,
           .system_promoted = false,
       };
     }
@@ -361,7 +367,7 @@ EtudeInputResult EtudeEngine::submit_played_notes(std::span<const MidiPitch> pla
     ++missed_targets_;
     return EtudeInputResult{
         .status = EtudeInputStatus::Missed,
-        .target_index = *best_idx,
+        .target_index = best_idx,
         .system_promoted = false,
     };
   }

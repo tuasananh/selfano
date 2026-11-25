@@ -14,19 +14,19 @@ namespace {
   }
   const char* hash = std::strstr(id_and_label, "##");
   if (hash != nullptr) {
-    return std::string_view(id_and_label, static_cast<std::size_t>(hash - id_and_label));
+    return {id_and_label, static_cast<std::size_t>(hash - id_and_label)};
   }
-  return std::string_view(id_and_label);
+  return {id_and_label};
 }
 
 [[nodiscard]] ImVec4 lerp_color(ImVec4 a, ImVec4 b, float t) noexcept {
   t = std::clamp(t, 0.0f, 1.0f);
-  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
-                a.w + (b.w - a.w) * t);
+  return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
+          a.w + (b.w - a.w) * t};
 }
 
 struct CardFrameState {
-  ImVec2 start_pos{};
+  ImVec2 start_pos;
   float rounding{14.0f};
   bool elevated{true};
 };
@@ -38,7 +38,7 @@ int g_card_depth = 0;
 struct KeyCapMetrics {
   float width{0.0f};
   float height{0.0f};
-  ImVec2 text_size{};
+  ImVec2 text_size;
 };
 
 [[nodiscard]] KeyCapMetrics measure_keycap(std::string_view key_text, float scale) {
@@ -97,7 +97,8 @@ bool begin_card(const char* id, ImVec2 size, float padding, float rounding, bool
 
   ImGuiChildFlags child_flags = ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding;
   if (auto_resize_y) {
-    child_flags |= ImGuiChildFlags_AutoResizeY;
+    child_flags = static_cast<ImGuiChildFlags>(static_cast<unsigned>(child_flags) |
+                                               static_cast<unsigned>(ImGuiChildFlags_AutoResizeY));
   }
 
   // Draw shadow on parent draw list using previous-frame or current cursor rect after EndChild

@@ -68,8 +68,8 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
 
     // ChordSkeleton mode must produce >= 1 harmonic target
     LessonEngine engine;
-    engine.load_score(
-        *lesson, LessonConfig{LessonPracticeMode::ChordSkeleton, LessonHandMode::HandsTogether});
+    engine.load_score(*lesson, LessonConfig{.practice_mode = LessonPracticeMode::ChordSkeleton,
+                                            .hand_mode = LessonHandMode::HandsTogether});
     REQUIRE_FALSE(engine.targets().empty());
 
     // WaitForNote must produce >= 1 playable target
@@ -146,7 +146,8 @@ TEST_CASE("LessonLibrary My Books CRUD saves, reloads, updates, and deletes impo
   LessonScore edited = *found;
   edited.meta.title = "Edited Etude";
   edited.meta.target_bpm = 104.0;
-  edited.measures[0].harmony.push_back(HarmonicAnnotation{0, "C", "I"});
+  edited.measures[0].harmony.push_back(
+      HarmonicAnnotation{.start_tick = 0, .chord_symbol = "C", .roman_numeral = "I"});
   REQUIRE(reloaded.save_imported_lesson(temp_dir, edited).has_value());
 
   LessonLibrary reloaded2;

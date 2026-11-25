@@ -24,7 +24,7 @@ void copy_to_buf(std::span<char> dst, std::string_view src) noexcept {
     return;
   }
   const std::size_t n = std::min(dst.size() - 1U, src.size());
-  std::copy_n(src.data(), n, dst.data());
+  std::ranges::copy(src.substr(0, n), dst.begin());
   dst[n] = '\0';
 }
 
@@ -163,7 +163,7 @@ CompanionView::virtual_piano_highlights(const std::array<bool, 128>& held_notes)
     const auto& chord = prog[bar];
     const std::uint16_t matched_mask = matcher_.matched_pc_mask_for_current_bar();
     for (int m = 36; m <= 84; ++m) {
-      const std::uint8_t pc = static_cast<std::uint8_t>(m % 12);
+      const auto pc = static_cast<std::uint8_t>(m % 12);
       if (chord.contains_pitch_class(pc)) {
         if ((matched_mask & static_cast<std::uint16_t>(1U << pc)) != 0U) {
           hi.correct[static_cast<std::size_t>(m)] = true;
@@ -318,8 +318,8 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
     section_kicker("HARMONY MATCHER");
     ImGui::Spacing();
     auto cfg = matcher_.config();
-    float dwell_f = static_cast<float>(cfg.min_dwell_ms);
-    float win_f = static_cast<float>(cfg.rolling_window_ms);
+    auto dwell_f = static_cast<float>(cfg.min_dwell_ms);
+    auto win_f = static_cast<float>(cfg.rolling_window_ms);
     bool cfg_dirty = false;
 
     {
@@ -466,7 +466,8 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
       // Individual Tone Pills (light up emerald when detected!)
       std::vector<int> chord_pcs;
       for (int pc = 0; pc < 12; ++pc) {
-        if ((prog[i].pitch_class_mask & static_cast<std::uint16_t>(1U << pc)) != 0U) {
+        if ((prog[i].pitch_class_mask &
+             static_cast<std::uint16_t>(1U << static_cast<unsigned>(pc))) != 0U) {
           chord_pcs.push_back(pc);
         }
       }
@@ -491,7 +492,9 @@ void CompanionView::draw(ImFont* ui_font, double now_ms, bool& /*out_chime*/) {
         const int pc = chord_pcs[t];
         const float pw = pill_ws[t];
         const bool hit =
-            is_done || (is_active && ((matched_pc & static_cast<std::uint16_t>(1U << pc)) != 0U));
+            is_done ||
+            (is_active &&
+             ((matched_pc & static_cast<std::uint16_t>(1U << static_cast<unsigned>(pc))) != 0U));
         const ImU32 pbg = to_u32(hit ? c.success_soft : c.control_bg);
         const ImU32 pfg = to_u32(hit ? c.success_text : c.text_secondary);
         dl->AddRectFilled(ImVec2(px, py), ImVec2(px + pw, py + pill_h), pbg, pill_h * 0.5f);

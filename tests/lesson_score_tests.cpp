@@ -9,7 +9,7 @@ namespace {
 [[nodiscard]] LessonNote make_ln(NoteLetter letter, Accidental acc, int octave,
                                  std::uint8_t finger = 0, bool tie_start = false,
                                  bool tie_stop = false) {
-  const SpelledNote sp{letter, acc, octave};
+  const SpelledNote sp{.letter = letter, .accidental = acc, .octave = octave};
   return LessonNote{
       .spelled = sp,
       .midi = to_midi(sp).value(),
@@ -27,8 +27,8 @@ namespace {
       .order_in_tier = 1,
       .title = "Test Two-Bar Study",
       .composer_source = "Selfano Test",
-      .key = KeySignature{-2, Mode::Minor},
-      .time_signature = TimeSignature{4, 4},
+      .key = KeySignature{.fifths = -2, .mode = Mode::Minor},
+      .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
       .target_bpm = 80.0,
       .theory =
           TheoryLens{
@@ -42,61 +42,65 @@ namespace {
   LessonMeasure m1{};
   m1.bar_number = 1;
   m1.treble_events = {
-      LessonEvent{0,
-                  {NoteBaseDuration::Half, true},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::G, Accidental::Natural, 4, 1)}},
-      LessonEvent{1440,
-                  {NoteBaseDuration::Quarter, false},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::B, Accidental::Flat, 4, 3, true, false)}},
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 4, 1)}},
+      LessonEvent{.start_tick = 1440,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::B, Accidental::Flat, 4, 3, true, false)}},
   };
   m1.bass_events = {
-      LessonEvent{0,
-                  {NoteBaseDuration::Whole, false},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::G, Accidental::Natural, 3, 5)}},
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 3, 5)}},
   };
   m1.harmony = {
-      HarmonicAnnotation{0, "Gm", "i"},
+      HarmonicAnnotation{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"},
   };
 
   LessonMeasure m2{};
   m2.bar_number = 2;
   m2.treble_events = {
-      LessonEvent{0,
-                  {NoteBaseDuration::Half, false},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::B, Accidental::Flat, 4, 3, false, true)}},
-      LessonEvent{960,
-                  {NoteBaseDuration::Quarter, false},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::A, Accidental::Natural, 4, 2)}},
-      LessonEvent{1440, {NoteBaseDuration::Quarter, false}, true, 0, {}},
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::B, Accidental::Flat, 4, 3, false, true)}},
+      LessonEvent{.start_tick = 960,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::A, Accidental::Natural, 4, 2)}},
+      LessonEvent{.start_tick = 1440,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = true,
+                  .voice = 0,
+                  .notes = {}},
   };
   m2.bass_events = {
-      LessonEvent{0,
-                  {NoteBaseDuration::Half, false},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)}},
-      LessonEvent{960,
-                  {NoteBaseDuration::Half, false},
-                  false,
-                  0,
-                  {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)}},
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)}},
+      LessonEvent{.start_tick = 960,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)}},
   };
   m2.harmony = {
-      HarmonicAnnotation{0, "D7", "V7"},
+      HarmonicAnnotation{.start_tick = 0, .chord_symbol = "D7", .roman_numeral = "V7"},
   };
 
   score.measures = {m1, m2};
-  score.phrases = {LessonPhrase{"Phrase A (Bars 1-2)", 0, 1}};
+  score.phrases = {LessonPhrase{.label = "Phrase A (Bars 1-2)", .start_bar = 0, .end_bar = 1}};
   return score;
 }
 
@@ -104,31 +108,31 @@ namespace {
 
 TEST_CASE("TimeSignature and RhythmicValue compute exact rational ticks across all 5 meters",
           "[lesson_score]") {
-  const TimeSignature m44{4, 4};
+  const TimeSignature m44{.numerator = 4, .denominator = 4};
   REQUIRE(m44.measure_ticks() == 1920);
   REQUIRE(m44.beat_ticks() == 480);
   REQUIRE(m44.pulse_count() == 4);
   REQUIRE_FALSE(m44.is_compound());
 
-  const TimeSignature m34{3, 4};
+  const TimeSignature m34{.numerator = 3, .denominator = 4};
   REQUIRE(m34.measure_ticks() == 1440);
   REQUIRE(m34.beat_ticks() == 480);
   REQUIRE(m34.pulse_count() == 3);
   REQUIRE_FALSE(m34.is_compound());
 
-  const TimeSignature m24{2, 4};
+  const TimeSignature m24{.numerator = 2, .denominator = 4};
   REQUIRE(m24.measure_ticks() == 960);
   REQUIRE(m24.beat_ticks() == 480);
   REQUIRE(m24.pulse_count() == 2);
   REQUIRE_FALSE(m24.is_compound());
 
-  const TimeSignature m68{6, 8};
+  const TimeSignature m68{.numerator = 6, .denominator = 8};
   REQUIRE(m68.measure_ticks() == 1440);
   REQUIRE(m68.beat_ticks() == 720);
   REQUIRE(m68.pulse_count() == 2);
   REQUIRE(m68.is_compound());
 
-  const TimeSignature m64{6, 4};
+  const TimeSignature m64{.numerator = 6, .denominator = 4};
   REQUIRE(m64.measure_ticks() == 2880);
   REQUIRE(m64.beat_ticks() == 480);
   REQUIRE(m64.pulse_count() == 6);
@@ -216,25 +220,25 @@ TEST_CASE("validate_lesson_score checks tick sums, midi consistency, ties, finge
 
   SECTION("Respects mid-piece meter_change") {
     auto meter_shift = valid;
-    meter_shift.measures[1].meter_change = TimeSignature{3, 4};
+    meter_shift.measures[1].meter_change = TimeSignature{.numerator = 3, .denominator = 4};
     meter_shift.measures[1].treble_events = {
-        LessonEvent{0,
-                    {NoteBaseDuration::Half, false},
-                    false,
-                    0,
-                    {make_ln(NoteLetter::B, Accidental::Flat, 4, 3, false, true)}},
-        LessonEvent{960,
-                    {NoteBaseDuration::Quarter, false},
-                    false,
-                    0,
-                    {make_ln(NoteLetter::A, Accidental::Natural, 4, 2)}},
+        LessonEvent{.start_tick = 0,
+                    .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+                    .is_rest = false,
+                    .voice = 0,
+                    .notes = {make_ln(NoteLetter::B, Accidental::Flat, 4, 3, false, true)}},
+        LessonEvent{.start_tick = 960,
+                    .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                    .is_rest = false,
+                    .voice = 0,
+                    .notes = {make_ln(NoteLetter::A, Accidental::Natural, 4, 2)}},
     };
     meter_shift.measures[1].bass_events = {
-        LessonEvent{0,
-                    {NoteBaseDuration::Half, true},
-                    false,
-                    0,
-                    {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)}},
+        LessonEvent{.start_tick = 0,
+                    .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                    .is_rest = false,
+                    .voice = 0,
+                    .notes = {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)}},
     };
     REQUIRE(validate_lesson_score(meter_shift).has_value());
   }

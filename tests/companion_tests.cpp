@@ -13,7 +13,7 @@ namespace {
 constexpr std::uint16_t pc_mask(std::initializer_list<int> pcs) {
   std::uint16_t m = 0;
   for (const int pc : pcs) {
-    m |= static_cast<std::uint16_t>(1U << (pc % 12));
+    m |= static_cast<std::uint16_t>(1U << static_cast<unsigned>(pc % 12));
   }
   return m;
 }

@@ -21,7 +21,8 @@ namespace {
   if (res.has_value()) {
     return *res;
   }
-  return core::SpelledNote{core::NoteLetter::C, core::Accidental::Natural, 4};
+  return core::SpelledNote{
+      .letter = core::NoteLetter::C, .accidental = core::Accidental::Natural, .octave = 4};
 }
 
 [[nodiscard]] std::string format_midi_set(std::span<const std::uint8_t> notes,
@@ -45,12 +46,16 @@ Phase2Sandbox::Phase2Sandbox() {
   const auto eb_maj = core::make_key_signature(-3, core::Mode::Major).value();
 
   prompts_ = {
-      Prompt{"C Major Triad (Root Position)", c_maj, {60, 64, 67}},
-      Prompt{"Middle C Landmark", c_maj, {60}},
-      Prompt{"D Minor Triad (Gate of Steiner Tonic)", d_min, {62, 65, 69}},
-      Prompt{"G Major Dyad (5th Interval)", g_maj, {67, 74}},
-      Prompt{"Grand Staff C Major Voicing (LH + RH)", c_maj, {48, 55, 60, 64, 67}},
-      Prompt{"Eb Major Triad (3 Flats)", eb_maj, {63, 67, 70}},
+      Prompt{.title = "C Major Triad (Root Position)", .key = c_maj, .target_midi = {60, 64, 67}},
+      Prompt{.title = "Middle C Landmark", .key = c_maj, .target_midi = {60}},
+      Prompt{.title = "D Minor Triad (Gate of Steiner Tonic)",
+             .key = d_min,
+             .target_midi = {62, 65, 69}},
+      Prompt{.title = "G Major Dyad (5th Interval)", .key = g_maj, .target_midi = {67, 74}},
+      Prompt{.title = "Grand Staff C Major Voicing (LH + RH)",
+             .key = c_maj,
+             .target_midi = {48, 55, 60, 64, 67}},
+      Prompt{.title = "Eb Major Triad (3 Flats)", .key = eb_maj, .target_midi = {63, 67, 70}},
   };
 }
 
@@ -206,14 +211,12 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
   std::vector<std::uint8_t> missed_targets;
   if (last_feedback_ == NoteFeedback::Incorrect) {
     for (const std::uint8_t m : last_played_notes_) {
-      if (std::find(prompt.target_midi.begin(), prompt.target_midi.end(), m) ==
-          prompt.target_midi.end()) {
+      if (std::ranges::find(prompt.target_midi, m) == prompt.target_midi.end()) {
         unexpected_played.push_back(m);
       }
     }
     for (const std::uint8_t m : prompt.target_midi) {
-      if (std::find(last_played_notes_.begin(), last_played_notes_.end(), m) ==
-          last_played_notes_.end()) {
+      if (std::ranges::find(last_played_notes_, m) == last_played_notes_.end()) {
         missed_targets.push_back(m);
       }
     }
@@ -234,8 +237,7 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     NoteFeedback fb = last_feedback_;
     std::string played_lbl;
     if (last_feedback_ == NoteFeedback::Incorrect) {
-      const bool hit = std::find(last_played_notes_.begin(), last_played_notes_.end(), midi_n) !=
-                       last_played_notes_.end();
+      const bool hit = std::ranges::find(last_played_notes_, midi_n) != last_played_notes_.end();
       if (superset_mismatch) {
         // Every target note was played PLUS extra wrong notes: mark chord Red with Extra badge.
         fb = NoteFeedback::Incorrect;
@@ -271,8 +273,8 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
   if (!live_midi.empty()) {
     live_chord.annotation = std::format("Live Input: {}", format_midi_set(live_midi, prompt.key));
     for (const std::uint8_t m : live_midi) {
-      const bool is_in_target = std::find(prompt.target_midi.begin(), prompt.target_midi.end(),
-                                          m) != prompt.target_midi.end();
+      const bool is_in_target =
+          std::ranges::find(prompt.target_midi, m) != prompt.target_midi.end();
       live_chord.notes.push_back(StaffNote{
           .note = spell_safe(m, prompt.key),
           .clef = (m < 60U) ? core::Clef::Bass : core::Clef::Treble,
@@ -284,8 +286,8 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
     live_chord.annotation =
         std::format("Last Played: {}", format_midi_set(last_played_notes_, prompt.key));
     for (const std::uint8_t m : last_played_notes_) {
-      const bool is_in_target = std::find(prompt.target_midi.begin(), prompt.target_midi.end(),
-                                          m) != prompt.target_midi.end();
+      const bool is_in_target =
+          std::ranges::find(prompt.target_midi, m) != prompt.target_midi.end();
       live_chord.notes.push_back(StaffNote{
           .note = spell_safe(m, prompt.key),
           .clef = (m < 60U) ? core::Clef::Bass : core::Clef::Treble,
@@ -334,8 +336,7 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
   } else if (last_feedback_ == NoteFeedback::Incorrect) {
     for (const std::uint8_t m : last_played_notes_) {
       if (m < 128U) {
-        const bool ok = std::find(prompt.target_midi.begin(), prompt.target_midi.end(), m) !=
-                        prompt.target_midi.end();
+        const bool ok = std::ranges::find(prompt.target_midi, m) != prompt.target_midi.end();
         if (ok) {
           highlights.correct[m] = true;
         } else {
