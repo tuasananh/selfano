@@ -64,7 +64,7 @@ enum class WarmUpPhaseState : std::uint8_t {
 };
 
 struct WarmUpConfig {
-  KeySignature key{0, Mode::Major};
+  KeySignature key{.fifths = 0, .mode = Mode::Major};
   int octaves{1};
   HandSelection hand{HandSelection::HandsTogether};
   MinorScaleMode minor_mode{MinorScaleMode::Harmonic};

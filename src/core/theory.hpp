@@ -8,6 +8,7 @@
 #include <expected>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace selfano::core {
@@ -92,7 +93,7 @@ transpose_diatonic_steps(const SpelledNote& note, int diatonic_delta, int semito
   }
 
   const int target_midi = static_cast<int>(*base_midi) + semitone_delta;
-  if (target_midi < static_cast<int>(kMidiMin) || target_midi > static_cast<int>(kMidiMax)) {
+  if (std::cmp_less(target_midi, kMidiMin) || std::cmp_greater(target_midi, kMidiMax)) {
     return std::unexpected("Transposed MIDI pitch out of range [0, 127]");
   }
 
@@ -111,7 +112,9 @@ transpose_diatonic_steps(const SpelledNote& note, int diatonic_delta, int semito
     return std::unexpected("Transposed note requires triple accidental or greater");
   }
 
-  return SpelledNote{target_letter, static_cast<Accidental>(acc_val), target_octave};
+  return SpelledNote{.letter = target_letter,
+                     .accidental = static_cast<Accidental>(acc_val),
+                     .octave = target_octave};
 }
 
 [[nodiscard]] constexpr std::expected<SpelledNote, std::string_view>

@@ -3,13 +3,13 @@
 #include "midi/spsc_queue.hpp"
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <exception>
 #include <span>
 
 #ifdef __EMSCRIPTEN__
+#include <array>
 #include <emscripten.h>
 #else
 #include <libremidi/libremidi.hpp>

@@ -5,6 +5,7 @@
 #include <expected>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace selfano::core {
 
@@ -91,7 +92,7 @@ inline constexpr std::array<char, 7> kLetterChars{'C', 'D', 'E', 'F', 'G', 'A', 
 to_midi(const SpelledNote& note) noexcept {
   const int midi =
       (note.octave + 1) * 12 + natural_semitone(note.letter) + static_cast<int>(note.accidental);
-  if (midi < static_cast<int>(kMidiMin) || midi > static_cast<int>(kMidiMax)) {
+  if (std::cmp_less(midi, kMidiMin) || std::cmp_greater(midi, kMidiMax)) {
     return std::unexpected("MIDI pitch out of range [0, 127]");
   }
   return static_cast<MidiPitch>(midi);

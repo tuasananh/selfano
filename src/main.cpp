@@ -38,7 +38,6 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cfloat>
 #include <charconv>
 #include <chrono>
@@ -56,6 +55,7 @@
 #include <vector>
 
 #ifdef __EMSCRIPTEN__
+#include <atomic>
 #include <emscripten.h>
 #endif
 

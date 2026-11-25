@@ -46,7 +46,7 @@ enum class EtudePlaybackState : std::uint8_t {
 };
 
 struct EtudeConfig {
-  KeySignature key{0, Mode::Major};
+  KeySignature key{.fifths = 0, .mode = Mode::Major};
   MinorScaleMode minor_mode{MinorScaleMode::Harmonic};
   EtudeHandMode hand_mode{EtudeHandMode::EasyHandsTogether};
   EtudeTimingMode timing_mode{EtudeTimingMode::SteadyPulse};

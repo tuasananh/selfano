@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <map>
-#include <optional>
 #include <span>
 #include <string>
 #include <utility>

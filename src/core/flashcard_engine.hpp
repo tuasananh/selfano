@@ -96,7 +96,7 @@ struct FlashcardEvalResult {
 
 class FlashcardEngine {
 public:
-  explicit FlashcardEngine(KeySignature key = KeySignature{0, Mode::Major},
+  explicit FlashcardEngine(KeySignature key = KeySignature{.fifths = 0, .mode = Mode::Major},
                            std::uint32_t seed = 42U, double initial_now_ms = 0.0,
                            MinorScaleMode minor_mode = MinorScaleMode::Harmonic);
 
@@ -137,7 +137,7 @@ public:
 private:
   FlashcardPrompt instantiate_shape(const FlashcardShapeMeta& meta);
 
-  KeySignature key_{0, Mode::Major};
+  KeySignature key_{.fifths = 0, .mode = Mode::Major};
   MinorScaleMode minor_mode_{MinorScaleMode::Harmonic};
   FlashcardCategory category_{FlashcardCategory::All};
   std::mt19937 rng_;

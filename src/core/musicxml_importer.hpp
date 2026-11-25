@@ -13,8 +13,8 @@
 
 namespace selfano::core {
 
-inline constexpr std::size_t kMaxMxlCompressedBytes = 16U * 1024U * 1024U;
-inline constexpr std::size_t kMaxXmlPayloadBytes = 32U * 1024U * 1024U;
+inline constexpr std::size_t kMaxMxlCompressedBytes = std::size_t{16} * 1024U * 1024U;
+inline constexpr std::size_t kMaxXmlPayloadBytes = std::size_t{32} * 1024U * 1024U;
 inline constexpr std::size_t kDefaultMaxImportMeasures = 512U;
 
 struct MusicXmlImportOptions {

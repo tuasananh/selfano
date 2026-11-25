@@ -152,8 +152,8 @@ struct LessonMetadata {
   std::uint8_t order_in_tier{1};
   std::string title;
   std::string composer_source;
-  KeySignature key{0, Mode::Major};
-  TimeSignature time_signature{4, 4};
+  KeySignature key{.fifths = 0, .mode = Mode::Major};
+  TimeSignature time_signature{.numerator = 4, .denominator = 4};
   double target_bpm{84.0};
   TheoryLens theory{};
   bool is_imported{false};

@@ -2,11 +2,12 @@
 
 #include "ui/staff_renderer.hpp"
 
+#include <cstdint>
 #include <vector>
 
 namespace selfano::ui {
 
-enum class ShowcasePreset : int {
+enum class ShowcasePreset : std::uint8_t {
   Phase1Overview = 0,
   ScaleAndCadence = 1,
   LedgerExtremes = 2,

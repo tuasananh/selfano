@@ -49,7 +49,8 @@ enum class StemDirection : std::uint8_t {
 
 class MeasureAccidentalState {
 public:
-  explicit MeasureAccidentalState(KeySignature key = KeySignature{0, Mode::Major});
+  explicit MeasureAccidentalState(KeySignature key = KeySignature{.fifths = 0,
+                                                                  .mode = Mode::Major});
 
   void reset(KeySignature key);
   void reset_measure();

@@ -26,12 +26,30 @@ struct AutopilotBlockSpec {
 };
 
 inline constexpr std::array<AutopilotBlockSpec, 6> kAutopilotBlocks{{
-    {AutopilotStage::Stage1WarmUp, "Stage 1: Key & Harmony Warm-Up", "1/4", 300.0},
-    {AutopilotStage::Stage2AFlashcards, "Stage 2A: Adaptive Flashcards", "2/4", 180.0},
-    {AutopilotStage::Stage2BEtudes, "Stage 2B: Continuous Etudes", "2/4", 420.0},
-    {AutopilotStage::Stage3Lessons, "Stage 3: Guided Lessons", "3/4", 600.0},
-    {AutopilotStage::Stage4ASrs, "Stage 4A: Retention SRS Deck", "4/4", 150.0},
-    {AutopilotStage::Stage4BEarTrainer, "Stage 4B: Procedural Ear Check", "4/4", 150.0},
+    {.stage = AutopilotStage::Stage1WarmUp,
+     .title = "Stage 1: Key & Harmony Warm-Up",
+     .stage_badge = "1/4",
+     .duration_sec = 300.0},
+    {.stage = AutopilotStage::Stage2AFlashcards,
+     .title = "Stage 2A: Adaptive Flashcards",
+     .stage_badge = "2/4",
+     .duration_sec = 180.0},
+    {.stage = AutopilotStage::Stage2BEtudes,
+     .title = "Stage 2B: Continuous Etudes",
+     .stage_badge = "2/4",
+     .duration_sec = 420.0},
+    {.stage = AutopilotStage::Stage3Lessons,
+     .title = "Stage 3: Guided Lessons",
+     .stage_badge = "3/4",
+     .duration_sec = 600.0},
+    {.stage = AutopilotStage::Stage4ASrs,
+     .title = "Stage 4A: Retention SRS Deck",
+     .stage_badge = "4/4",
+     .duration_sec = 150.0},
+    {.stage = AutopilotStage::Stage4BEarTrainer,
+     .title = "Stage 4B: Procedural Ear Check",
+     .stage_badge = "4/4",
+     .duration_sec = 150.0},
 }};
 
 inline constexpr double kTotalAutopilotDurationSec = 1800.0;

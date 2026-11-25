@@ -1,6 +1,7 @@
 Checks: >
   -*,
   bugprone-*,
+  -bugprone-chained-comparison,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,
   clang-analyzer-*,
@@ -12,13 +13,12 @@ Checks: >
   readability-else-after-return,
   readability-inconsistent-declaration-parameter-name,
   readability-redundant-control-flow,
-  readability-redundant-member-init,
   readability-redundant-smartptr-get,
   readability-simplify-boolean-expr,
   cppcoreguidelines-owning-memory,
   cppcoreguidelines-no-malloc
 WarningsAsErrors: ''
-HeaderFilterRegex: '^src/.*\.(h|hpp)$'
+HeaderFilterRegex: '^((.*/)?selfano/)?src/.*\.(h|hpp)$'
 FormatStyle: file
 CheckOptions:
   - key: modernize-use-nullptr.NullMacros

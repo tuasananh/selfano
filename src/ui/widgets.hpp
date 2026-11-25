@@ -1,11 +1,10 @@
 #pragma once
 
-#include "ui/design_system.hpp"
 #include "ui/icons.hpp"
 
 #include "imgui.h"
 
-#include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string_view>
 

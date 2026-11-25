@@ -66,8 +66,8 @@ struct EarEvalResult {
 
 class EarTrainer {
 public:
-  explicit EarTrainer(KeySignature key = KeySignature{0, Mode::Major}, std::uint32_t seed = 2026U,
-                      EarTrainerProgress progress = {});
+  explicit EarTrainer(KeySignature key = KeySignature{.fifths = 0, .mode = Mode::Major},
+                      std::uint32_t seed = 2026U, EarTrainerProgress progress = {});
 
   void set_key(KeySignature key);
   void load_progress(EarTrainerProgress progress);

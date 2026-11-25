@@ -59,48 +59,48 @@ make_key_signature(int fifths, Mode mode) noexcept {
   if (fifths < -7 || fifths > 7) {
     return std::unexpected("Key signature fifths must be in range [-7, 7]");
   }
-  return KeySignature{fifths, mode};
+  return KeySignature{.fifths = fifths, .mode = mode};
 }
 
 [[nodiscard]] constexpr TonicPitchClass tonic_of(KeySignature key) noexcept {
   constexpr std::array<TonicPitchClass, 15> kMajorTonics{{
-      {NoteLetter::C, Accidental::Flat},    // -7
-      {NoteLetter::G, Accidental::Flat},    // -6
-      {NoteLetter::D, Accidental::Flat},    // -5
-      {NoteLetter::A, Accidental::Flat},    // -4
-      {NoteLetter::E, Accidental::Flat},    // -3
-      {NoteLetter::B, Accidental::Flat},    // -2
-      {NoteLetter::F, Accidental::Natural}, // -1
-      {NoteLetter::C, Accidental::Natural}, //  0
-      {NoteLetter::G, Accidental::Natural}, // +1
-      {NoteLetter::D, Accidental::Natural}, // +2
-      {NoteLetter::A, Accidental::Natural}, // +3
-      {NoteLetter::E, Accidental::Natural}, // +4
-      {NoteLetter::B, Accidental::Natural}, // +5
-      {NoteLetter::F, Accidental::Sharp},   // +6
-      {NoteLetter::C, Accidental::Sharp},   // +7
+      {.letter = NoteLetter::C, .accidental = Accidental::Flat},    // -7
+      {.letter = NoteLetter::G, .accidental = Accidental::Flat},    // -6
+      {.letter = NoteLetter::D, .accidental = Accidental::Flat},    // -5
+      {.letter = NoteLetter::A, .accidental = Accidental::Flat},    // -4
+      {.letter = NoteLetter::E, .accidental = Accidental::Flat},    // -3
+      {.letter = NoteLetter::B, .accidental = Accidental::Flat},    // -2
+      {.letter = NoteLetter::F, .accidental = Accidental::Natural}, // -1
+      {.letter = NoteLetter::C, .accidental = Accidental::Natural}, //  0
+      {.letter = NoteLetter::G, .accidental = Accidental::Natural}, // +1
+      {.letter = NoteLetter::D, .accidental = Accidental::Natural}, // +2
+      {.letter = NoteLetter::A, .accidental = Accidental::Natural}, // +3
+      {.letter = NoteLetter::E, .accidental = Accidental::Natural}, // +4
+      {.letter = NoteLetter::B, .accidental = Accidental::Natural}, // +5
+      {.letter = NoteLetter::F, .accidental = Accidental::Sharp},   // +6
+      {.letter = NoteLetter::C, .accidental = Accidental::Sharp},   // +7
   }};
 
   constexpr std::array<TonicPitchClass, 15> kMinorTonics{{
-      {NoteLetter::A, Accidental::Flat},    // -7
-      {NoteLetter::E, Accidental::Flat},    // -6
-      {NoteLetter::B, Accidental::Flat},    // -5
-      {NoteLetter::F, Accidental::Natural}, // -4
-      {NoteLetter::C, Accidental::Natural}, // -3
-      {NoteLetter::G, Accidental::Natural}, // -2
-      {NoteLetter::D, Accidental::Natural}, // -1
-      {NoteLetter::A, Accidental::Natural}, //  0
-      {NoteLetter::E, Accidental::Natural}, // +1
-      {NoteLetter::B, Accidental::Natural}, // +2
-      {NoteLetter::F, Accidental::Sharp},   // +3
-      {NoteLetter::C, Accidental::Sharp},   // +4
-      {NoteLetter::G, Accidental::Sharp},   // +5
-      {NoteLetter::D, Accidental::Sharp},   // +6
-      {NoteLetter::A, Accidental::Sharp},   // +7
+      {.letter = NoteLetter::A, .accidental = Accidental::Flat},    // -7
+      {.letter = NoteLetter::E, .accidental = Accidental::Flat},    // -6
+      {.letter = NoteLetter::B, .accidental = Accidental::Flat},    // -5
+      {.letter = NoteLetter::F, .accidental = Accidental::Natural}, // -4
+      {.letter = NoteLetter::C, .accidental = Accidental::Natural}, // -3
+      {.letter = NoteLetter::G, .accidental = Accidental::Natural}, // -2
+      {.letter = NoteLetter::D, .accidental = Accidental::Natural}, // -1
+      {.letter = NoteLetter::A, .accidental = Accidental::Natural}, //  0
+      {.letter = NoteLetter::E, .accidental = Accidental::Natural}, // +1
+      {.letter = NoteLetter::B, .accidental = Accidental::Natural}, // +2
+      {.letter = NoteLetter::F, .accidental = Accidental::Sharp},   // +3
+      {.letter = NoteLetter::C, .accidental = Accidental::Sharp},   // +4
+      {.letter = NoteLetter::G, .accidental = Accidental::Sharp},   // +5
+      {.letter = NoteLetter::D, .accidental = Accidental::Sharp},   // +6
+      {.letter = NoteLetter::A, .accidental = Accidental::Sharp},   // +7
   }};
 
   const int clamped = (key.fifths < -7) ? -7 : ((key.fifths > 7) ? 7 : key.fifths);
-  const auto index = static_cast<std::size_t>(clamped + 7);
+  const auto index = static_cast<std::size_t>(static_cast<std::ptrdiff_t>(clamped) + 7);
   if (key.mode == Mode::Major) {
     return kMajorTonics[index];
   }
@@ -108,7 +108,8 @@ make_key_signature(int fifths, Mode mode) noexcept {
 }
 
 [[nodiscard]] constexpr KeySignature relative_key(KeySignature key) noexcept {
-  return KeySignature{key.fifths, key.mode == Mode::Major ? Mode::Minor : Mode::Major};
+  return KeySignature{.fifths = key.fifths,
+                      .mode = key.mode == Mode::Major ? Mode::Minor : Mode::Major};
 }
 
 [[nodiscard]] constexpr Accidental key_accidental_for(KeySignature key,
@@ -147,40 +148,40 @@ make_key_signature(int fifths, Mode mode) noexcept {
     int octave;
   };
   constexpr std::array<Slot, 7> kTrebleSharps{{
-      {NoteLetter::F, 5},
-      {NoteLetter::C, 5},
-      {NoteLetter::G, 5},
-      {NoteLetter::D, 5},
-      {NoteLetter::A, 4},
-      {NoteLetter::E, 5},
-      {NoteLetter::B, 4},
+      {.letter = NoteLetter::F, .octave = 5},
+      {.letter = NoteLetter::C, .octave = 5},
+      {.letter = NoteLetter::G, .octave = 5},
+      {.letter = NoteLetter::D, .octave = 5},
+      {.letter = NoteLetter::A, .octave = 4},
+      {.letter = NoteLetter::E, .octave = 5},
+      {.letter = NoteLetter::B, .octave = 4},
   }};
   constexpr std::array<Slot, 7> kTrebleFlats{{
-      {NoteLetter::B, 4},
-      {NoteLetter::E, 5},
-      {NoteLetter::A, 4},
-      {NoteLetter::D, 5},
-      {NoteLetter::G, 4},
-      {NoteLetter::C, 5},
-      {NoteLetter::F, 4},
+      {.letter = NoteLetter::B, .octave = 4},
+      {.letter = NoteLetter::E, .octave = 5},
+      {.letter = NoteLetter::A, .octave = 4},
+      {.letter = NoteLetter::D, .octave = 5},
+      {.letter = NoteLetter::G, .octave = 4},
+      {.letter = NoteLetter::C, .octave = 5},
+      {.letter = NoteLetter::F, .octave = 4},
   }};
   constexpr std::array<Slot, 7> kBassSharps{{
-      {NoteLetter::F, 3},
-      {NoteLetter::C, 3},
-      {NoteLetter::G, 3},
-      {NoteLetter::D, 3},
-      {NoteLetter::A, 2},
-      {NoteLetter::E, 3},
-      {NoteLetter::B, 2},
+      {.letter = NoteLetter::F, .octave = 3},
+      {.letter = NoteLetter::C, .octave = 3},
+      {.letter = NoteLetter::G, .octave = 3},
+      {.letter = NoteLetter::D, .octave = 3},
+      {.letter = NoteLetter::A, .octave = 2},
+      {.letter = NoteLetter::E, .octave = 3},
+      {.letter = NoteLetter::B, .octave = 2},
   }};
   constexpr std::array<Slot, 7> kBassFlats{{
-      {NoteLetter::B, 2},
-      {NoteLetter::E, 3},
-      {NoteLetter::A, 2},
-      {NoteLetter::D, 3},
-      {NoteLetter::G, 2},
-      {NoteLetter::C, 3},
-      {NoteLetter::F, 2},
+      {.letter = NoteLetter::B, .octave = 2},
+      {.letter = NoteLetter::E, .octave = 3},
+      {.letter = NoteLetter::A, .octave = 2},
+      {.letter = NoteLetter::D, .octave = 3},
+      {.letter = NoteLetter::G, .octave = 2},
+      {.letter = NoteLetter::C, .octave = 3},
+      {.letter = NoteLetter::F, .octave = 2},
   }};
 
   KeySigLayout layout{};

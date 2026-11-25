@@ -46,8 +46,8 @@ parse_midi1_bytes(std::span<const std::uint8_t> bytes, double timestamp_ms,
   }
 
   const std::uint8_t raw_status = bytes[0];
-  const std::uint8_t status = static_cast<std::uint8_t>(raw_status & 0xF0U);
-  const std::uint8_t channel = static_cast<std::uint8_t>(raw_status & 0x0FU);
+  const auto status = static_cast<std::uint8_t>(raw_status & 0xF0U);
+  const auto channel = static_cast<std::uint8_t>(raw_status & 0x0FU);
   const std::uint8_t data1 = bytes[1];
   if (data1 > 127U) {
     return std::nullopt;

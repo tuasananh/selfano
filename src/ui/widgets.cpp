@@ -1,5 +1,7 @@
 #include "ui/widgets.hpp"
 
+#include "ui/design_system.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
