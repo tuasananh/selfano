@@ -63,7 +63,38 @@ FetchContent_Declare(
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
-FetchContent_MakeAvailable(SDL3 imgui nlohmann_json)
+set(PUGIXML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(PUGIXML_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  pugixml
+  GIT_REPOSITORY https://github.com/zeux/pugixml.git
+  GIT_TAG v1.15
+  GIT_SHALLOW TRUE
+)
+
+FetchContent_Declare(
+  miniz
+  GIT_REPOSITORY https://github.com/richgel999/miniz.git
+  GIT_TAG 3.0.2
+  GIT_SHALLOW TRUE
+  SOURCE_SUBDIR _skip_subdir_
+)
+
+FetchContent_MakeAvailable(SDL3 imgui nlohmann_json pugixml miniz)
+
+add_library(miniz STATIC
+  ${miniz_SOURCE_DIR}/miniz.c
+  ${miniz_SOURCE_DIR}/miniz_tdef.c
+  ${miniz_SOURCE_DIR}/miniz_tinfl.c
+  ${miniz_SOURCE_DIR}/miniz_zip.c
+)
+include(GenerateExportHeader)
+generate_export_header(miniz EXPORT_FILE_NAME ${CMAKE_CURRENT_BINARY_DIR}/miniz_gen/miniz_export.h)
+target_compile_definitions(miniz PUBLIC MINIZ_STATIC_DEFINE)
+target_include_directories(miniz SYSTEM PUBLIC
+  ${miniz_SOURCE_DIR}
+  ${CMAKE_CURRENT_BINARY_DIR}/miniz_gen
+)
 if(NOT EMSCRIPTEN)
   if(UNIX AND NOT APPLE AND NOT LIBREMIDI_NO_PIPEWIRE AND NOT TARGET readerwriterqueue)
     # Provide libremidi's PipeWire dependency before its system package lookup.
@@ -133,6 +164,7 @@ add_library(piano_core STATIC
   src/core/lesson_score.cpp
   src/core/lesson_engine.cpp
   src/core/lesson_library.cpp
+  src/core/musicxml_importer.cpp
 )
 target_include_directories(piano_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -140,6 +172,8 @@ target_include_directories(piano_core PUBLIC
 target_link_libraries(piano_core
   PRIVATE
     nlohmann_json::nlohmann_json
+    pugixml::static
+    miniz
     selfano_warnings
 )
 
@@ -216,12 +250,13 @@ target_link_libraries(selfano
 )
 
 if(NOT EMSCRIPTEN)
-  add_custom_command(TARGET selfano POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
+  add_custom_target(selfano_sync_assets ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
       ${CMAKE_CURRENT_SOURCE_DIR}/assets
       $<TARGET_FILE_DIR:selfano>/assets
-    COMMENT "Copying assets to runtime directory"
+    COMMENT "Syncing assets to runtime directory"
   )
+  add_dependencies(selfano selfano_sync_assets)
 else()
   file(GLOB SELFANO_LESSON_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/lessons/*.json")
   set_target_properties(selfano PROPERTIES
@@ -262,6 +297,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/lesson_score_tests.cpp
     tests/lesson_engine_tests.cpp
     tests/lesson_library_tests.cpp
+    tests/musicxml_importer_tests.cpp
     tests/midi_tests.cpp
   )
   target_compile_definitions(selfano_tests PRIVATE
@@ -271,6 +307,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     PRIVATE
       piano_core
       piano_midi
+      miniz
       Catch2::Catch2WithMain
       selfano_warnings
   )
