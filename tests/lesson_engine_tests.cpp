@@ -492,3 +492,199 @@ TEST_CASE("LessonEngine ChordSkeleton uses smooth voice-leading and valid chord 
   REQUIRE(jump_count == 6U);
   REQUIRE(total_jump / static_cast<double>(jump_count) <= 4.0);
 }
+
+TEST_CASE("LessonEngine DemoPlaying transport streams notes, active keys, and loops/stops cleanly",
+          "[lesson_engine]") {
+  LessonEngine engine;
+  engine.load_score(make_sample_lesson(),
+                    LessonConfig{.practice_mode = LessonPracticeMode::WaitForNote,
+                                 .hand_mode = LessonHandMode::HandsTogether,
+                                 .tempo_step = TempoLadderStep::Target100});
+
+  const auto start_ev = engine.start_demo();
+  REQUIRE(engine.playback_state() == LessonPlaybackState::DemoPlaying);
+  // Beat 0 triggers bass C3 (48) and treble E4 (64) immediately
+  REQUIRE(start_ev.playback_notes.size() == 2U);
+  REQUIRE(engine.active_demo_midi_notes() == std::vector<MidiPitch>{48, 64});
+  REQUIRE_THAT(engine.playhead_global_beat(), WithinAbs(0.0, 1e-6));
+
+  // Advance 2 beats (1200 ms at 100 BPM): E4 ends, G4 (67) enters, C3 still rings!
+  const auto mid = engine.update(1200.0);
+  REQUIRE(mid.playback_notes.size() == 1U);
+  REQUIRE(mid.playback_notes[0].midi == 67);
+  REQUIRE_THAT(mid.playback_notes[0].duration_ms, WithinAbs(2400.0, 1.0));
+  REQUIRE(engine.active_demo_midi_notes() == std::vector<MidiPitch>{48, 67});
+  REQUIRE_THAT(engine.playhead_global_beat(), WithinAbs(2.0, 1e-3));
+
+  // stop_demo stops immediately and clears active notes
+  engine.stop_demo();
+  REQUIRE(engine.playback_state() == LessonPlaybackState::Stopped);
+  REQUIRE(engine.active_demo_midi_notes().empty());
+
+  // Looped demo wraps cleanly back to beat 0 and replays beat-0 notes
+  engine.set_loop_phrase(true);
+  (void)engine.start_demo();
+  (void)engine.update(2400.0); // bar 2 tick 0 -> G2 (43)
+  const auto wrap = engine.update(2450.0);
+  REQUIRE(engine.playback_state() == LessonPlaybackState::DemoPlaying);
+  bool found_c3 = false;
+  for (const auto& n : wrap.playback_notes) {
+    if (n.midi == 48U) {
+      found_c3 = true;
+    }
+  }
+  REQUIRE(found_c3);
+}
+
+TEST_CASE("LessonEngine SteadyPulse Auto-Play Other Hand emits accompaniment for RH/LH practice",
+          "[lesson_engine]") {
+  LessonEngine engine;
+  engine.load_score(make_sample_lesson(),
+                    LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                                 .hand_mode = LessonHandMode::RightHand,
+                                 .tempo_step = TempoLadderStep::Target100,
+                                 .play_other_hand_accomp = true});
+
+  (void)engine.start();
+  // Count-in: 3 beats should not emit accompaniment yet
+  for (int i = 0; i < 3; ++i) {
+    const auto ci = engine.update(600.0);
+    REQUIRE(ci.playback_notes.empty());
+  }
+  // Finishing beat 4 of count-in transitions to Playing at tick 0 -> emits LH C3 (48) at vel ~64
+  const auto enter = engine.update(600.0);
+  REQUIRE(engine.playback_state() == LessonPlaybackState::Playing);
+  REQUIRE(enter.playback_notes.size() == 1U);
+  REQUIRE(enter.playback_notes[0].midi == 48);
+  REQUIRE(enter.playback_notes[0].velocity == 64);
+
+  // Advance 4 beats into Bar 2 -> emits LH G2 (43)
+  (void)engine.update(1200.0);
+  const auto b2 = engine.update(1200.0);
+  REQUIRE(b2.playback_notes.size() == 1U);
+  REQUIRE(b2.playback_notes[0].midi == 43);
+
+  // Disabling accompaniment suppresses further notes
+  LessonEngine muted;
+  muted.load_score(make_sample_lesson(),
+                   LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                                .hand_mode = LessonHandMode::RightHand,
+                                .tempo_step = TempoLadderStep::Target100,
+                                .play_other_hand_accomp = false});
+  (void)muted.start();
+  for (int i = 0; i < 6; ++i) {
+    REQUIRE(muted.update(600.0).playback_notes.empty());
+  }
+}
+
+TEST_CASE("LessonProgress records per-phrase masks and suggest_next_practice_step guides sequence",
+          "[lesson_engine]") {
+  LessonScore s = make_sample_lesson();
+  s.meta.theory.concept_title = "Two-Bar Cadence Concept";
+  LessonProgress prog{};
+
+  // 1. Brief unread -> Read Brief & Listen
+  auto step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.open_learn_brief);
+  REQUIRE(step.milestone_index == 0);
+
+  // 2. Brief read -> Chord Skeleton Map
+  prog.brief_read = true;
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE_FALSE(step.open_learn_brief);
+  REQUIRE(step.milestone_index == 1);
+  REQUIRE(step.target_config.practice_mode == LessonPracticeMode::ChordSkeleton);
+
+  // Clear Chord Skeleton -> Phrase A (RH)
+  (void)apply_run_to_progress(prog,
+                              LessonRunSummary{.lesson_id = "sample_01",
+                                               .practice_mode = LessonPracticeMode::ChordSkeleton,
+                                               .hand_mode = LessonHandMode::HandsTogether,
+                                               .is_full_piece = true,
+                                               .effective_bpm = 60.0,
+                                               .accuracy = 0.90,
+                                               .hits = 2,
+                                               .misses = 0},
+                              100.0, 20000);
+  REQUIRE(prog.skeleton_clean);
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.milestone_index == 2);
+  REQUIRE(step.target_config.phrase_index == 0U);
+  REQUIRE(step.target_config.hand_mode == LessonHandMode::RightHand);
+
+  // Clear Phrase A RH -> Phrase A LH -> Phrase A Both -> Phrase B RH
+  (void)apply_run_to_progress(prog,
+                              LessonRunSummary{.lesson_id = "sample_01",
+                                               .practice_mode = LessonPracticeMode::WaitForNote,
+                                               .hand_mode = LessonHandMode::RightHand,
+                                               .is_full_piece = false,
+                                               .effective_bpm = 60.0,
+                                               .accuracy = 0.95,
+                                               .hits = 4,
+                                               .misses = 0,
+                                               .phrase_index = 0U},
+                              100.0, 20000);
+  REQUIRE((prog.phrase_rh_mask & 1U) != 0U);
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.target_config.phrase_index == 0U);
+  REQUIRE(step.target_config.hand_mode == LessonHandMode::LeftHand);
+
+  (void)apply_run_to_progress(prog,
+                              LessonRunSummary{.lesson_id = "sample_01",
+                                               .practice_mode = LessonPracticeMode::WaitForNote,
+                                               .hand_mode = LessonHandMode::LeftHand,
+                                               .is_full_piece = false,
+                                               .effective_bpm = 60.0,
+                                               .accuracy = 0.95,
+                                               .hits = 4,
+                                               .misses = 0,
+                                               .phrase_index = 0U},
+                              100.0, 20000);
+  REQUIRE((prog.phrase_lh_mask & 1U) != 0U);
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.target_config.phrase_index == 0U);
+  REQUIRE(step.target_config.hand_mode == LessonHandMode::HandsTogether);
+
+  // Clear Phrase A Both & Phrase B Both -> Full Piece at 60%
+  (void)apply_run_to_progress(prog,
+                              LessonRunSummary{.lesson_id = "sample_01",
+                                               .practice_mode = LessonPracticeMode::WaitForNote,
+                                               .hand_mode = LessonHandMode::HandsTogether,
+                                               .is_full_piece = false,
+                                               .effective_bpm = 60.0,
+                                               .accuracy = 1.0,
+                                               .hits = 4,
+                                               .misses = 0,
+                                               .phrase_index = 0U},
+                              100.0, 20000);
+  (void)apply_run_to_progress(prog,
+                              LessonRunSummary{.lesson_id = "sample_01",
+                                               .practice_mode = LessonPracticeMode::WaitForNote,
+                                               .hand_mode = LessonHandMode::HandsTogether,
+                                               .is_full_piece = false,
+                                               .effective_bpm = 60.0,
+                                               .accuracy = 1.0,
+                                               .hits = 4,
+                                               .misses = 0,
+                                               .phrase_index = 1U},
+                              100.0, 20000);
+  REQUIRE((prog.phrase_both_mask & 3U) == 3U);
+
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.milestone_index == 3);
+  REQUIRE(step.target_config.tempo_step == TempoLadderStep::Slow60);
+  REQUIRE(step.target_config.practice_mode == LessonPracticeMode::SteadyPulse);
+
+  prog.ladder_60_clean = true;
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.target_config.tempo_step == TempoLadderStep::Medium80);
+
+  prog.ladder_80_clean = true;
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.target_config.tempo_step == TempoLadderStep::Target100);
+
+  prog.ladder_100_clean = true;
+  prog.status = LessonMasteryStatus::Mastered;
+  step = suggest_next_practice_step(s, prog);
+  REQUIRE(step.milestone_index == 4);
+}

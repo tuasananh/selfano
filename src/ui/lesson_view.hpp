@@ -35,6 +35,7 @@ struct LessonViewActions {
   bool metronome_accent{false};
   bool phrase_chime{false};
   bool trigger_demo_playback{false};
+  bool stop_all_playback{false};
   bool profile_dirty{false};
   bool weekly_key_sync_requested{false};
   std::optional<std::string> select_lesson_id{};
@@ -70,10 +71,16 @@ public:
                                      std::int64_t today_epoch_day, bool& out_chime,
                                      bool& out_just_mastered);
 
-  void update(double dt_ms, core::UserProfile& profile, std::int64_t today_epoch_day,
-              bool& out_click, bool& out_accent, bool& out_chime, bool& out_just_mastered);
+  void update(double dt_ms, double now_ms, core::UserProfile& profile, std::int64_t today_epoch_day,
+              bool& out_click, bool& out_accent, bool& out_chime, bool& out_just_mastered,
+              std::vector<midi::ScheduledMidiNote>& out_streamed_playback);
 
-  void toggle_play_pause(bool& out_click, bool& out_accent);
+  void toggle_play_pause(bool& out_click, bool& out_accent, bool* out_stopped = nullptr);
+  void toggle_demo(double now_ms, std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
+                   bool& out_stopped);
+  void start_demo_for_smoke(double now_ms,
+                            std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
+                            double advance_ms = 550.0);
   void stop() noexcept { engine_.stop(); }
   void reset_phrase() noexcept;
   [[nodiscard]] std::string cycle_phrase();
@@ -91,6 +98,7 @@ public:
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return engine_.completed_runs(); }
   [[nodiscard]] std::uint32_t completed_revisions() const noexcept { return completed_revisions_; }
 
+  [[nodiscard]] core::LessonEngine& mutable_engine() noexcept { return engine_; }
   [[nodiscard]] const core::LessonEngine& engine() const noexcept { return engine_; }
   [[nodiscard]] bool metronome_enabled() const noexcept { return metronome_enabled_; }
   [[nodiscard]] bool light_paper_theme() const noexcept { return light_paper_theme_; }
@@ -114,7 +122,8 @@ private:
                               bool& out_chime, bool& out_just_mastered);
   void draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
                       LessonViewActions& actions);
-  void draw_scaffold_bar(const core::LessonProgress& prog);
+  void draw_scaffold_bar(const core::LessonProgress& prog, LessonViewActions& actions);
+  void draw_guided_stepper(const core::LessonProgress& prog, LessonViewActions& actions);
   void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
                            LessonViewActions& actions);
   void draw_status_strip() const;

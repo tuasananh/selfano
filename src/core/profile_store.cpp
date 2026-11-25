@@ -220,6 +220,10 @@ std::string to_json_string(const UserProfile& profile) {
         {"review_due_epoch_day", lp.review_due_epoch_day},
         {"last_practiced_epoch_day", lp.last_practiced_epoch_day},
         {"brief_read", lp.brief_read},
+        {"skeleton_clean", lp.skeleton_clean},
+        {"phrase_rh_mask", lp.phrase_rh_mask},
+        {"phrase_lh_mask", lp.phrase_lh_mask},
+        {"phrase_both_mask", lp.phrase_both_mask},
     };
   }
   j["lesson_progress"] = std::move(lp_obj);
@@ -404,7 +408,11 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
           !read_int_field(val, "review_repetitions", lp.review_repetitions, err) ||
           !read_int_field(val, "review_due_epoch_day", lp.review_due_epoch_day, err) ||
           !read_int_field(val, "last_practiced_epoch_day", lp.last_practiced_epoch_day, err) ||
-          !read_bool_field(val, "brief_read", lp.brief_read, err)) {
+          !read_bool_field(val, "brief_read", lp.brief_read, err) ||
+          !read_bool_field(val, "skeleton_clean", lp.skeleton_clean, err) ||
+          !read_int_field(val, "phrase_rh_mask", lp.phrase_rh_mask, err) ||
+          !read_int_field(val, "phrase_lh_mask", lp.phrase_lh_mask, err) ||
+          !read_int_field(val, "phrase_both_mask", lp.phrase_both_mask, err)) {
         return std::unexpected(err);
       }
       st_int = std::clamp(st_int, 0, 3);

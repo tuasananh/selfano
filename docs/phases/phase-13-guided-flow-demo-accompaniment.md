@@ -1,6 +1,6 @@
 # Phase 13: Guided Learning Flow, Animated Demo & Play-Along Accompaniment
 
-**Status:** `[ ] Planned` (Depends on Phase 11; integrates smoothly with Phase 12 `brief_read`)  
+**Status:** `[x] Complete` (Depends on Phase 11; integrates smoothly with Phase 12 `brief_read`)  
 **Goal:** Replace the unsequenced "15-button cockpit" with a clear teacher-guided practice flow, add a visually animated Demo mode (moving playhead + lighting Virtual Piano keys + Stop toggle), add **Auto-Play Other Hand** accompaniment in `RH`/`LH` practice, and track granular per-phrase & hands-separate progress.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `midi-emscripten-interop`, `verification-and-review`

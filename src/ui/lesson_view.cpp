@@ -18,6 +18,62 @@
 
 namespace selfano::ui {
 
+namespace {
+
+[[nodiscard]] bool is_phrase_cleared(const core::LessonScore& score,
+                                     const core::LessonProgress& prog,
+                                     std::size_t phrase_idx) noexcept {
+  if (phrase_idx >= 32U) {
+    return false;
+  }
+  const auto bit = static_cast<std::uint32_t>(1U << phrase_idx);
+  if ((prog.phrase_both_mask & bit) != 0U) {
+    return true;
+  }
+  const auto phrases = core::effective_phrases(score);
+  if (phrase_idx >= phrases.size() || score.measures.empty()) {
+    return false;
+  }
+  bool has_tr = false;
+  bool has_bs = false;
+  const std::size_t s_bar = phrases[phrase_idx].start_bar;
+  const std::size_t e_bar = std::min(score.measures.size() - 1U, phrases[phrase_idx].end_bar);
+  for (std::size_t b = s_bar; b <= e_bar && b < score.measures.size(); ++b) {
+    for (const auto& ev : score.measures[b].treble_events) {
+      if (!ev.is_rest && !ev.notes.empty()) {
+        has_tr = true;
+      }
+    }
+    for (const auto& ev : score.measures[b].bass_events) {
+      if (!ev.is_rest && !ev.notes.empty()) {
+        has_bs = true;
+      }
+    }
+  }
+  if (!has_bs && has_tr) {
+    return (prog.phrase_rh_mask & bit) != 0U;
+  }
+  if (!has_tr && has_bs) {
+    return (prog.phrase_lh_mask & bit) != 0U;
+  }
+  return false;
+}
+
+void append_playback_notes(double now_ms, std::span<const core::LessonPlaybackNote> notes,
+                           std::vector<midi::ScheduledMidiNote>& out) {
+  for (const auto& n : notes) {
+    out.push_back(midi::ScheduledMidiNote{
+        .note = n.midi,
+        .velocity = n.velocity,
+        .start_ms = now_ms + n.start_ms,
+        .duration_ms = n.duration_ms,
+        .channel = n.channel,
+    });
+  }
+}
+
+} // namespace
+
 void LessonView::load_lesson(const core::LessonScore& score, bool brief_already_read,
                              std::optional<core::LessonConfig> cfg) {
   core::LessonConfig next_cfg = cfg.value_or(engine_.config());
@@ -98,34 +154,71 @@ bool LessonView::on_played_chord(const midi::PlayedChord& chord, core::UserProfi
   return res.matched;
 }
 
-void LessonView::update(double dt_ms, core::UserProfile& profile, std::int64_t today_epoch_day,
-                        bool& out_click, bool& out_accent, bool& out_chime,
-                        bool& out_just_mastered) {
+void LessonView::update(double dt_ms, double now_ms, core::UserProfile& profile,
+                        std::int64_t today_epoch_day, bool& out_click, bool& out_accent,
+                        bool& out_chime, bool& out_just_mastered,
+                        std::vector<midi::ScheduledMidiNote>& out_streamed_playback) {
   const auto tick = engine_.update(dt_ms);
   if (metronome_enabled_ && tick.metronome_click) {
     out_click = true;
     out_accent = tick.metronome_accent;
   }
+  append_playback_notes(now_ms, tick.playback_notes, out_streamed_playback);
   if (tick.phrase_completed) {
     finalize_completed_run(profile, today_epoch_day, out_chime, out_just_mastered);
   }
 }
 
-void LessonView::toggle_play_pause(bool& out_click, bool& out_accent) {
+void LessonView::toggle_play_pause(bool& out_click, bool& out_accent, bool* out_stopped) {
   if (engine_.config().practice_mode != core::LessonPracticeMode::SteadyPulse) {
     engine_.set_practice_mode(core::LessonPracticeMode::SteadyPulse);
   }
   const auto st = engine_.playback_state();
-  if (st == core::LessonPlaybackState::Stopped || st == core::LessonPlaybackState::Completed) {
+  if (st == core::LessonPlaybackState::Stopped || st == core::LessonPlaybackState::Completed ||
+      st == core::LessonPlaybackState::DemoPlaying) {
     const auto tick = engine_.start();
     if (metronome_enabled_ && tick.metronome_click) {
       out_click = true;
       out_accent = tick.metronome_accent;
     }
+    if (st == core::LessonPlaybackState::DemoPlaying && out_stopped != nullptr) {
+      *out_stopped = true;
+    }
   } else if (st == core::LessonPlaybackState::Paused) {
     engine_.resume();
   } else {
     engine_.pause();
+    if (out_stopped != nullptr) {
+      *out_stopped = true;
+    }
+  }
+}
+
+void LessonView::toggle_demo(double now_ms,
+                             std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
+                             bool& out_stopped) {
+  out_stopped = false;
+  if (engine_.playback_state() == core::LessonPlaybackState::DemoPlaying) {
+    engine_.stop_demo();
+    out_stopped = true;
+    return;
+  }
+  active_tab_ = LessonViewTab::Practice;
+  active_harmony_explanation_.reset();
+  const auto tick = engine_.start_demo();
+  append_playback_notes(now_ms, tick.playback_notes, out_streamed_playback);
+}
+
+void LessonView::start_demo_for_smoke(double now_ms,
+                                      std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
+                                      double advance_ms) {
+  active_tab_ = LessonViewTab::Practice;
+  active_harmony_explanation_.reset();
+  const auto start_tick = engine_.start_demo();
+  append_playback_notes(now_ms, start_tick.playback_notes, out_streamed_playback);
+  if (advance_ms > 0.0) {
+    const auto adv = engine_.update(advance_ms);
+    append_playback_notes(now_ms + advance_ms, adv.playback_notes, out_streamed_playback);
   }
 }
 
@@ -181,6 +274,15 @@ VirtualPianoHighlights
 LessonView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) const {
   VirtualPianoHighlights hi{};
   hi.held = held_notes;
+
+  if (engine_.playback_state() == core::LessonPlaybackState::DemoPlaying) {
+    for (const auto m : engine_.active_demo_midi_notes()) {
+      if (m < 128U) {
+        hi.target[m] = true;
+      }
+    }
+    return hi;
+  }
 
   const auto& targets = engine_.targets();
   const std::size_t idx = engine_.active_target_index();
@@ -264,29 +366,39 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
           actions.profile_dirty = true;
         }
       }
+      if (next_tab == LessonViewTab::Learn) {
+        actions.stop_all_playback = true;
+      }
       set_active_tab(next_tab);
     }
   }
   if (active_tab_ == LessonViewTab::Practice) {
-    wrap_if_needed(88.0f, 8.0f);
-    if (pill_button("Demo##lv_demo", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f, false,
-                    "E7")) {
+    const auto pb_st = engine_.playback_state();
+    const bool demo_playing = (pb_st == core::LessonPlaybackState::DemoPlaying);
+    wrap_if_needed(demo_playing ? 116.0f : 88.0f, 8.0f);
+    if (pill_button(demo_playing ? "Stop Demo##lv_demo" : "Demo##lv_demo",
+                    demo_playing ? ButtonTone::Warning : ButtonTone::SoftAccent,
+                    demo_playing ? IconId::Stop : IconId::VolumeOn, 32.0f, 0.0f, false, "E7")) {
       actions.trigger_demo_playback = true;
     }
     wrap_if_needed(92.0f, 8.0f);
 
-    const auto pb_st = engine_.playback_state();
     const bool is_running = (pb_st == core::LessonPlaybackState::CountIn ||
                              pb_st == core::LessonPlaybackState::Playing);
     if (pill_button(is_running ? "Pause##lv_play" : "Pulse##lv_play",
                     is_running ? ButtonTone::Warning : ButtonTone::Primary,
                     is_running ? IconId::Pause : IconId::Play, 32.0f, 0.0f, false, "F7")) {
-      toggle_play_pause(actions.metronome_click, actions.metronome_accent);
+      bool stopped = false;
+      toggle_play_pause(actions.metronome_click, actions.metronome_accent, &stopped);
+      if (stopped) {
+        actions.stop_all_playback = true;
+      }
     }
     wrap_if_needed(38.0f, 8.0f);
     if (icon_button("##lv_reset", IconId::Refresh, "Reset Phrase", false, 32.0f,
                     ButtonTone::Secondary, "G7")) {
       reset_phrase();
+      actions.stop_all_playback = true;
     }
   }
   wrap_if_needed(96.0f, 8.0f);
@@ -343,7 +455,7 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
   }
 }
 
-void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
+void LessonView::draw_scaffold_bar(const core::LessonProgress& prog, LessonViewActions& actions) {
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const auto& meta = engine_.score().meta;
 
@@ -361,6 +473,7 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
     int mode_idx = static_cast<int>(engine_.config().practice_mode);
     if (segmented_control("##lv_mode_seg", &mode_idx, kModes, 218.0f, 28.0f)) {
       engine_.set_practice_mode(static_cast<core::LessonPracticeMode>(mode_idx));
+      actions.stop_all_playback = true;
     }
 
     sc_wrap(144.0f, 8.0f);
@@ -368,6 +481,24 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
     int hand_idx = static_cast<int>(engine_.config().hand_mode);
     if (segmented_control("##lv_hand_seg", &hand_idx, kHands, 144.0f, 28.0f)) {
       engine_.set_hand_mode(static_cast<core::LessonHandMode>(hand_idx));
+      actions.stop_all_playback = true;
+    }
+
+    if (engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse &&
+        engine_.config().hand_mode != core::LessonHandMode::HandsTogether) {
+      sc_wrap(116.0f, 8.0f);
+      const bool accomp_on = engine_.config().play_other_hand_accomp;
+      if (pill_button(accomp_on ? "Accomp On##lv_acc" : "Accomp Off##lv_acc",
+                      accomp_on ? ButtonTone::SoftAccent : ButtonTone::Secondary,
+                      accomp_on ? IconId::VolumeOn : IconId::VolumeOff, 28.0f, 108.0f, true)) {
+        engine_.set_play_other_hand_accomp(!accomp_on);
+        if (accomp_on) {
+          actions.stop_all_playback = true;
+        }
+      }
+      if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Auto-play the other hand softly along with Steady Pulse");
+      }
     }
 
     const auto ladder_btn = [&](const char* label, core::TempoLadderStep step, bool cleared,
@@ -397,14 +528,18 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
     if (phrases.size() <= 6U) {
       for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
         if (pi > 0U) {
-          sc_wrap(88.0f, 6.0f);
+          sc_wrap(94.0f, 6.0f);
         }
         const bool sel = (engine_.config().phrase_index == pi);
+        const bool cleared = is_phrase_cleared(engine_.score(), prog, pi);
         const std::string short_lbl = std::format(
             "Phrase {}##lv_ph_{}", static_cast<char>('A' + static_cast<int>(pi % 26U)), pi);
-        if (pill_button(short_lbl.c_str(), sel ? ButtonTone::Primary : ButtonTone::Secondary,
-                        IconId::None, 26.0f)) {
+        if (pill_button(short_lbl.c_str(),
+                        sel ? ButtonTone::Primary
+                            : (cleared ? ButtonTone::SoftAccent : ButtonTone::Secondary),
+                        cleared ? IconId::Check : IconId::None, 26.0f)) {
           engine_.set_phrase_index(pi);
+          actions.stop_all_playback = true;
         }
       }
       if (!phrases.empty()) {
@@ -415,6 +550,7 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
                       full_sel ? ButtonTone::Primary : ButtonTone::Secondary, IconId::None,
                       26.0f)) {
         engine_.set_phrase_index(std::nullopt);
+        actions.stop_all_playback = true;
       }
     } else {
       const std::string cur_ph_label = engine_.config().phrase_index.has_value()
@@ -425,15 +561,95 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
         if (ImGui::Selectable("Full Piece (All Bars)",
                               !engine_.config().phrase_index.has_value())) {
           engine_.set_phrase_index(std::nullopt);
+          actions.stop_all_playback = true;
         }
         for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
           const bool sel = (engine_.config().phrase_index == pi);
-          if (ImGui::Selectable(phrases[pi].label.c_str(), sel)) {
+          const bool cleared = is_phrase_cleared(engine_.score(), prog, pi);
+          const std::string item_lbl =
+              cleared ? std::format("[ok] {}", phrases[pi].label) : phrases[pi].label;
+          if (ImGui::Selectable(item_lbl.c_str(), sel)) {
             engine_.set_phrase_index(pi);
+            actions.stop_all_playback = true;
           }
         }
         ImGui::EndCombo();
       }
+    }
+  }
+  end_card();
+}
+
+void LessonView::draw_guided_stepper(const core::LessonProgress& prog, LessonViewActions& actions) {
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto step = core::suggest_next_practice_step(engine_.score(), prog);
+  const auto& phrases = engine_.phrases();
+  std::size_t done_phrases = 0;
+  for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
+    if (is_phrase_cleared(engine_.score(), prog, pi)) {
+      ++done_phrases;
+    }
+  }
+  const int cleared_ladder = static_cast<int>(prog.ladder_60_clean) +
+                             static_cast<int>(prog.ladder_80_clean) +
+                             static_cast<int>(prog.ladder_100_clean);
+
+  ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
+  begin_card("##lv_guided_stepper", ImVec2(0.0f, 0.0f), 10.0f, 10.0f, true, true);
+  {
+    const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+    auto gs_wrap = [&](float needed_logical_w, float gap_logical = 6.0f) {
+      const float prev_right = ImGui::GetItemRectMax().x;
+      if (prev_right + gap_logical * scale + needed_logical_w * scale <= row_right) {
+        ImGui::SameLine(0.0f, gap_logical * scale);
+      }
+    };
+
+    const bool all_phrases = (!phrases.empty() && done_phrases >= phrases.size());
+    auto milestone_tone = [&](bool done, int idx) noexcept {
+      if (done) {
+        return StatusTone::Success;
+      }
+      return (step.milestone_index == idx) ? StatusTone::Accent : StatusTone::Neutral;
+    };
+
+    status_pill("Brief", milestone_tone(prog.brief_read, 0),
+                prog.brief_read ? IconId::Check : IconId::None, !prog.brief_read);
+    gs_wrap(88.0f);
+    status_pill("Skeleton", milestone_tone(prog.skeleton_clean, 1),
+                prog.skeleton_clean ? IconId::Check : IconId::None, !prog.skeleton_clean);
+    gs_wrap(106.0f);
+    status_pill(std::format("Phrases {}/{}", done_phrases, phrases.size()),
+                milestone_tone(all_phrases, 2), all_phrases ? IconId::Check : IconId::None,
+                !all_phrases);
+    gs_wrap(96.0f);
+    status_pill(std::format("Ladder {}/3", cleared_ladder),
+                milestone_tone(prog.ladder_100_clean, 3),
+                prog.ladder_100_clean ? IconId::Check : IconId::None, !prog.ladder_100_clean);
+
+    gs_wrap(250.0f, 14.0f);
+    {
+      ScopedFont sf(TypeStyle::Subheadline);
+      ImGui::AlignTextToFramePadding();
+      ImGui::TextColored(c.accent, "%s", step.label.c_str());
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("%s", step.rationale.c_str());
+    }
+    gs_wrap(112.0f, 8.0f);
+    if (pill_button("Next Step##lv_guided_next", ButtonTone::Primary, IconId::ChevronRight, 26.0f,
+                    108.0f, true)) {
+      if (step.open_learn_brief) {
+        actions.stop_all_playback = true;
+        set_active_tab(LessonViewTab::Learn);
+      } else {
+        engine_.configure(step.target_config);
+        actions.stop_all_playback = true;
+      }
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("%s", step.rationale.c_str());
     }
   }
   end_card();
@@ -485,6 +701,9 @@ void LessonView::draw_status_strip() const {
   if (pb_st == core::LessonPlaybackState::CountIn) {
     status_msg = std::format("Count-in: {}", engine_.count_in_beats_remaining());
     st_tone = StatusTone::Warning;
+  } else if (pb_st == core::LessonPlaybackState::DemoPlaying) {
+    status_msg = std::format("Demo Playing · {:.0f} BPM", engine_.effective_bpm());
+    st_tone = StatusTone::Accent;
   } else if (pb_st == core::LessonPlaybackState::Playing) {
     status_msg = std::format("Steady Pulse {:.0f} BPM", engine_.effective_bpm());
     st_tone = StatusTone::Accent;
@@ -518,13 +737,16 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   const auto& meta = engine_.score().meta;
   const auto pb_st = engine_.playback_state();
   const bool is_running =
-      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
+      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing ||
+       pb_st == core::LessonPlaybackState::DemoPlaying);
 
   const std::size_t slice_start = engine_.slice_start_bar();
   const std::size_t slice_end = std::min(measures.size() - 1U, engine_.slice_end_bar());
 
   std::size_t active_global_bar = slice_start;
-  if (engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse && is_running) {
+  if ((engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse ||
+       pb_st == core::LessonPlaybackState::DemoPlaying) &&
+      is_running) {
     active_global_bar = std::min(slice_end, slice_start + engine_.current_bar_in_slice());
   } else if (engine_.active_target_index() < engine_.targets().size()) {
     active_global_bar = engine_.targets()[engine_.active_target_index()].bar_index;
@@ -603,7 +825,8 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     return mtr;
   };
 
-  if (pb_st == core::LessonPlaybackState::Playing) {
+  if (pb_st == core::LessonPlaybackState::Playing ||
+      pb_st == core::LessonPlaybackState::DemoPlaying) {
     double prior_beats = 0.0;
     core::TimeSignature cur_meter = meter_at_bar(slice_start);
     for (std::size_t b = slice_start; b < sys1_start; ++b) {
@@ -768,7 +991,8 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
       set_active_tab(LessonViewTab::Practice);
     }
   } else {
-    draw_scaffold_bar(prog);
+    draw_scaffold_bar(prog, actions);
+    draw_guided_stepper(prog, actions);
     draw_mastery_banner(library, prog, actions);
     draw_status_strip();
     ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));

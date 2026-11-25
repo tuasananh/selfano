@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **Ready for Phase 13** (Phases 0–12 Complete; Phases 13–16 Planned in `docs/phases/`)
-- **Last Completed Phase:** Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary
+- **Active Phase:** **Ready for Phase 14** (Phases 0–13 Complete; Phases 14–16 Planned in `docs/phases/`)
+- **Last Completed Phase:** Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment
 
 ---
 
@@ -214,6 +214,19 @@
   - Headless Light & Dark screenshots inspected cleanly across `Learn` Lesson Brief (`t4_01`, `t6_03`), Tier 6 Chapter Guide modal, and clickable Theory Popovers (`t6_03` `bII6` and `t4_02` `V7/V`) with zero clipping or overlap.
   - Live headless Chromium CDP verification on `web-release` (`http://127.0.0.1:8765/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors**, `tier_guides.json` loaded in Emscripten FS, and crisp 1360x717 WebGL rendering.
 
+### Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_engine.hpp/.cpp` (`LessonPlaybackState::DemoPlaying`, `start_demo()`, `stop_demo()`, `active_demo_midi_notes()`, sample-tight `LessonTickResult::playback_notes` streaming across ties & meters, `LessonConfig::play_other_hand_accomp` emitting timed soft velocity `~64` accompaniment during `RH`/`LH` `SteadyPulse`); `lesson_progress.cpp` (`skeleton_clean`, `phrase_rh_mask`/`phrase_lh_mask`/`phrase_both_mask` bitmask tracking in `apply_run_to_progress`, and pure `suggest_next_practice_step` planner across `Brief -> Skeleton -> Phrase RH/LH/Both -> Ladder 60/80/100% -> Mastered`); `profile_store.cpp` (backward-compatible serialization/deserialization of `skeleton_clean` & phrase bitmasks)
+  - Catch2 Suite (`tests/`): expanded `lesson_engine_tests.cpp` and `profile_store_tests.cpp` covering `DemoPlaying` transport/loop/stop, `play_other_hand_accomp` timing, per-phrase bitmasks, `suggest_next_practice_step` progression, and `profile.json` v1 compatibility
+  - UI & App Wiring (`src/ui/`, `src/app/`): `lesson_view.hpp/.cpp` (`Demo` <-> `Stop Demo` toggle with moving playhead & live Virtual Piano highlights, `Accomp On/Off` pill in `SteadyPulse` `RH`/`LH`, green/accent phrase checkmarks, and compact 4-milestone **Guided Next-Step Strip** with `"Next Step"` auto-config CTA), `app_controller.cpp`, `piano_remote_dispatcher.cpp`, `cli_options.hpp/.cpp` (`schedule_batch` frame-streamed playback with clean `panic_all_notes_off` on stop/toggle)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **82/82** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 13 C++ files.
+  - Headless `--profile` persistence round-trip (`skeleton_clean`, `phrase_rh_mask`, `phrase_lh_mask`, `phrase_both_mask`) and Light & Dark screenshots (`t4_01` Guided Stepper + Phrase A checkmark, `t3_01` `SteadyPulse` `RH` `Accomp On`, `t5_01` `DemoPlaying` playhead + lit Virtual Piano keys) verified zero clipping or overlap.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -230,10 +243,11 @@
 
 ## Next Concrete Action
 
-- **Start Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment** (`docs/phases/phase-13-guided-flow-demo-accompaniment.md`):
+- **Start Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach** (`docs/phases/phase-14-trouble-spot-looping-and-coach.md`):
   - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
   - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
-  - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
+  - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[x] Complete`)
+  - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)
   - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
   - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)
   - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[ ] Planned`)

@@ -573,6 +573,15 @@ bool AppController::init(const CliOptions& cli_opts) {
     lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
     lesson_view_.request_open_theory_popover_index(*cli_.open_theory_popover_index);
   }
+  if (cli_.lesson_mode_override.has_value()) {
+    lesson_view_.mutable_engine().set_practice_mode(*cli_.lesson_mode_override);
+  }
+  if (cli_.lesson_hand_override.has_value()) {
+    lesson_view_.mutable_engine().set_hand_mode(*cli_.lesson_hand_override);
+  }
+  if (cli_.start_lesson_demo) {
+    lesson_view_.start_demo_for_smoke(prev_now_ms_, pending_playback_, 550.0);
+  }
 
   if (cli_.initial_mode == AppMode::Autopilot) {
     start_autopilot_session(prev_now_ms_);
@@ -786,9 +795,14 @@ void AppController::update_active_stage(double dt_ms, double now_ms, std::int64_
       bool accent = false;
       bool chime = false;
       bool just_mastered = false;
-      lesson_view_.update(dt_ms, profile_, today_epoch_day, click, accent, chime, just_mastered);
+      std::vector<midi::ScheduledMidiNote> streamed_playback;
+      lesson_view_.update(dt_ms, now_ms, profile_, today_epoch_day, click, accent, chime,
+                          just_mastered, streamed_playback);
       if (click) {
         audio_synth_.play_metronome_click(accent);
+      }
+      if (!streamed_playback.empty()) {
+        playback_scheduler_.schedule_batch(streamed_playback);
       }
       if (chime) {
         audio_synth_.play_confirmation_chime();
@@ -843,11 +857,21 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
     if (lv_act.phrase_chime) {
       audio_synth_.play_confirmation_chime();
     }
+    if (lv_act.stop_all_playback) {
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
+    }
     if (lv_act.trigger_demo_playback) {
       for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
         send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
       }
-      lesson_view_.build_demo_playback(now_ms, pending_playback_);
+      bool demo_stopped = false;
+      std::vector<midi::ScheduledMidiNote> demo_stream;
+      lesson_view_.toggle_demo(now_ms, demo_stream, demo_stopped);
+      if (!demo_stopped && !demo_stream.empty()) {
+        playback_scheduler_.schedule_batch(demo_stream);
+      }
     }
     if (!lv_act.preview_playback_notes.empty()) {
       for (const auto& act : playback_scheduler_.panic_all_notes_off()) {

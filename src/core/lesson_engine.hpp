@@ -46,6 +46,7 @@ enum class LessonPlaybackState : std::uint8_t {
   Playing = 2,
   Paused = 3,
   Completed = 4,
+  DemoPlaying = 5,
 };
 
 enum class LessonTargetStatus : std::uint8_t {
@@ -68,6 +69,10 @@ struct LessonProgress {
   std::int64_t review_due_epoch_day{0};
   std::int64_t last_practiced_epoch_day{0};
   bool brief_read{false};
+  bool skeleton_clean{false};
+  std::uint32_t phrase_rh_mask{0U};
+  std::uint32_t phrase_lh_mask{0U};
+  std::uint32_t phrase_both_mask{0U};
 
   bool operator==(const LessonProgress&) const = default;
 };
@@ -103,6 +108,7 @@ struct LessonConfig {
   double custom_bpm{72.0};
   std::optional<std::size_t> phrase_index{};
   bool loop_phrase{false};
+  bool play_other_hand_accomp{true};
 
   bool operator==(const LessonConfig&) const = default;
 };
@@ -112,6 +118,7 @@ struct LessonTickResult {
   bool metronome_accent{false};
   bool phrase_completed{false};
   bool run_completed{false};
+  std::vector<LessonPlaybackNote> playback_notes{};
 };
 
 struct LessonSubmitResult {
@@ -130,6 +137,17 @@ struct LessonRunSummary {
   double accuracy{0.0};
   std::uint32_t hits{0};
   std::uint32_t misses{0};
+  std::optional<std::size_t> phrase_index{};
+};
+
+struct GuidedPracticeStep {
+  std::string label;
+  std::string rationale;
+  LessonConfig target_config{};
+  bool open_learn_brief{false};
+  int milestone_index{0}; // 0=Brief, 1=Skeleton, 2=Phrases, 3=Ladder, 4=Mastered
+
+  bool operator==(const GuidedPracticeStep&) const = default;
 };
 
 struct LessonProgressUpdateResult {
@@ -166,6 +184,9 @@ void rate_guided_revision(LessonProgress& prog, SrsRating rating,
 plan_stage3_session(const std::map<std::string, LessonProgress>& progress_map,
                     std::string_view active_lesson_id, std::int64_t today_epoch_day);
 
+[[nodiscard]] GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
+                                                            const LessonProgress& prog);
+
 class LessonEngine {
 public:
   LessonEngine() = default;
@@ -177,14 +198,18 @@ public:
   void set_tempo_step(TempoLadderStep step, double custom_bpm = 0.0);
   void set_phrase_index(std::optional<std::size_t> phrase_index);
   void set_loop_phrase(bool loop);
+  void set_play_other_hand_accomp(bool enabled) noexcept;
 
   LessonTickResult start();
+  LessonTickResult start_demo();
+  void stop_demo();
   void pause() noexcept;
   void resume() noexcept;
   void stop();
   LessonTickResult update(double dt_ms);
   LessonSubmitResult submit_played_notes(std::span<const MidiPitch> played_midi);
 
+  [[nodiscard]] std::vector<MidiPitch> active_demo_midi_notes() const;
   [[nodiscard]] std::vector<LessonPlaybackNote> build_demo_playback() const;
   [[nodiscard]] LessonRunSummary build_run_summary() const;
 
@@ -218,8 +243,22 @@ public:
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return completed_runs_; }
 
 private:
+  struct ScheduledTickNote {
+    MidiPitch midi{60};
+    std::uint8_t velocity{84};
+    int start_tick{0};
+    int duration_ticks{480};
+    std::uint8_t channel{0};
+  };
+
   void rebuild_slice_and_targets();
   void reset_transport_state();
+  [[nodiscard]] std::vector<ScheduledTickNote> build_slice_tick_notes(bool include_treble,
+                                                                      bool include_bass,
+                                                                      std::uint8_t treble_vel,
+                                                                      std::uint8_t bass_vel) const;
+  [[nodiscard]] double slice_ticks_to_ms(int start_tick, int duration_ticks) const noexcept;
+  void emit_due_playback_notes(double up_to_tick, std::vector<LessonPlaybackNote>& out);
 
   LessonScore score_{};
   LessonConfig config_{};
@@ -227,6 +266,8 @@ private:
   std::vector<LessonMeasure> skeleton_measures_{};
   std::vector<LessonMeasure> display_measures_{};
   std::vector<LessonTarget> targets_{};
+  std::vector<ScheduledTickNote> scheduled_playback_notes_{};
+  std::size_t next_playback_note_idx_{0};
   std::vector<int> slice_bar_start_ticks_{};
   std::vector<int> slice_bar_ticks_{};
   std::vector<TimeSignature> slice_bar_meters_{};

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/autopilot.hpp"
+#include "core/lesson_engine.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/staff_showcase.hpp"
@@ -38,6 +39,9 @@ struct CliOptions {
   std::optional<bool> lesson_learn_tab;
   std::optional<std::uint8_t> open_chapter_guide_tier;
   std::optional<std::size_t> open_theory_popover_index;
+  std::optional<core::LessonPracticeMode> lesson_mode_override;
+  std::optional<core::LessonHandMode> lesson_hand_override;
+  bool start_lesson_demo{false};
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

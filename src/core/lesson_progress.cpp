@@ -1,7 +1,9 @@
+#include "core/chord_symbol.hpp"
 #include "core/lesson_engine.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <optional>
 #include <utility>
 
@@ -58,6 +60,27 @@ LessonProgressUpdateResult apply_run_to_progress(LessonProgress& prog, const Les
   prog.best_accuracy = std::max(prog.best_accuracy, run.accuracy);
   if (prog.status == LessonMasteryStatus::New) {
     prog.status = LessonMasteryStatus::Learning;
+  }
+
+  if (run.practice_mode == LessonPracticeMode::ChordSkeleton && run.accuracy >= 0.85) {
+    prog.skeleton_clean = true;
+  }
+
+  if ((run.practice_mode == LessonPracticeMode::WaitForNote ||
+       run.practice_mode == LessonPracticeMode::SteadyPulse) &&
+      run.accuracy >= 0.90 && run.phrase_index.has_value() && *run.phrase_index < 32U) {
+    const auto bit = static_cast<std::uint32_t>(1U << *run.phrase_index);
+    switch (run.hand_mode) {
+    case LessonHandMode::RightHand:
+      prog.phrase_rh_mask |= bit;
+      break;
+    case LessonHandMode::LeftHand:
+      prog.phrase_lh_mask |= bit;
+      break;
+    case LessonHandMode::HandsTogether:
+      prog.phrase_both_mask |= bit;
+      break;
+    }
   }
 
   const bool clean_full_steady =
@@ -132,6 +155,149 @@ Stage3SessionPlan plan_stage3_session(const std::map<std::string, LessonProgress
     plan.active_duration_sec = 420.0;
   }
   return plan;
+}
+
+GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
+                                              const LessonProgress& prog) {
+  GuidedPracticeStep step{};
+  const double target_bpm = score.meta.target_bpm;
+
+  if (prog.status == LessonMasteryStatus::Mastered || prog.ladder_100_clean) {
+    step.milestone_index = 4;
+    step.label = std::format("Mastered: Refresh at {:.0f} BPM", target_bpm);
+    step.rationale = "Piece is Mastered! Play a full Hands-Together run at 100% target tempo.";
+    step.target_config.practice_mode = LessonPracticeMode::SteadyPulse;
+    step.target_config.hand_mode = LessonHandMode::HandsTogether;
+    step.target_config.tempo_step = TempoLadderStep::Target100;
+    return step;
+  }
+
+  if (prog.ladder_80_clean) {
+    step.milestone_index = 3;
+    step.label = std::format("Full Piece at 100% ({:.0f} BPM)", target_bpm);
+    step.rationale =
+        "Final Mastery step: clear Full Piece Steady Pulse at 100% target tempo (>=90%).";
+    step.target_config.practice_mode = LessonPracticeMode::SteadyPulse;
+    step.target_config.hand_mode = LessonHandMode::HandsTogether;
+    step.target_config.tempo_step = TempoLadderStep::Target100;
+    return step;
+  }
+
+  if (prog.ladder_60_clean) {
+    const double bpm80 = compute_ladder_bpm(target_bpm, TempoLadderStep::Medium80);
+    step.milestone_index = 3;
+    step.label = std::format("Full Piece at 80% ({:.0f} BPM)", bpm80);
+    step.rationale = "Step up the Tempo Ladder: Full Piece Steady Pulse at 80% tempo.";
+    step.target_config.practice_mode = LessonPracticeMode::SteadyPulse;
+    step.target_config.hand_mode = LessonHandMode::HandsTogether;
+    step.target_config.tempo_step = TempoLadderStep::Medium80;
+    return step;
+  }
+
+  if (!prog.brief_read && !score.meta.is_imported && !score.meta.theory.concept_title.empty()) {
+    step.milestone_index = 0;
+    step.open_learn_brief = true;
+    step.label = "Read Brief & Listen";
+    step.rationale =
+        "Start with the 1-minute Lesson Brief and Hear & Compare examples before playing.";
+    step.target_config.practice_mode = LessonPracticeMode::ChordSkeleton;
+    step.target_config.hand_mode = LessonHandMode::HandsTogether;
+    step.target_config.tempo_step = TempoLadderStep::Slow60;
+    return step;
+  }
+
+  bool has_harmony = false;
+  for (const auto& m : score.measures) {
+    for (const auto& ha : m.harmony) {
+      if (parse_chord_symbol(ha.chord_symbol).has_value()) {
+        has_harmony = true;
+        break;
+      }
+    }
+    if (has_harmony) {
+      break;
+    }
+  }
+  if (!prog.skeleton_clean && has_harmony) {
+    step.milestone_index = 1;
+    step.label = "Chord Skeleton Map";
+    step.rationale = "Map every chord shape and smooth hand frame across the full piece (>=85%).";
+    step.target_config.practice_mode = LessonPracticeMode::ChordSkeleton;
+    step.target_config.hand_mode = LessonHandMode::HandsTogether;
+    step.target_config.tempo_step = TempoLadderStep::Slow60;
+    return step;
+  }
+
+  const auto phrases = effective_phrases(score);
+  const std::size_t phrase_count = std::min<std::size_t>(phrases.size(), 32U);
+  for (std::size_t i = 0; i < phrase_count; ++i) {
+    bool has_treble = false;
+    bool has_bass = false;
+    const std::size_t s_bar = phrases[i].start_bar;
+    const std::size_t e_bar = std::min(score.measures.size() - 1U, phrases[i].end_bar);
+    for (std::size_t b = s_bar; b <= e_bar && b < score.measures.size(); ++b) {
+      for (const auto& ev : score.measures[b].treble_events) {
+        if (!ev.is_rest && !ev.notes.empty()) {
+          has_treble = true;
+          break;
+        }
+      }
+      for (const auto& ev : score.measures[b].bass_events) {
+        if (!ev.is_rest && !ev.notes.empty()) {
+          has_bass = true;
+          break;
+        }
+      }
+    }
+
+    const auto bit = static_cast<std::uint32_t>(1U << i);
+    const char letter = static_cast<char>('A' + static_cast<int>(i % 26U));
+
+    if (has_treble && (prog.phrase_rh_mask & bit) == 0U && (prog.phrase_both_mask & bit) == 0U) {
+      step.milestone_index = 2;
+      step.label = std::format("Phrase {} (RH)", letter);
+      step.rationale = std::format("Isolate the Right Hand in {} (>=90% clean).", phrases[i].label);
+      step.target_config.practice_mode = LessonPracticeMode::WaitForNote;
+      step.target_config.hand_mode = LessonHandMode::RightHand;
+      step.target_config.tempo_step = TempoLadderStep::Slow60;
+      step.target_config.phrase_index = i;
+      step.target_config.play_other_hand_accomp = true;
+      return step;
+    }
+    if (has_bass && (prog.phrase_lh_mask & bit) == 0U && (prog.phrase_both_mask & bit) == 0U) {
+      step.milestone_index = 2;
+      step.label = std::format("Phrase {} (LH)", letter);
+      step.rationale =
+          std::format("Lock in the Left Hand pattern in {} (>=90% clean).", phrases[i].label);
+      step.target_config.practice_mode = LessonPracticeMode::WaitForNote;
+      step.target_config.hand_mode = LessonHandMode::LeftHand;
+      step.target_config.tempo_step = TempoLadderStep::Slow60;
+      step.target_config.phrase_index = i;
+      step.target_config.play_other_hand_accomp = true;
+      return step;
+    }
+    if (has_treble && has_bass && (prog.phrase_both_mask & bit) == 0U) {
+      step.milestone_index = 2;
+      step.label = std::format("Phrase {} (Both)", letter);
+      step.rationale =
+          std::format("Combine both hands slowly in {} (>=90% clean).", phrases[i].label);
+      step.target_config.practice_mode = LessonPracticeMode::WaitForNote;
+      step.target_config.hand_mode = LessonHandMode::HandsTogether;
+      step.target_config.tempo_step = TempoLadderStep::Slow60;
+      step.target_config.phrase_index = i;
+      step.target_config.play_other_hand_accomp = true;
+      return step;
+    }
+  }
+
+  const double bpm60 = compute_ladder_bpm(target_bpm, TempoLadderStep::Slow60);
+  step.milestone_index = 3;
+  step.label = std::format("Full Piece at 60% ({:.0f} BPM)", bpm60);
+  step.rationale = "All phrases cleared! Put the Full Piece together in Steady Pulse at 60% tempo.";
+  step.target_config.practice_mode = LessonPracticeMode::SteadyPulse;
+  step.target_config.hand_mode = LessonHandMode::HandsTogether;
+  step.target_config.tempo_step = TempoLadderStep::Slow60;
+  return step;
 }
 
 } // namespace selfano::core

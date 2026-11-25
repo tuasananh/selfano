@@ -127,6 +127,26 @@ CliOptions parse_cli(int argc, char* argv[]) {
       if (const auto idx = parse_strict_int(argv[++i]); idx.has_value() && *idx >= 0) {
         opts.open_theory_popover_index = static_cast<std::size_t>(*idx);
       }
+    } else if (arg == "--lesson-mode" && i + 1 < argc) {
+      const std::string_view m = argv[++i];
+      if (m == "skeleton") {
+        opts.lesson_mode_override = core::LessonPracticeMode::ChordSkeleton;
+      } else if (m == "wait") {
+        opts.lesson_mode_override = core::LessonPracticeMode::WaitForNote;
+      } else if (m == "pulse") {
+        opts.lesson_mode_override = core::LessonPracticeMode::SteadyPulse;
+      }
+    } else if (arg == "--lesson-hand" && i + 1 < argc) {
+      const std::string_view h = argv[++i];
+      if (h == "rh") {
+        opts.lesson_hand_override = core::LessonHandMode::RightHand;
+      } else if (h == "lh") {
+        opts.lesson_hand_override = core::LessonHandMode::LeftHand;
+      } else if (h == "both") {
+        opts.lesson_hand_override = core::LessonHandMode::HandsTogether;
+      }
+    } else if (arg == "--start-demo") {
+      opts.start_lesson_demo = true;
     }
   }
   return opts;
