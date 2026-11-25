@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 
 namespace selfano::core {
 
@@ -62,134 +63,205 @@ namespace {
   return notes;
 }
 
-} // namespace
-
-double compute_ladder_bpm(double target_bpm, TempoLadderStep step, double custom_bpm) noexcept {
-  const double safe_target = std::clamp(target_bpm, 36.0, 220.0);
-  switch (step) {
-  case TempoLadderStep::Slow60:
-    return std::max(40.0, std::round(safe_target * 0.60));
-  case TempoLadderStep::Medium80:
-    return std::max(44.0, std::round(safe_target * 0.80));
-  case TempoLadderStep::Target100:
-    return safe_target;
-  case TempoLadderStep::Custom:
-    return std::clamp(custom_bpm > 0.0 ? custom_bpm : safe_target, 36.0, 220.0);
+void emit_skeleton_chord_segment(LessonMeasure& sk, const ChordSymbol& chord, KeySignature key,
+                                 int start_tick, int duration_ticks) {
+  const auto vals = split_ticks_to_values(duration_ticks);
+  int t = start_tick;
+  for (std::size_t vi = 0; vi < vals.size(); ++vi) {
+    const bool tie_s = (vi + 1U < vals.size());
+    const bool tie_p = (vi > 0U);
+    auto tr_notes = make_skeleton_chord_notes(chord, key, true);
+    auto bs_notes = make_skeleton_chord_notes(chord, key, false);
+    for (auto& n : tr_notes) {
+      n.tie_start = tie_s;
+      n.tie_stop = tie_p;
+    }
+    for (auto& n : bs_notes) {
+      n.tie_start = tie_s;
+      n.tie_stop = tie_p;
+    }
+    sk.treble_events.push_back(LessonEvent{.start_tick = t,
+                                           .duration = vals[vi],
+                                           .is_rest = false,
+                                           .voice = 0,
+                                           .notes = std::move(tr_notes)});
+    sk.bass_events.push_back(LessonEvent{.start_tick = t,
+                                         .duration = vals[vi],
+                                         .is_rest = false,
+                                         .voice = 0,
+                                         .notes = std::move(bs_notes)});
+    t += vals[vi].ticks();
   }
-  return safe_target;
 }
 
-LessonMasteryStatus effective_mastery_status(const LessonProgress& prog,
-                                             std::int64_t today_epoch_day) noexcept {
-  if (prog.status == LessonMasteryStatus::Mastered &&
-      today_epoch_day >= prog.review_due_epoch_day) {
-    return LessonMasteryStatus::NeedsReview;
-  }
-  return prog.status;
-}
+[[nodiscard]] std::vector<LessonMeasure>
+build_chord_skeleton_measures(const LessonScore& score, std::span<const KeySignature> bar_keys,
+                              std::span<const TimeSignature> bar_meters) {
+  std::vector<LessonMeasure> skeleton_measures(score.measures.size());
+  std::optional<ChordSymbol> last_chord;
 
-bool score_uses_remote_keys(const LessonScore& score) noexcept {
-  auto has_extreme = [](std::span<const LessonEvent> evs) noexcept {
-    for (const auto& ev : evs) {
-      for (const auto& n : ev.notes) {
-        if (n.midi < 24U || n.midi >= 96U) {
-          return true;
+  for (std::size_t b = 0; b < score.measures.size(); ++b) {
+    const auto& src = score.measures[b];
+    LessonMeasure sk{};
+    sk.bar_number = src.bar_number;
+    sk.key_change = src.key_change;
+    sk.meter_change = src.meter_change;
+    sk.harmony = src.harmony;
+
+    const int mticks = bar_meters[b].measure_ticks();
+    std::vector<HarmonicAnnotation> sorted_ha = src.harmony;
+    std::ranges::sort(sorted_ha,
+                      [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
+
+    if (sorted_ha.empty() && last_chord.has_value()) {
+      emit_skeleton_chord_segment(sk, *last_chord, bar_keys[b], 0, mticks);
+    } else if (!sorted_ha.empty()) {
+      for (std::size_t hi = 0; hi < sorted_ha.size(); ++hi) {
+        const int seg_start = sorted_ha[hi].start_tick;
+        const int seg_end = (hi + 1U < sorted_ha.size()) ? sorted_ha[hi + 1U].start_tick : mticks;
+        const int seg_ticks = std::max(0, seg_end - seg_start);
+        if (seg_ticks == 0) {
+          continue;
+        }
+        const auto parsed = parse_chord_symbol(sorted_ha[hi].chord_symbol);
+        if (parsed.has_value()) {
+          last_chord = *parsed;
+          emit_skeleton_chord_segment(sk, *parsed, bar_keys[b], seg_start, seg_ticks);
+        } else {
+          int t = seg_start;
+          for (const auto& rv : split_ticks_to_values(seg_ticks)) {
+            sk.treble_events.push_back(LessonEvent{
+                .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+            sk.bass_events.push_back(LessonEvent{
+                .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+            t += rv.ticks();
+          }
         }
       }
-    }
-    return false;
-  };
-  for (const auto& m : score.measures) {
-    if (has_extreme(m.treble_events) || has_extreme(m.bass_events)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-LessonProgressUpdateResult apply_run_to_progress(LessonProgress& prog, const LessonRunSummary& run,
-                                                 double target_bpm,
-                                                 std::int64_t today_epoch_day) noexcept {
-  LessonProgressUpdateResult out{};
-  prog.last_practiced_epoch_day = today_epoch_day;
-  prog.best_accuracy = std::max(prog.best_accuracy, run.accuracy);
-  if (prog.status == LessonMasteryStatus::New) {
-    prog.status = LessonMasteryStatus::Learning;
-  }
-
-  const bool clean_full_steady =
-      (run.practice_mode == LessonPracticeMode::SteadyPulse &&
-       run.hand_mode == LessonHandMode::HandsTogether && run.is_full_piece && run.accuracy >= 0.90);
-
-  if (clean_full_steady) {
-    prog.best_clean_bpm = std::max(prog.best_clean_bpm, run.effective_bpm);
-    const double bpm60 = compute_ladder_bpm(target_bpm, TempoLadderStep::Slow60);
-    const double bpm80 = compute_ladder_bpm(target_bpm, TempoLadderStep::Medium80);
-    if (run.effective_bpm >= bpm60 - 0.5) {
-      prog.ladder_60_clean = true;
-    }
-    if (run.effective_bpm >= bpm80 - 0.5) {
-      prog.ladder_80_clean = true;
-    }
-    if (run.effective_bpm >= target_bpm - 0.5) {
-      prog.ladder_100_clean = true;
-      if (prog.status != LessonMasteryStatus::Mastered) {
-        prog.status = LessonMasteryStatus::Mastered;
-        rate_guided_revision(prog, SrsRating::Good, today_epoch_day);
-        out.just_mastered = true;
+      if (sorted_ha.front().start_tick > 0) {
+        int t = 0;
+        for (const auto& rv : split_ticks_to_values(sorted_ha.front().start_tick)) {
+          sk.treble_events.insert(
+              sk.treble_events.begin(),
+              LessonEvent{
+                  .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+          sk.bass_events.insert(
+              sk.bass_events.begin(),
+              LessonEvent{
+                  .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+          t += rv.ticks();
+        }
+      }
+    } else {
+      int t = 0;
+      for (const auto& rv : split_ticks_to_values(mticks)) {
+        sk.treble_events.push_back(
+            LessonEvent{.start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+        sk.bass_events.push_back(
+            LessonEvent{.start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
+        t += rv.ticks();
       }
     }
-  }
 
-  if (run.accuracy >= 0.90 && run.effective_bpm >= target_bpm * 0.90 - 0.5) {
-    out.suggested_rating = SrsRating::Good;
-  } else if (run.accuracy >= 0.75) {
-    out.suggested_rating = SrsRating::Hard;
-  } else {
-    out.suggested_rating = SrsRating::Again;
+    skeleton_measures[b] = std::move(sk);
   }
-  return out;
+  return skeleton_measures;
 }
 
-void rate_guided_revision(LessonProgress& prog, SrsRating rating,
-                          std::int64_t today_epoch_day) noexcept {
-  SrsCard virtual_card{};
-  virtual_card.interval_days = prog.review_interval_days;
-  virtual_card.ease_factor = prog.review_ease_factor;
-  virtual_card.repetitions = prog.review_repetitions;
-  virtual_card.due_epoch_day = prog.review_due_epoch_day;
+void build_slice_targets(const LessonScore& score, const LessonConfig& config,
+                         std::span<const KeySignature> bar_keys,
+                         std::span<const TimeSignature> bar_meters, std::size_t slice_start_bar,
+                         std::size_t slice_end_bar, std::vector<int>& out_bar_start_ticks,
+                         std::vector<TimeSignature>& out_bar_meters,
+                         std::vector<LessonTarget>& out_targets, int& out_total_ticks) {
+  int acc_ticks = 0;
+  for (std::size_t b = slice_start_bar; b <= slice_end_bar; ++b) {
+    out_bar_start_ticks.push_back(acc_ticks);
+    out_bar_meters.push_back(bar_meters[b]);
+    const int mticks = bar_meters[b].measure_ticks();
 
-  const SrsCard updated = review_card(virtual_card, rating, today_epoch_day);
-  prog.review_interval_days = updated.interval_days;
-  prog.review_ease_factor = updated.ease_factor;
-  prog.review_repetitions = updated.repetitions;
-  prog.review_due_epoch_day = updated.due_epoch_day;
-}
-
-Stage3SessionPlan plan_stage3_session(const std::map<std::string, LessonProgress>& progress_map,
-                                      std::string_view active_lesson_id,
-                                      std::int64_t today_epoch_day) {
-  Stage3SessionPlan plan{};
-  plan.active_lesson_id = std::string(active_lesson_id);
-  plan.active_duration_sec = 600.0;
-
-  std::optional<std::pair<std::int64_t, std::string>> most_overdue;
-  for (const auto& [id, prog] : progress_map) {
-    if (effective_mastery_status(prog, today_epoch_day) == LessonMasteryStatus::NeedsReview) {
-      if (!most_overdue.has_value() || prog.review_due_epoch_day < most_overdue->first) {
-        most_overdue = {prog.review_due_epoch_day, id};
+    if (config.practice_mode == LessonPracticeMode::ChordSkeleton) {
+      std::vector<HarmonicAnnotation> sorted_ha = score.measures[b].harmony;
+      std::ranges::sort(sorted_ha,
+                        [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
+      for (const auto& ha : sorted_ha) {
+        const auto parsed = parse_chord_symbol(ha.chord_symbol);
+        if (!parsed.has_value()) {
+          continue;
+        }
+        auto tr_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], true);
+        auto bs_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], false);
+        LessonTarget target{};
+        target.bar_index = b;
+        target.tick_in_bar = ha.start_tick;
+        target.global_tick = acc_ticks + ha.start_tick;
+        target.pitch_class_mask = parsed->pitch_class_mask;
+        target.pitch_class_match = true;
+        if (config.hand_mode == LessonHandMode::LeftHand ||
+            config.hand_mode == LessonHandMode::HandsTogether) {
+          for (const auto& n : bs_notes) {
+            target.expected_midi.push_back(n.midi);
+            target.expected_spelled.push_back(n.spelled);
+          }
+        }
+        if (config.hand_mode == LessonHandMode::RightHand ||
+            config.hand_mode == LessonHandMode::HandsTogether) {
+          for (const auto& n : tr_notes) {
+            target.expected_midi.push_back(n.midi);
+            target.expected_spelled.push_back(n.spelled);
+          }
+        }
+        target.expected_midi = normalize_midi_set(target.expected_midi);
+        out_targets.push_back(std::move(target));
+      }
+    } else {
+      const auto& lm = score.measures[b];
+      std::map<int, std::vector<LessonNote>> tick_notes;
+      auto collect = [&](std::span<const LessonEvent> evs) {
+        for (const auto& ev : evs) {
+          if (ev.is_rest) {
+            continue;
+          }
+          for (const auto& n : ev.notes) {
+            if (!n.tie_stop) {
+              tick_notes[ev.start_tick].push_back(n);
+            }
+          }
+        }
+      };
+      if (config.hand_mode == LessonHandMode::RightHand ||
+          config.hand_mode == LessonHandMode::HandsTogether) {
+        collect(lm.treble_events);
+      }
+      if (config.hand_mode == LessonHandMode::LeftHand ||
+          config.hand_mode == LessonHandMode::HandsTogether) {
+        collect(lm.bass_events);
+      }
+      for (const auto& [tick, notes] : tick_notes) {
+        if (notes.empty()) {
+          continue;
+        }
+        LessonTarget target{};
+        target.bar_index = b;
+        target.tick_in_bar = tick;
+        target.global_tick = acc_ticks + tick;
+        for (const auto& n : notes) {
+          target.expected_midi.push_back(n.midi);
+          target.expected_spelled.push_back(n.spelled);
+        }
+        target.expected_midi = normalize_midi_set(target.expected_midi);
+        target.pitch_class_mask = midi_pitch_class_mask(target.expected_midi);
+        target.pitch_class_match = false;
+        out_targets.push_back(std::move(target));
       }
     }
-  }
 
-  if (most_overdue.has_value()) {
-    plan.has_revision = true;
-    plan.revision_lesson_id = most_overdue->second;
-    plan.revision_duration_sec = 180.0;
-    plan.active_duration_sec = 420.0;
+    acc_ticks += mticks;
   }
-  return plan;
+  out_total_ticks = acc_ticks;
 }
+
+} // namespace
 
 void LessonEngine::load_score(LessonScore score, LessonConfig cfg) {
   score_ = std::move(score);
@@ -287,7 +359,6 @@ void LessonEngine::rebuild_slice_and_targets() {
     slice_end_bar_ = score_.measures.size() - 1U;
   }
 
-  // Track active key and meter up through slice_end_bar_
   KeySignature cur_key = score_.meta.key;
   TimeSignature cur_meter = score_.meta.time_signature;
   std::vector<KeySignature> bar_keys(score_.measures.size(), cur_key);
@@ -303,219 +374,13 @@ void LessonEngine::rebuild_slice_and_targets() {
     bar_meters[b] = cur_meter;
   }
 
-  // Build ChordSkeleton display measures across the whole score so 2-system lookahead works
-  // seamlessly
-  skeleton_measures_.resize(score_.measures.size());
-  std::optional<ChordSymbol> last_chord;
-  for (std::size_t b = 0; b < score_.measures.size(); ++b) {
-    const auto& src = score_.measures[b];
-    LessonMeasure sk{};
-    sk.bar_number = src.bar_number;
-    sk.key_change = src.key_change;
-    sk.meter_change = src.meter_change;
-    sk.harmony = src.harmony;
-
-    const int mticks = bar_meters[b].measure_ticks();
-    std::vector<HarmonicAnnotation> sorted_ha = src.harmony;
-    std::ranges::sort(sorted_ha,
-                      [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
-
-    if (sorted_ha.empty() && last_chord.has_value()) {
-      const auto vals = split_ticks_to_values(mticks);
-      int t = 0;
-      for (std::size_t vi = 0; vi < vals.size(); ++vi) {
-        const bool tie_s = (vi + 1U < vals.size());
-        const bool tie_p = (vi > 0U);
-        auto tr_notes = make_skeleton_chord_notes(*last_chord, bar_keys[b], true);
-        auto bs_notes = make_skeleton_chord_notes(*last_chord, bar_keys[b], false);
-        for (auto& n : tr_notes) {
-          n.tie_start = tie_s;
-          n.tie_stop = tie_p;
-        }
-        for (auto& n : bs_notes) {
-          n.tie_start = tie_s;
-          n.tie_stop = tie_p;
-        }
-        sk.treble_events.push_back(LessonEvent{.start_tick = t,
-                                               .duration = vals[vi],
-                                               .is_rest = false,
-                                               .voice = 0,
-                                               .notes = std::move(tr_notes)});
-        sk.bass_events.push_back(LessonEvent{.start_tick = t,
-                                             .duration = vals[vi],
-                                             .is_rest = false,
-                                             .voice = 0,
-                                             .notes = std::move(bs_notes)});
-        t += vals[vi].ticks();
-      }
-    } else if (!sorted_ha.empty()) {
-      for (std::size_t hi = 0; hi < sorted_ha.size(); ++hi) {
-        const int seg_start = sorted_ha[hi].start_tick;
-        const int seg_end = (hi + 1U < sorted_ha.size()) ? sorted_ha[hi + 1U].start_tick : mticks;
-        const int seg_ticks = std::max(0, seg_end - seg_start);
-        if (seg_ticks == 0) {
-          continue;
-        }
-        const auto parsed = parse_chord_symbol(sorted_ha[hi].chord_symbol);
-        if (parsed.has_value()) {
-          last_chord = *parsed;
-        }
-        const auto vals = split_ticks_to_values(seg_ticks);
-        int t = seg_start;
-        if (parsed.has_value()) {
-          for (std::size_t vi = 0; vi < vals.size(); ++vi) {
-            const bool tie_s = (vi + 1U < vals.size());
-            const bool tie_p = (vi > 0U);
-            auto tr_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], true);
-            auto bs_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], false);
-            for (auto& n : tr_notes) {
-              n.tie_start = tie_s;
-              n.tie_stop = tie_p;
-            }
-            for (auto& n : bs_notes) {
-              n.tie_start = tie_s;
-              n.tie_stop = tie_p;
-            }
-            sk.treble_events.push_back(LessonEvent{.start_tick = t,
-                                                   .duration = vals[vi],
-                                                   .is_rest = false,
-                                                   .voice = 0,
-                                                   .notes = std::move(tr_notes)});
-            sk.bass_events.push_back(LessonEvent{.start_tick = t,
-                                                 .duration = vals[vi],
-                                                 .is_rest = false,
-                                                 .voice = 0,
-                                                 .notes = std::move(bs_notes)});
-            t += vals[vi].ticks();
-          }
-        } else {
-          for (const auto& rv : vals) {
-            sk.treble_events.push_back(LessonEvent{
-                .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
-            sk.bass_events.push_back(LessonEvent{
-                .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
-            t += rv.ticks();
-          }
-        }
-      }
-      if (sorted_ha.front().start_tick > 0) {
-        int t = 0;
-        for (const auto& rv : split_ticks_to_values(sorted_ha.front().start_tick)) {
-          sk.treble_events.insert(
-              sk.treble_events.begin(),
-              LessonEvent{
-                  .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
-          sk.bass_events.insert(
-              sk.bass_events.begin(),
-              LessonEvent{
-                  .start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
-          t += rv.ticks();
-        }
-      }
-    } else {
-      int t = 0;
-      for (const auto& rv : split_ticks_to_values(mticks)) {
-        sk.treble_events.push_back(
-            LessonEvent{.start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
-        sk.bass_events.push_back(
-            LessonEvent{.start_tick = t, .duration = rv, .is_rest = true, .voice = 0, .notes = {}});
-        t += rv.ticks();
-      }
-    }
-
-    skeleton_measures_[b] = std::move(sk);
-  }
-
+  skeleton_measures_ = build_chord_skeleton_measures(score_, bar_keys, bar_meters);
   display_measures_ = (config_.practice_mode == LessonPracticeMode::ChordSkeleton)
                           ? skeleton_measures_
                           : score_.measures;
 
-  // Populate slice bar tick starts and targets
-  int acc_ticks = 0;
-  for (std::size_t b = slice_start_bar_; b <= slice_end_bar_; ++b) {
-    slice_bar_start_ticks_.push_back(acc_ticks);
-    slice_bar_meters_.push_back(bar_meters[b]);
-    const int mticks = bar_meters[b].measure_ticks();
-
-    if (config_.practice_mode == LessonPracticeMode::ChordSkeleton) {
-      std::vector<HarmonicAnnotation> sorted_ha = score_.measures[b].harmony;
-      std::ranges::sort(sorted_ha,
-                        [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
-      for (const auto& ha : sorted_ha) {
-        const auto parsed = parse_chord_symbol(ha.chord_symbol);
-        if (!parsed.has_value()) {
-          continue;
-        }
-        auto tr_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], true);
-        auto bs_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], false);
-        LessonTarget target{};
-        target.bar_index = b;
-        target.tick_in_bar = ha.start_tick;
-        target.global_tick = acc_ticks + ha.start_tick;
-        target.pitch_class_mask = parsed->pitch_class_mask;
-        target.pitch_class_match = true;
-        if (config_.hand_mode == LessonHandMode::LeftHand ||
-            config_.hand_mode == LessonHandMode::HandsTogether) {
-          for (const auto& n : bs_notes) {
-            target.expected_midi.push_back(n.midi);
-            target.expected_spelled.push_back(n.spelled);
-          }
-        }
-        if (config_.hand_mode == LessonHandMode::RightHand ||
-            config_.hand_mode == LessonHandMode::HandsTogether) {
-          for (const auto& n : tr_notes) {
-            target.expected_midi.push_back(n.midi);
-            target.expected_spelled.push_back(n.spelled);
-          }
-        }
-        target.expected_midi = normalize_midi_set(target.expected_midi);
-        targets_.push_back(std::move(target));
-      }
-    } else {
-      const auto& lm = score_.measures[b];
-      std::map<int, std::vector<LessonNote>> tick_notes;
-      auto collect = [&](std::span<const LessonEvent> evs) {
-        for (const auto& ev : evs) {
-          if (ev.is_rest) {
-            continue;
-          }
-          for (const auto& n : ev.notes) {
-            if (!n.tie_stop) {
-              tick_notes[ev.start_tick].push_back(n);
-            }
-          }
-        }
-      };
-      if (config_.hand_mode == LessonHandMode::RightHand ||
-          config_.hand_mode == LessonHandMode::HandsTogether) {
-        collect(lm.treble_events);
-      }
-      if (config_.hand_mode == LessonHandMode::LeftHand ||
-          config_.hand_mode == LessonHandMode::HandsTogether) {
-        collect(lm.bass_events);
-      }
-      for (const auto& [tick, notes] : tick_notes) {
-        if (notes.empty()) {
-          continue;
-        }
-        LessonTarget target{};
-        target.bar_index = b;
-        target.tick_in_bar = tick;
-        target.global_tick = acc_ticks + tick;
-        for (const auto& n : notes) {
-          target.expected_midi.push_back(n.midi);
-          target.expected_spelled.push_back(n.spelled);
-        }
-        target.expected_midi = normalize_midi_set(target.expected_midi);
-        target.pitch_class_mask = midi_pitch_class_mask(target.expected_midi);
-        target.pitch_class_match = false;
-        targets_.push_back(std::move(target));
-      }
-    }
-
-    acc_ticks += mticks;
-  }
-  total_slice_ticks_ = acc_ticks;
+  build_slice_targets(score_, config_, bar_keys, bar_meters, slice_start_bar_, slice_end_bar_,
+                      slice_bar_start_ticks_, slice_bar_meters_, targets_, total_slice_ticks_);
 }
 
 LessonTickResult LessonEngine::start() {
@@ -757,7 +622,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
 
   const double ms_per_beat = 60000.0 / std::max(30.0, effective_bpm());
   struct OpenTie {
-    int staff_id{0}; // 0 = treble, 1 = bass
+    int staff_id{0};
     MidiPitch midi{60};
     std::uint8_t velocity{84};
     double start_ms{0.0};

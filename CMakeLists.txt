@@ -162,8 +162,11 @@ add_library(piano_core STATIC
   src/core/profile_store.cpp
   src/core/piano_remote.cpp
   src/core/lesson_score.cpp
+  src/core/lesson_score_json.cpp
+  src/core/lesson_progress.cpp
   src/core/lesson_engine.cpp
   src/core/lesson_library.cpp
+  src/core/mxl_archive.cpp
   src/core/musicxml_importer.cpp
 )
 target_include_directories(piano_core PUBLIC
@@ -205,6 +208,7 @@ add_library(piano_ui STATIC
   src/ui/design_system.cpp
   src/ui/icons.cpp
   src/ui/widgets.cpp
+  src/ui/staff_primitives.cpp
   src/ui/staff_renderer.cpp
   src/ui/lesson_staff_adapter.cpp
   src/ui/staff_showcase.cpp

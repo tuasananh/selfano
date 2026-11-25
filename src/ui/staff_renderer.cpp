@@ -4,6 +4,7 @@
 
 #include "ui/design_system.hpp"
 #include "ui/smufl_glyphs.hpp"
+#include "ui/staff_primitives.hpp"
 
 #include "imgui.h"
 
@@ -18,278 +19,7 @@ namespace selfano::ui {
 
 namespace {
 
-inline constexpr float kTopMarginSpaces = 5.4f;
-inline constexpr float kTopMarginHarmonyExtraSpaces = 4.8f;
-inline constexpr float kBottomMarginSpaces = 5.0f;
-inline constexpr float kStaffHeightSpaces = 4.0f;
-
-struct ThemePalette {
-  ImU32 background;
-  ImU32 border;
-  ImU32 staff_line;
-  ImU32 ink;
-  ImU32 harmony_chord;
-  ImU32 correct;
-  ImU32 incorrect;
-  ImU32 badge_bg;
-  ImU32 badge_border;
-  ImU32 annotation;
-  ImU32 cursor_fill;
-  ImU32 cursor_accent;
-  ImU32 playhead;
-  ImU32 playhead_trail;
-};
-
-[[nodiscard]] ImU32 apply_alpha_scale(ImU32 color, float scale) noexcept {
-  const std::uint32_t a = (color >> IM_COL32_A_SHIFT) & 0xFFU;
-  const std::uint32_t scaled_a =
-      static_cast<std::uint32_t>(std::clamp(static_cast<float>(a) * scale, 0.0f, 255.0f));
-  return (color & ~(0xFFU << IM_COL32_A_SHIFT)) | (scaled_a << IM_COL32_A_SHIFT);
-}
-
-[[nodiscard]] ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
-  ThemePalette pal{};
-  if (light_paper) {
-    // Warm Apple Books Ivory Paper with crisp charcoal ink
-    pal = ThemePalette{
-        .background = IM_COL32(252, 251, 247, 255),
-        .border = IM_COL32(224, 220, 210, 255),
-        .staff_line = IM_COL32(72, 74, 82, 198),
-        .ink = IM_COL32(29, 29, 31, 255),
-        .harmony_chord = IM_COL32(29, 29, 31, 245),
-        .correct = IM_COL32(24, 148, 66, 255),
-        .incorrect = IM_COL32(224, 46, 36, 255),
-        .badge_bg = IM_COL32(255, 236, 235, 248),
-        .badge_border = IM_COL32(255, 59, 48, 120),
-        .annotation = IM_COL32(88, 86, 214, 235),
-        .cursor_fill = IM_COL32(0, 122, 255, 24),
-        .cursor_accent = IM_COL32(0, 122, 255, 190),
-        .playhead = IM_COL32(0, 122, 255, 235),
-        .playhead_trail = IM_COL32(0, 122, 255, 28),
-    };
-  } else {
-    // Dark Studio Slate (Logic Pro / Apple Dark Mode)
-    pal = ThemePalette{
-        .background = IM_COL32(30, 31, 37, 255),
-        .border = IM_COL32(255, 255, 255, 24),
-        .staff_line = IM_COL32(152, 156, 168, 150),
-        .ink = IM_COL32(245, 245, 247, 255),
-        .harmony_chord = IM_COL32(245, 245, 247, 245),
-        .correct = IM_COL32(48, 209, 88, 255),
-        .incorrect = IM_COL32(255, 69, 58, 255),
-        .badge_bg = IM_COL32(66, 24, 26, 244),
-        .badge_border = IM_COL32(255, 69, 58, 145),
-        .annotation = IM_COL32(142, 164, 255, 235),
-        .cursor_fill = IM_COL32(10, 132, 255, 34),
-        .cursor_accent = IM_COL32(10, 132, 255, 210),
-        .playhead = IM_COL32(10, 132, 255, 240),
-        .playhead_trail = IM_COL32(10, 132, 255, 38),
-    };
-  }
-  if (dim_preview) {
-    pal.staff_line = apply_alpha_scale(pal.staff_line, 0.56f);
-    pal.ink = apply_alpha_scale(pal.ink, 0.52f);
-    pal.harmony_chord = apply_alpha_scale(pal.harmony_chord, 0.52f);
-    pal.annotation = apply_alpha_scale(pal.annotation, 0.58f);
-  }
-  return pal;
-}
-
-[[nodiscard]] const char* notehead_glyph(NoteDuration duration) noexcept {
-  switch (duration) {
-  case NoteDuration::Sixteenth:
-  case NoteDuration::Eighth:
-  case NoteDuration::Quarter:
-    return kGlyphNoteheadBlack;
-  case NoteDuration::Half:
-    return kGlyphNoteheadHalf;
-  case NoteDuration::Whole:
-    return kGlyphNoteheadWhole;
-  }
-  return kGlyphNoteheadBlack;
-}
-
-[[nodiscard]] float notehead_width_spaces(NoteDuration duration) noexcept {
-  switch (duration) {
-  case NoteDuration::Sixteenth:
-  case NoteDuration::Eighth:
-  case NoteDuration::Quarter:
-    return kNoteheadBlackWidthSpaces;
-  case NoteDuration::Half:
-    return kNoteheadHalfWidthSpaces;
-  case NoteDuration::Whole:
-    return kNoteheadWholeWidthSpaces;
-  }
-  return kNoteheadBlackWidthSpaces;
-}
-
-[[nodiscard]] core::NoteBaseDuration to_core_base_duration(NoteDuration duration) noexcept {
-  switch (duration) {
-  case NoteDuration::Sixteenth:
-    return core::NoteBaseDuration::Sixteenth;
-  case NoteDuration::Eighth:
-    return core::NoteBaseDuration::Eighth;
-  case NoteDuration::Quarter:
-    return core::NoteBaseDuration::Quarter;
-  case NoteDuration::Half:
-    return core::NoteBaseDuration::Half;
-  case NoteDuration::Whole:
-    return core::NoteBaseDuration::Whole;
-  }
-  return core::NoteBaseDuration::Quarter;
-}
-
-[[nodiscard]] const char* rest_glyph(RestDuration duration) noexcept {
-  switch (duration) {
-  case RestDuration::Sixteenth:
-    return kGlyphRest16th;
-  case RestDuration::Eighth:
-    return kGlyphRest8th;
-  case RestDuration::Quarter:
-    return kGlyphRestQuarter;
-  case RestDuration::Half:
-    return kGlyphRestHalf;
-  case RestDuration::Whole:
-    return kGlyphRestWhole;
-  }
-  return kGlyphRestQuarter;
-}
-
-[[nodiscard]] int rest_anchor_step(RestDuration duration, core::Clef clef) noexcept {
-  switch (duration) {
-  case RestDuration::Sixteenth:
-  case RestDuration::Eighth:
-  case RestDuration::Quarter:
-  case RestDuration::Half:
-    return core::staff_middle_step(clef);
-  case RestDuration::Whole:
-    return core::staff_bottom_step(clef) + 6;
-  }
-  return core::staff_middle_step(clef);
-}
-
-void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
-                      ImU32 color, const char* utf8_glyph) {
-  if (draw_list == nullptr || smufl_font == nullptr || utf8_glyph == nullptr) {
-    return;
-  }
-  ImFontBaked* baked = smufl_font->GetFontBaked(font_size);
-  const float ascent = (baked != nullptr) ? baked->Ascent : (font_size * 0.5f);
-  const ImVec2 draw_pos(std::round(origin_pos.x), std::round(origin_pos.y - ascent));
-  draw_list->AddText(smufl_font, font_size, draw_pos, color, utf8_glyph);
-}
-
-void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
-                     ImU32 color, float thickness) {
-  for (int i = 0; i < 5; ++i) {
-    const float y = std::round(bottom_y - static_cast<float>(i) * space);
-    draw_list->AddLine(ImVec2(x0, y), ImVec2(x1, y), color, thickness);
-  }
-}
-
-void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
-                         const std::string& text, const ThemePalette& pal) {
-  ImFont* badge_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
-  if (badge_font == nullptr || text.empty()) {
-    return;
-  }
-  const float text_size_px = draw_font_size(11.5f);
-  const ImVec2 txt_sz = badge_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
-  const float pad_x = 8.0f;
-  const float pad_y = 3.0f;
-  const ImVec2 box_min(std::round(center_anchor.x - txt_sz.x * 0.5f - pad_x),
-                       std::round(center_anchor.y - txt_sz.y * 0.5f - pad_y));
-  const ImVec2 box_max(box_min.x + txt_sz.x + pad_x * 2.0f, box_min.y + txt_sz.y + pad_y * 2.0f);
-  const float pill_r = (box_max.y - box_min.y) * 0.5f;
-
-  draw_list->AddRectFilled(box_min, box_max, pal.badge_bg, pill_r);
-  draw_list->AddRect(box_min, box_max, pal.badge_border, pill_r, 0, 1.0f);
-  draw_list->AddText(badge_font, text_size_px, ImVec2(box_min.x + pad_x, box_min.y + pad_y),
-                     pal.incorrect, text.c_str());
-}
-
-void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                           float x, int step, core::Clef clef, float bottom_y, float space,
-                           ImU32 color) {
-  const int dot_step = (step % 2 == 0) ? (step + 1) : step;
-  const float dy = core::step_to_y(dot_step, clef, bottom_y, space);
-  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(x, dy), color,
-                   kGlyphAugmentationDot);
-}
-
-void render_clef_rest(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                      float chord_x, float bottom_y, float space, core::Clef clef,
-                      RestDuration rest_dur, bool dotted, const ThemePalette& pal) {
-  const int step = rest_anchor_step(rest_dur, clef);
-  const float ry = core::step_to_y(step, clef, bottom_y, space);
-  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(chord_x + 0.1f * space, ry),
-                   pal.ink, rest_glyph(rest_dur));
-  if (dotted) {
-    const int dot_step = core::staff_middle_step(clef) + 1;
-    draw_smufl_glyph(
-        draw_list, smufl_font, smufl_font_size,
-        ImVec2(chord_x + 1.35f * space, core::step_to_y(dot_step, clef, bottom_y, space)), pal.ink,
-        kGlyphAugmentationDot);
-  }
-}
-
-void draw_time_sig_number(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                          float center_x, float y, std::uint8_t value, float space, ImU32 color) {
-  if (value < 10U) {
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(center_x - 0.65f * space, y),
-                     color, time_sig_digit_glyph(value));
-  } else {
-    const auto tens = static_cast<std::uint8_t>(value / 10U);
-    const auto ones = static_cast<std::uint8_t>(value % 10U);
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(center_x - 1.25f * space, y),
-                     color, time_sig_digit_glyph(tens));
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(center_x + 0.05f * space, y),
-                     color, time_sig_digit_glyph(ones));
-  }
-}
-
-void draw_time_signature(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                         float timesig_x, float bottom_y, float space, core::Clef clef,
-                         core::TimeSignature ts, ImU32 color) {
-  const float top_y = core::step_to_y(core::staff_bottom_step(clef) + 6, clef, bottom_y, space);
-  const float bot_y = core::step_to_y(core::staff_bottom_step(clef) + 2, clef, bottom_y, space);
-  const float center_x = timesig_x + 0.72f * space;
-  draw_time_sig_number(draw_list, smufl_font, smufl_font_size, center_x, top_y, ts.numerator, space,
-                       color);
-  draw_time_sig_number(draw_list, smufl_font, smufl_font_size, center_x, bot_y, ts.denominator,
-                       space, color);
-}
-
-void draw_beam_quad(ImDrawList* draw_list, float x0, float y0, float x1, float y1, float thickness,
-                    core::StemDirection dir, ImU32 color) {
-  const float dy_in = (dir == core::StemDirection::Up) ? thickness : -thickness;
-  draw_list->AddQuadFilled(ImVec2(x0, y0), ImVec2(x1, y1), ImVec2(x1, y1 + dy_in),
-                           ImVec2(x0, y0 + dy_in), color);
-}
-
-void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef clef,
-                    float bottom_y, float space, ImU32 color) {
-  const float start_y = core::step_to_y(span.start_step, clef, bottom_y, space);
-  const float end_y = core::step_to_y(span.end_step, clef, bottom_y, space);
-  const float x0 = span.start_x_spaces * space;
-  const float x1 = span.end_x_spaces * space;
-  const float dx = std::max(1.0f, x1 - x0);
-  const float sign = (span.direction == core::TieDirection::Above) ? -1.0f : 1.0f;
-  const float y_off = sign * 0.45f * space;
-  const float arch = sign * std::clamp(0.28f * dx, 0.75f * space, 1.55f * space);
-
-  const ImVec2 p0(x0, start_y + y_off);
-  const ImVec2 p3(x1, end_y + y_off);
-  const ImVec2 p1(x0 + dx * 0.28f, start_y + y_off + arch);
-  const ImVec2 p2(x0 + dx * 0.72f, end_y + y_off + arch);
-
-  const float stroke = std::max(1.2f, 0.13f * space);
-  draw_list->AddBezierCubic(p0, p1, p2, p3, color, stroke, 18);
-  // Subtle inner double stroke for tapered classical tie thickness at the apex
-  draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.10f * space),
-                            ImVec2(p2.x, p2.y + sign * 0.10f * space), p3, color, stroke * 0.85f,
-                            18);
-}
+using detail::ThemePalette;
 
 struct ClefSlot {
   std::size_t chord_idx{0};
@@ -309,25 +39,16 @@ struct ClefSlot {
 
 [[nodiscard]] std::vector<ClefSlot> prepare_clef_slots(const StaffMeasure& measure, core::Clef clef,
                                                        float m_x0, float pad_left, float usable_w,
-                                                       float measure_beats, float space,
+                                                       float measure_beats,
                                                        core::MeasureAccidentalState& acc_state,
                                                        const ThemePalette& pal) {
   std::vector<ClefSlot> slots;
-  const float slot_w =
-      measure.chords.empty() ? usable_w : (usable_w / static_cast<float>(measure.chords.size()));
   const int m_ticks = std::max(1, measure.measure_ticks);
 
   for (std::size_t c = 0; c < measure.chords.size(); ++c) {
     const auto& chord = measure.chords[c];
-    float chord_x = m_x0 + pad_left + (static_cast<float>(c) + 0.35f) * slot_w;
-    if (chord.tick_offset.has_value()) {
-      const float frac = std::clamp(
-          static_cast<float>(*chord.tick_offset) / static_cast<float>(m_ticks), 0.0f, 1.0f);
-      chord_x = m_x0 + pad_left + frac * usable_w;
-    } else if (chord.beat_offset.has_value()) {
-      const float frac = std::clamp(*chord.beat_offset / measure_beats, 0.0f, 1.0f);
-      chord_x = m_x0 + pad_left + frac * usable_w;
-    }
+    const float chord_x = detail::compute_chord_x(m_x0, pad_left, usable_w, measure_beats, m_ticks,
+                                                  c, measure.chords.size(), chord);
 
     std::vector<const StaffNote*> clef_notes;
     for (const auto& sn : chord.notes) {
@@ -373,7 +94,7 @@ struct ClefSlot {
           all_correct = false;
         }
       }
-      slot.layout = core::layout_chord(inputs, clef, notehead_width_spaces(slot.duration));
+      slot.layout = core::layout_chord(inputs, clef, detail::notehead_width_spaces(slot.duration));
       slot.stem_color = any_incorrect ? pal.incorrect : (all_correct ? pal.correct : pal.ink);
     } else {
       slot.is_rest = true;
@@ -385,7 +106,6 @@ struct ClefSlot {
 
     slots.push_back(std::move(slot));
   }
-  (void)space;
   return slots;
 }
 
@@ -396,8 +116,8 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
                          float bottom_y, float space, core::MeasureAccidentalState& acc_state,
                          const StaffRenderOptions& options, const ThemePalette& pal,
                          std::vector<core::TieEndpointRef>& out_ties) {
-  auto slots = prepare_clef_slots(measure, clef, m_x0, pad_left, usable_w, measure_beats, space,
-                                  acc_state, pal);
+  auto slots =
+      prepare_clef_slots(measure, clef, m_x0, pad_left, usable_w, measure_beats, acc_state, pal);
   if (slots.empty()) {
     return;
   }
@@ -427,7 +147,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
           .max_step = core::staff_middle_step(clef),
       });
     } else {
-      const auto base_dur = to_core_base_duration(s_slot.duration);
+      const auto base_dur = detail::to_core_base_duration(s_slot.duration);
       beam_inputs.push_back(core::BeamEventInput{
           .event_index = i,
           .start_tick = s_slot.start_tick,
@@ -471,15 +191,16 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
     const float bx1 = bg.end_x_spaces * space;
     const float by0 = bottom_y - bg.start_y_spaces * space;
     const float by1 = bottom_y - bg.end_y_spaces * space;
-    draw_beam_quad(draw_list, bx0, by0, bx1, by1, beam_thick_px, bg.stem_direction, beam_col);
+    detail::draw_beam_quad(draw_list, bx0, by0, bx1, by1, beam_thick_px, bg.stem_direction,
+                           beam_col);
 
     for (const auto& sb : bg.secondary_beams) {
       const float sx0 = sb.x0_spaces * space;
       const float sx1 = sb.x1_spaces * space;
       const float sy0 = bottom_y - sb.y0_spaces * space;
       const float sy1 = bottom_y - sb.y1_spaces * space;
-      draw_beam_quad(draw_list, sx0, sy0, sx1, sy1, beam_thick_px * 0.88f, bg.stem_direction,
-                     beam_col);
+      detail::draw_beam_quad(draw_list, sx0, sy0, sx1, sy1, beam_thick_px * 0.88f,
+                             bg.stem_direction, beam_col);
     }
   }
 
@@ -490,12 +211,12 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
   for (std::size_t s_idx = 0; s_idx < slots.size(); ++s_idx) {
     const auto& slot = slots[s_idx];
     if (slot.is_rest) {
-      render_clef_rest(draw_list, smufl_font, smufl_font_size, slot.chord_x, bottom_y, space, clef,
-                       slot.rest_dur, slot.rest_dotted, pal);
+      detail::render_clef_rest(draw_list, smufl_font, smufl_font_size, slot.chord_x, bottom_y,
+                               space, clef, slot.rest_dur, slot.rest_dotted, pal);
       continue;
     }
 
-    const float nh_w_spaces = notehead_width_spaces(slot.duration);
+    const float nh_w_spaces = detail::notehead_width_spaces(slot.duration);
     const auto& layout = slot.layout;
     const core::StemDirection stem_dir = slot.beamed_dir.value_or(layout.stem_direction);
 
@@ -543,8 +264,8 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
           flag_glyph =
               (stem_dir == core::StemDirection::Up) ? kGlyphFlag16thUp : kGlyphFlag16thDown;
         }
-        draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(sx, sy_end),
-                         slot.stem_color, flag_glyph);
+        detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(sx, sy_end),
+                                 slot.stem_color, flag_glyph);
       }
     }
 
@@ -552,7 +273,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
     const float acc_right_edge =
         slot.chord_x + layout.min_notehead_x_spaces * space - 0.35f * space;
     const float acc_col_stride = 1.15f * space;
-    const char* nh_glyph = notehead_glyph(slot.duration);
+    const char* nh_glyph = detail::notehead_glyph(slot.duration);
     const float dot_x = slot.chord_x + (layout.max_notehead_x_spaces + 0.32f) * space;
 
     std::vector<std::uint8_t> chord_fingers;
@@ -573,16 +294,16 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
         const float acc_w = accidental_width_spaces(*nh.displayed_accidental) * space;
         const float ax =
             acc_right_edge - acc_w - static_cast<float>(nh.accidental_column) * acc_col_stride;
-        draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ny), note_color,
-                         accidental_glyph(*nh.displayed_accidental));
+        detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ny), note_color,
+                                 accidental_glyph(*nh.displayed_accidental));
       }
 
-      draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(nx, ny), note_color,
-                       nh_glyph);
+      detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(nx, ny), note_color,
+                               nh_glyph);
 
       if (slot.dotted) {
-        draw_augmentation_dot(draw_list, smufl_font, smufl_font_size, dot_x, nh.step, clef,
-                              bottom_y, space, note_color);
+        detail::draw_augmentation_dot(draw_list, smufl_font, smufl_font_size, dot_x, nh.step, clef,
+                                      bottom_y, space, note_color);
       }
 
       if (src->finger >= 1U && src->finger <= 5U) {
@@ -609,19 +330,20 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       if (src->feedback == NoteFeedback::Incorrect && !src->played_label.empty()) {
         const std::string badge =
             std::format("{} \xE2\x86\x92 {}", core::format_note(src->note), src->played_label);
-        const float top_y = bottom_y - kStaffHeightSpaces * space;
+        const float top_y = bottom_y - detail::kStaffHeightSpaces * space;
         const float badge_y = (nh.step <= core::staff_middle_step(clef))
                                   ? std::max(bottom_y + 1.85f * space, ny + 1.85f * space)
                                   : std::min(top_y - 1.85f * space, ny - 1.85f * space);
-        draw_feedback_badge(draw_list, ui_font,
-                            ImVec2(slot.chord_x + nh_w_spaces * 0.5f * space, badge_y), badge, pal);
+        detail::draw_feedback_badge(draw_list, ui_font,
+                                    ImVec2(slot.chord_x + nh_w_spaces * 0.5f * space, badge_y),
+                                    badge, pal);
       }
     }
 
     // 2d. Fingerings (1..5) clear of staff/stems/beams
     if (options.show_fingerings && finger_font != nullptr && !chord_fingers.empty()) {
       const float center_x = slot.chord_x + nh_w_spaces * 0.5f * space;
-      const float staff_top_y = bottom_y - kStaffHeightSpaces * space;
+      const float staff_top_y = bottom_y - detail::kStaffHeightSpaces * space;
       if (clef == core::Clef::Treble) {
         const float top_nh_y = core::step_to_y(layout.noteheads.back().step, clef, bottom_y, space);
         float anchor_y = std::min(staff_top_y - 1.15f * space, top_nh_y - 1.45f * space);
@@ -665,11 +387,13 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
 float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept {
   const float s = std::max(8.0f, options.staff_space);
   const float top_spaces =
-      kTopMarginSpaces + (options.show_harmony_labels ? kTopMarginHarmonyExtraSpaces : 0.0f);
-  const float staves_spaces = (options.view_mode == StaffViewMode::GrandStaff)
-                                  ? (kStaffHeightSpaces * 2.0f + options.grand_staff_gap_spaces)
-                                  : kStaffHeightSpaces;
-  return (top_spaces + staves_spaces + kBottomMarginSpaces) * s;
+      detail::kTopMarginSpaces +
+      (options.show_harmony_labels ? detail::kTopMarginHarmonyExtraSpaces : 0.0f);
+  const float staves_spaces =
+      (options.view_mode == StaffViewMode::GrandStaff)
+          ? (detail::kStaffHeightSpaces * 2.0f + options.grand_staff_gap_spaces)
+          : detail::kStaffHeightSpaces;
+  return (top_spaces + staves_spaces + detail::kBottomMarginSpaces) * s;
 }
 
 void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, ImVec2 origin,
@@ -681,7 +405,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
   const float s = std::max(8.0f, options.staff_space);
   const float total_height = compute_staff_canvas_height(options);
-  const ThemePalette pal = palette_for(options.light_paper_theme, options.dim_preview);
+  const ThemePalette pal = detail::palette_for(options.light_paper_theme, options.dim_preview);
   const float card_rounding = 14.0f;
 
   const ImVec2 canvas_max(origin.x + width, origin.y + total_height);
@@ -697,12 +421,13 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
                           options.view_mode == StaffViewMode::BassOnly);
 
   const float top_spaces =
-      kTopMarginSpaces + (options.show_harmony_labels ? kTopMarginHarmonyExtraSpaces : 0.0f);
+      detail::kTopMarginSpaces +
+      (options.show_harmony_labels ? detail::kTopMarginHarmonyExtraSpaces : 0.0f);
   const float treble_top_y = origin.y + top_spaces * s;
-  const float treble_bottom_y = treble_top_y + kStaffHeightSpaces * s;
+  const float treble_bottom_y = treble_top_y + detail::kStaffHeightSpaces * s;
   const float bass_top_y =
       show_treble ? (treble_bottom_y + options.grand_staff_gap_spaces * s) : treble_top_y;
-  const float bass_bottom_y = bass_top_y + kStaffHeightSpaces * s;
+  const float bass_bottom_y = bass_top_y + detail::kStaffHeightSpaces * s;
 
   const float system_top_y = show_treble ? treble_top_y : bass_top_y;
   const float system_bottom_y = show_bass ? bass_bottom_y : treble_bottom_y;
@@ -719,12 +444,12 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
   // 1. Staff lines
   if (show_treble) {
-    draw_five_lines(draw_list, system_left_x, system_right_x, treble_bottom_y, s, pal.staff_line,
-                    staff_line_thickness);
+    detail::draw_five_lines(draw_list, system_left_x, system_right_x, treble_bottom_y, s,
+                            pal.staff_line, staff_line_thickness);
   }
   if (show_bass) {
-    draw_five_lines(draw_list, system_left_x, system_right_x, bass_bottom_y, s, pal.staff_line,
-                    staff_line_thickness);
+    detail::draw_five_lines(draw_list, system_left_x, system_right_x, bass_bottom_y, s,
+                            pal.staff_line, staff_line_thickness);
   }
 
   // 2. Left joining barline & Grand Staff brace
@@ -736,8 +461,8 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     const float brace_font_size = smufl_font_size * brace_scale;
     const float brace_width = 0.28f * brace_scale * s;
     const float brace_x = system_left_x - brace_width - 0.35f * s;
-    draw_smufl_glyph(draw_list, smufl_font, brace_font_size, ImVec2(brace_x, system_bottom_y),
-                     pal.ink, kGlyphBrace);
+    detail::draw_smufl_glyph(draw_list, smufl_font, brace_font_size,
+                             ImVec2(brace_x, system_bottom_y), pal.ink, kGlyphBrace);
   }
 
   // 3. Clefs
@@ -745,14 +470,14 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   if (show_treble) {
     const float g_line_y = core::step_to_y(core::diatonic_step(core::NoteLetter::G, 4),
                                            core::Clef::Treble, treble_bottom_y, s);
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(clef_x, g_line_y), pal.ink,
-                     kGlyphGClef);
+    detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(clef_x, g_line_y),
+                             pal.ink, kGlyphGClef);
   }
   if (show_bass) {
     const float f_line_y = core::step_to_y(core::diatonic_step(core::NoteLetter::F, 3),
                                            core::Clef::Bass, bass_bottom_y, s);
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(clef_x, f_line_y), pal.ink,
-                     kGlyphFClef);
+    detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(clef_x, f_line_y),
+                             pal.ink, kGlyphFClef);
   }
 
   // 4. Key signatures
@@ -766,8 +491,8 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     for (std::size_t i = 0; i < span.size(); ++i) {
       const float ax = keysig_x + static_cast<float>(i) * keysig_step_x;
       const float ay = core::step_to_y(span[i].step, core::Clef::Treble, treble_bottom_y, s);
-      draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ay), pal.ink,
-                       accidental_glyph(span[i].accidental));
+      detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ay), pal.ink,
+                               accidental_glyph(span[i].accidental));
     }
   }
   if (show_bass) {
@@ -776,8 +501,8 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     for (std::size_t i = 0; i < span.size(); ++i) {
       const float ax = keysig_x + static_cast<float>(i) * keysig_step_x;
       const float ay = core::step_to_y(span[i].step, core::Clef::Bass, bass_bottom_y, s);
-      draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ay), pal.ink,
-                       accidental_glyph(span[i].accidental));
+      detail::draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(ax, ay), pal.ink,
+                               accidental_glyph(span[i].accidental));
     }
   }
 
@@ -793,12 +518,12 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     const float timesig_x = keysig_x + static_cast<float>(num_keysig) * keysig_step_x +
                             (num_keysig > 0 ? 1.1f : 0.45f) * s;
     if (show_treble) {
-      draw_time_signature(draw_list, smufl_font, smufl_font_size, timesig_x, treble_bottom_y, s,
-                          core::Clef::Treble, *header_meter, pal.ink);
+      detail::draw_time_signature(draw_list, smufl_font, smufl_font_size, timesig_x,
+                                  treble_bottom_y, s, core::Clef::Treble, *header_meter, pal.ink);
     }
     if (show_bass) {
-      draw_time_signature(draw_list, smufl_font, smufl_font_size, timesig_x, bass_bottom_y, s,
-                          core::Clef::Bass, *header_meter, pal.ink);
+      detail::draw_time_signature(draw_list, smufl_font, smufl_font_size, timesig_x, bass_bottom_y,
+                                  s, core::Clef::Bass, *header_meter, pal.ink);
     }
     content_left_x = timesig_x + 2.4f * s;
   }
@@ -839,12 +564,13 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     if (m > 0U && measure.time_signature.has_value()) {
       const float mid_ts_x = m_x0 + 0.5f * s;
       if (show_treble) {
-        draw_time_signature(draw_list, smufl_font, smufl_font_size, mid_ts_x, treble_bottom_y, s,
-                            core::Clef::Treble, *measure.time_signature, pal.ink);
+        detail::draw_time_signature(draw_list, smufl_font, smufl_font_size, mid_ts_x,
+                                    treble_bottom_y, s, core::Clef::Treble, *measure.time_signature,
+                                    pal.ink);
       }
       if (show_bass) {
-        draw_time_signature(draw_list, smufl_font, smufl_font_size, mid_ts_x, bass_bottom_y, s,
-                            core::Clef::Bass, *measure.time_signature, pal.ink);
+        detail::draw_time_signature(draw_list, smufl_font, smufl_font_size, mid_ts_x, bass_bottom_y,
+                                    s, core::Clef::Bass, *measure.time_signature, pal.ink);
       }
       inner_m_x0 += 2.2f * s;
     }
@@ -867,20 +593,12 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
     // 5a. Cursor highlights & simple annotations
     if (!measure.chords.empty()) {
-      const float slot_w = usable_w / static_cast<float>(measure.chords.size());
       const int m_ticks = std::max(1, measure.measure_ticks);
 
       for (std::size_t c = 0; c < measure.chords.size(); ++c) {
         const auto& chord = measure.chords[c];
-        float chord_x = inner_m_x0 + pad_left + (static_cast<float>(c) + 0.35f) * slot_w;
-        if (chord.tick_offset.has_value()) {
-          const float frac = std::clamp(
-              static_cast<float>(*chord.tick_offset) / static_cast<float>(m_ticks), 0.0f, 1.0f);
-          chord_x = inner_m_x0 + pad_left + frac * usable_w;
-        } else if (chord.beat_offset.has_value()) {
-          const float frac = std::clamp(*chord.beat_offset / measure_beats, 0.0f, 1.0f);
-          chord_x = inner_m_x0 + pad_left + frac * usable_w;
-        }
+        const float chord_x = detail::compute_chord_x(inner_m_x0, pad_left, usable_w, measure_beats,
+                                                      m_ticks, c, measure.chords.size(), chord);
 
         if (chord.is_active_cursor) {
           const ImVec2 cur_min(std::round(chord_x - 0.72f * s),
@@ -901,10 +619,11 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
           const float ann_x =
               options.show_harmony_labels
                   ? (m_x0 + 0.35f * s)
-                  : (chord_x + notehead_width_spaces(chord.duration) * 0.5f * s - ann_sz.x * 0.5f);
+                  : (chord_x + detail::notehead_width_spaces(chord.duration) * 0.5f * s -
+                     ann_sz.x * 0.5f);
           const float ann_y = options.show_harmony_labels ? bar_top_y : (system_top_y - 4.2f * s);
           const ImU32 ann_col = options.show_harmony_labels
-                                    ? apply_alpha_scale(pal.annotation, 0.80f)
+                                    ? detail::apply_alpha_scale(pal.annotation, 0.80f)
                                     : pal.annotation;
           draw_list->AddText(ann_font, ann_size_px, ImVec2(std::round(ann_x), std::round(ann_y)),
                              ann_col, chord.annotation.c_str());
@@ -964,12 +683,12 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   // 5e. Bezier ties across the system
   if (show_treble && !treble_ties.empty()) {
     for (const auto& span : core::resolve_tie_spans(treble_ties)) {
-      draw_tie_curve(draw_list, span, core::Clef::Treble, treble_bottom_y, s, pal.ink);
+      detail::draw_tie_curve(draw_list, span, core::Clef::Treble, treble_bottom_y, s, pal.ink);
     }
   }
   if (show_bass && !bass_ties.empty()) {
     for (const auto& span : core::resolve_tie_spans(bass_ties)) {
-      draw_tie_curve(draw_list, span, core::Clef::Bass, bass_bottom_y, s, pal.ink);
+      detail::draw_tie_curve(draw_list, span, core::Clef::Bass, bass_bottom_y, s, pal.ink);
     }
   }
 
