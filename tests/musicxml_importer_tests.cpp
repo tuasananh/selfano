@@ -298,3 +298,49 @@ TEST_CASE("MusicXmlImporter rejects malformed XML, corrupt ZIPs, and oversized p
   // Missing file
   REQUIRE_FALSE(import_musicxml_file("/tmp/nonexistent_selfano_file_12345.musicxml").has_value());
 }
+
+TEST_CASE("MusicXmlImporter preserves implicit anacrusis pickup measures", "[musicxml_importer]") {
+  constexpr const char* kPickupXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Pickup Waltz</work-title></work>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="0" implicit="yes">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+      </attributes>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>2</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+      </note>
+      <backup><duration>2</duration></backup>
+      <note>
+        <rest/><duration>2</duration><voice>5</voice><type>quarter</type><staff>2</staff>
+      </note>
+    </measure>
+    <measure number="1">
+      <note>
+        <pitch><step>A</step><octave>4</octave></pitch>
+        <duration>6</duration><voice>1</voice><type>half</type><dot/><staff>1</staff>
+      </note>
+      <backup><duration>6</duration></backup>
+      <note>
+        <pitch><step>A</step><octave>2</octave></pitch>
+        <duration>6</duration><voice>5</voice><type>half</type><dot/><staff>2</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  const auto res = import_musicxml_string(kPickupXml);
+  REQUIRE(res.has_value());
+  REQUIRE(res->score.measures.size() == 2U);
+  REQUIRE(res->score.measures[0].bar_number == 0U);
+  REQUIRE(res->score.measures[0].pickup_ticks == 480);
+  REQUIRE(res->score.measures[1].bar_number == 1U);
+  REQUIRE_FALSE(res->score.measures[1].pickup_ticks.has_value());
+  REQUIRE(validate_lesson_score(res->score).has_value());
+}

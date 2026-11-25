@@ -31,7 +31,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 8** | Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons) | [phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md) | `[x] Complete` |
 | **Phase 9** | Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*) | [phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md) | `[x] Complete` |
 | **Phase 10** | `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web) | [phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md) | `[x] Complete` |
-| **Phase 11** | Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons | [phase-11-score-ergonomics-pickups-voicing.md](./phases/phase-11-score-ergonomics-pickups-voicing.md) | `[ ] Planned` |
+| **Phase 11** | Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons | [phase-11-score-ergonomics-pickups-voicing.md](./phases/phase-11-score-ergonomics-pickups-voicing.md) | `[x] Complete` |
 | **Phase 12** | Music Theory Reading Layer, Tier Guides & Clickable Glossary | [phase-12-music-theory-reading-and-glossary.md](./phases/phase-12-music-theory-reading-and-glossary.md) | `[ ] Planned` |
 | **Phase 13** | Guided Learning Flow, Animated Demo & Play-Along Accompaniment | [phase-13-guided-flow-demo-accompaniment.md](./phases/phase-13-guided-flow-demo-accompaniment.md) | `[ ] Planned` |
 | **Phase 14** | Custom Trouble-Spot Bar Looping & Post-Run Coach | [phase-14-trouble-spot-looping-and-coach.md](./phases/phase-14-trouble-spot-looping-and-coach.md) | `[ ] Planned` |

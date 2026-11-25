@@ -3,7 +3,7 @@
     "id": "t1_03",
     "tier": 1,
     "order_in_tier": 3,
-    "title": "Natural Minor Lament",
+    "title": "A-Minor Lament (Leading Tone)",
     "composer_source": "Russian Piano School / Beyer Minor Study",
     "key": {
       "fifths": 0,
@@ -331,8 +331,8 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
+              "spell": "B2",
+              "midi": 47,
               "finger": 1
             }
           ]

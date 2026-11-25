@@ -4,7 +4,7 @@
     "tier": 3,
     "order_in_tier": 4,
     "title": "Arabesque (Op. 100, No. 2 - Main Section)",
-    "composer_source": "Friedrich Burgmuller, Op. 100 No. 2",
+    "composer_source": "Study after Friedrich Burgmuller, Op. 100 No. 2",
     "key": {
       "fifths": 0,
       "mode": "minor"
@@ -573,18 +573,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "G#2",
+              "midi": 44,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 2
             },
             {
-              "spell": "G#3",
-              "midi": 56,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -605,18 +605,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "G#2",
+              "midi": 44,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 2
             },
             {
-              "spell": "G#3",
-              "midi": 56,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -693,18 +693,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "G#2",
+              "midi": 44,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 2
             },
             {
-              "spell": "G#3",
-              "midi": 56,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -725,18 +725,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "G#2",
+              "midi": 44,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 2
             },
             {
-              "spell": "G#3",
-              "midi": 56,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1367,13 +1367,13 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 3
             },
             {
@@ -1399,13 +1399,13 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 3
             },
             {
@@ -1695,7 +1695,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 4
+              "finger": 5
             }
           ]
         },
@@ -1709,7 +1709,7 @@
             {
               "spell": "C5",
               "midi": 72,
-              "finger": 3
+              "finger": 4
             }
           ]
         },
@@ -1723,7 +1723,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 2
+              "finger": 3
             }
           ]
         },
@@ -1737,7 +1737,7 @@
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 1
+              "finger": 2
             }
           ]
         },
@@ -1811,18 +1811,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "G#2",
+              "midi": 44,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 2
             },
             {
-              "spell": "G#3",
-              "midi": 56,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1965,18 +1965,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "G#2",
+              "midi": 44,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
+              "spell": "D3",
+              "midi": 50,
               "finger": 2
             },
             {
-              "spell": "G#3",
-              "midi": 56,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -2027,13 +2027,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C3",
+              "midi": 48,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]

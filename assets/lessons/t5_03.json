@@ -23,6 +23,37 @@
   },
   "measures": [
     {
+      "bar_number": 0,
+      "pickup_ticks": 480,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "B4",
+              "midi": 71,
+              "finger": 3
+            }
+          ]
+        }
+      ],
+      "bass_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": []
+    },
+    {
       "bar_number": 1,
       "treble_events": [
         {
@@ -808,8 +839,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "A3",
+              "midi": 57,
               "finger": 3
             },
             {
@@ -832,8 +863,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "A3",
+              "midi": 57,
               "finger": 3
             },
             {
@@ -856,8 +887,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "A3",
+              "midi": 57,
               "finger": 3
             },
             {
@@ -880,8 +911,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "A3",
+              "midi": 57,
               "finger": 3
             },
             {
@@ -2953,19 +2984,19 @@
   ],
   "phrases": [
     {
-      "label": "Phrase A (Bars 1-4)",
+      "label": "Phrase A (Pickup - Bar 4)",
       "start_bar": 0,
-      "end_bar": 3
+      "end_bar": 4
     },
     {
       "label": "Phrase B (Bars 5-8)",
-      "start_bar": 4,
-      "end_bar": 7
+      "start_bar": 5,
+      "end_bar": 8
     },
     {
       "label": "Phrase C (Bars 9-12)",
-      "start_bar": 8,
-      "end_bar": 11
+      "start_bar": 9,
+      "end_bar": 12
     }
   ]
 }

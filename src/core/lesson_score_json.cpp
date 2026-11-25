@@ -262,6 +262,9 @@ std::string lesson_score_to_json(const LessonScore& score) {
   for (const auto& m : score.measures) {
     json mj;
     mj["bar_number"] = m.bar_number;
+    if (m.pickup_ticks.has_value()) {
+      mj["pickup_ticks"] = *m.pickup_ticks;
+    }
     if (m.key_change.has_value()) {
       mj["key_change"] = {
           {"fifths", m.key_change->fifths},
@@ -386,10 +389,19 @@ std::expected<LessonScore, std::string> lesson_score_from_json(std::string_view 
       return std::unexpected("Measure entry must be an object");
     }
     LessonMeasure m{};
-    m.bar_number = mj.contains("bar_number") && mj.at("bar_number").is_number_integer()
-                       ? mj.at("bar_number").get<std::uint32_t>()
-                       : fallback_bar;
-    ++fallback_bar;
+    if (mj.contains("bar_number") && mj.at("bar_number").is_number_integer()) {
+      m.bar_number = mj.at("bar_number").get<std::uint32_t>();
+      fallback_bar = m.bar_number + 1U;
+    } else {
+      m.bar_number = fallback_bar;
+      ++fallback_bar;
+    }
+    if (mj.contains("pickup_ticks") && !mj.at("pickup_ticks").is_null()) {
+      if (!mj.at("pickup_ticks").is_number_integer()) {
+        return std::unexpected("Measure 'pickup_ticks' must be an integer");
+      }
+      m.pickup_ticks = mj.at("pickup_ticks").get<int>();
+    }
 
     if (mj.contains("key_change") && !mj.at("key_change").is_null()) {
       const auto kc = parse_key_json(mj.at("key_change"));

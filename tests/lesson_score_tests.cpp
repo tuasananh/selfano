@@ -291,3 +291,75 @@ TEST_CASE("split_ticks_to_values greedily decomposes durations into rhythmic val
   REQUIRE(split_ticks_to_values(0).empty());
   REQUIRE(split_ticks_to_values(60).empty());
 }
+
+TEST_CASE("LessonScore supports anacrusis pickup measures with backward-compatible JSON",
+          "[lesson_score]") {
+  LessonScore s = make_valid_two_bar_score();
+  s.meta.time_signature = TimeSignature{.numerator = 3, .denominator = 4};
+  s.measures.clear();
+
+  LessonMeasure pickup{};
+  pickup.bar_number = 0;
+  pickup.pickup_ticks = 480;
+  pickup.treble_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::E, Accidental::Natural, 4, 1)}},
+  };
+  pickup.bass_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = true,
+                  .voice = 0,
+                  .notes = {}},
+  };
+
+  LessonMeasure bar1{};
+  bar1.bar_number = 1;
+  bar1.treble_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 4, 3)}},
+  };
+  bar1.bass_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 3, 5)}},
+  };
+  bar1.harmony = {HarmonicAnnotation{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
+
+  s.measures = {pickup, bar1};
+  s.phrases = {LessonPhrase{.label = "Phrase A", .start_bar = 0, .end_bar = 1}};
+
+  REQUIRE(effective_measure_ticks(pickup, s.meta.time_signature) == 480);
+  REQUIRE(effective_measure_ticks(bar1, s.meta.time_signature) == 1440);
+  REQUIRE(validate_lesson_score(s).has_value());
+
+  const std::string json_str = lesson_score_to_json(s);
+  const auto parsed = lesson_score_from_json(json_str);
+  REQUIRE(parsed.has_value());
+  REQUIRE(*parsed == s);
+  REQUIRE(parsed->measures[0].bar_number == 0U);
+  REQUIRE(parsed->measures[0].pickup_ticks == 480);
+  REQUIRE_FALSE(parsed->measures[1].pickup_ticks.has_value());
+
+  SECTION("Rejects invalid pickup_ticks bounds or voice sums") {
+    auto bad_zero = s;
+    bad_zero.measures[0].pickup_ticks = 0;
+    REQUIRE_FALSE(validate_lesson_score(bad_zero).has_value());
+
+    auto bad_full = s;
+    bad_full.measures[0].pickup_ticks = 1440;
+    REQUIRE_FALSE(validate_lesson_score(bad_full).has_value());
+
+    auto bad_sum = s;
+    bad_sum.measures[0].pickup_ticks = 240;
+    REQUIRE_FALSE(validate_lesson_score(bad_sum).has_value());
+  }
+}

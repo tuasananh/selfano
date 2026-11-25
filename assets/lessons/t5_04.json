@@ -23,7 +23,8 @@
   },
   "measures": [
     {
-      "bar_number": 1,
+      "bar_number": 0,
+      "pickup_ticks": 480,
       "treble_events": [
         {
           "start_tick": 0,
@@ -38,10 +39,26 @@
               "finger": 1
             }
           ]
-        },
+        }
+      ],
+      "bass_events": [
         {
-          "start_tick": 480,
-          "dur": "8th",
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": []
+    },
+    {
+      "bar_number": 1,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
@@ -54,7 +71,7 @@
           ]
         },
         {
-          "start_tick": 720,
+          "start_tick": 480,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -68,7 +85,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 720,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -82,8 +99,8 @@
           ]
         },
         {
-          "start_tick": 1200,
-          "dur": "8th",
+          "start_tick": 960,
+          "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
@@ -950,13 +967,27 @@
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
             {
               "spell": "A4",
               "midi": 69,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "E4",
+              "midi": 64,
               "finger": 1
             }
           ]
@@ -1024,20 +1055,6 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E4",
-              "midi": 64,
-              "finger": 1
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
-          "dur": "8th",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
               "spell": "A4",
               "midi": 69,
               "finger": 2
@@ -1045,7 +1062,7 @@
           ]
         },
         {
-          "start_tick": 720,
+          "start_tick": 480,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -1059,7 +1076,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 720,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -1073,8 +1090,8 @@
           ]
         },
         {
-          "start_tick": 1200,
-          "dur": "8th",
+          "start_tick": 960,
+          "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
@@ -1955,23 +1972,31 @@
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 1
+              "finger": 2
             }
           ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
         }
       ],
       "bass_events": [
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
@@ -1991,6 +2016,14 @@
               "finger": 1
             }
           ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
         }
       ],
       "harmony": [
@@ -2004,24 +2037,24 @@
   ],
   "phrases": [
     {
-      "label": "Phrase A (Bars 1-4)",
+      "label": "Phrase A (Pickup - Bar 4)",
       "start_bar": 0,
-      "end_bar": 3
+      "end_bar": 4
     },
     {
       "label": "Phrase B (Bars 5-8)",
-      "start_bar": 4,
-      "end_bar": 7
+      "start_bar": 5,
+      "end_bar": 8
     },
     {
       "label": "Phrase C (Bars 9-12)",
-      "start_bar": 8,
-      "end_bar": 11
+      "start_bar": 9,
+      "end_bar": 12
     },
     {
       "label": "Phrase D (Bars 13-16)",
-      "start_bar": 12,
-      "end_bar": 15
+      "start_bar": 13,
+      "end_bar": 16
     }
   ]
 }

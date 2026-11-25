@@ -4,7 +4,7 @@
     "tier": 6,
     "order_in_tier": 1,
     "title": "Eb-Major Cantabile & Wide LH Leaps",
-    "composer_source": "Chopin Nocturne Op. 9 No. 2 Idiom Study",
+    "composer_source": "Study after Frederic Chopin, Nocturne Op. 9 No. 2",
     "key": {
       "fifths": -3,
       "mode": "major"
@@ -1514,7 +1514,7 @@
             {
               "spell": "Eb5",
               "midi": 75,
-              "finger": 3
+              "finger": 2
             }
           ]
         },
@@ -1528,7 +1528,7 @@
             {
               "spell": "F5",
               "midi": 77,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -1542,7 +1542,7 @@
             {
               "spell": "G5",
               "midi": 79,
-              "finger": 5
+              "finger": 4
             }
           ]
         },

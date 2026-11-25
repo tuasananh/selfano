@@ -1583,13 +1583,13 @@
               "finger": 5
             },
             {
-              "spell": "F#3",
-              "midi": 54,
-              "finger": 2
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
             },
             {
-              "spell": "D4",
-              "midi": 62,
+              "spell": "F#3",
+              "midi": 54,
               "finger": 1
             }
           ]

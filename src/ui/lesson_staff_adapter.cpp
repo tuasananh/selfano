@@ -52,14 +52,17 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       active_meter = *lm.meter_change;
     }
 
+    const int eff_ticks = core::effective_measure_ticks(lm, active_meter);
+    const float beat_ticks_f = static_cast<float>(std::max(1, active_meter.beat_ticks()));
+
     StaffMeasure sm{};
-    sm.measure_ticks = active_meter.measure_ticks();
-    sm.beats_per_measure = static_cast<float>(active_meter.pulse_count());
+    sm.measure_ticks = eff_ticks;
+    sm.beats_per_measure = static_cast<float>(eff_ticks) / beat_ticks_f;
+    sm.is_pickup = lm.pickup_ticks.has_value();
     if (idx > 0U && lm.meter_change.has_value()) {
       sm.time_signature = *lm.meter_change;
     }
 
-    const float beat_ticks_f = static_cast<float>(std::max(1, active_meter.beat_ticks()));
     for (const auto& ha : lm.harmony) {
       sm.harmony_labels.push_back(StaffHarmonicLabel{
           .beat_offset = static_cast<float>(ha.start_tick) / beat_ticks_f,
@@ -94,7 +97,8 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       chord.tick_offset = tick;
       chord.beat_offset = static_cast<float>(tick) / beat_ticks_f;
       if (tick == 0) {
-        chord.annotation = std::format("Bar {}", lm.bar_number);
+        chord.annotation =
+            (lm.bar_number == 0U) ? std::string("Pickup") : std::format("Bar {}", lm.bar_number);
       }
 
       NoteFeedback fb = NoteFeedback::Neutral;

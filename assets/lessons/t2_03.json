@@ -1877,18 +1877,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
-              "finger": 2
+              "spell": "G3",
+              "midi": 55,
+              "finger": 3
             },
             {
-              "spell": "E3",
-              "midi": 52,
+              "spell": "B3",
+              "midi": 59,
               "finger": 1
             }
           ]

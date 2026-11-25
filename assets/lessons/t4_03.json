@@ -456,7 +456,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 2
+              "finger": 3
             }
           ]
         },
@@ -1185,7 +1185,7 @@
             {
               "spell": "C#5",
               "midi": 73,
-              "finger": 3
+              "finger": 2
             }
           ]
         },
@@ -1199,7 +1199,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -1213,7 +1213,7 @@
             {
               "spell": "E5",
               "midi": 76,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -1864,7 +1864,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 2
+              "finger": 3
             }
           ]
         },

@@ -4,7 +4,7 @@
     "tier": 3,
     "order_in_tier": 3,
     "title": "La Candeur (Op. 100, No. 1 - Theme)",
-    "composer_source": "Friedrich Burgmuller, Op. 100 No. 1",
+    "composer_source": "Study after Friedrich Burgmuller, Op. 100 No. 1",
     "key": {
       "fifths": 0,
       "mode": "major"
@@ -491,13 +491,13 @@
               "finger": 5
             },
             {
-              "spell": "D3",
-              "midi": 50,
-              "finger": 2
+              "spell": "B2",
+              "midi": 47,
+              "finger": 3
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]
@@ -746,14 +746,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "F3",
@@ -808,7 +808,7 @@
             {
               "spell": "F4",
               "midi": 65,
-              "finger": 3
+              "finger": 4
             }
           ]
         },
@@ -822,7 +822,7 @@
             {
               "spell": "E4",
               "midi": 64,
-              "finger": 2
+              "finger": 3
             }
           ]
         },
@@ -836,7 +836,7 @@
             {
               "spell": "D4",
               "midi": 62,
-              "finger": 1
+              "finger": 2
             }
           ]
         },
@@ -916,14 +916,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "F3",
@@ -1027,7 +1027,7 @@
             {
               "spell": "G4",
               "midi": 67,
-              "finger": 2
+              "finger": 1
             }
           ]
         },
@@ -1041,7 +1041,7 @@
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 3
+              "finger": 2
             }
           ]
         },
@@ -1055,7 +1055,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -1069,7 +1069,7 @@
             {
               "spell": "C5",
               "midi": 72,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -1111,18 +1111,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "B3",
-              "midi": 59,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -1241,18 +1241,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C3",
+              "midi": 48,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "C4",
-              "midi": 60,
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]
@@ -1303,7 +1303,7 @@
             {
               "spell": "G4",
               "midi": 67,
-              "finger": 2
+              "finger": 1
             }
           ]
         },
@@ -1317,7 +1317,7 @@
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 3
+              "finger": 2
             }
           ]
         },
@@ -1331,7 +1331,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -1345,7 +1345,7 @@
             {
               "spell": "C5",
               "midi": 72,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -1415,18 +1415,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "B3",
-              "midi": 59,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -1439,14 +1439,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D3",
-              "midi": 50,
-              "finger": 4
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 5
             },
             {
               "spell": "A3",
               "midi": 57,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "C4",
@@ -1509,13 +1509,13 @@
               "finger": 5
             },
             {
-              "spell": "D3",
-              "midi": 50,
-              "finger": 2
+              "spell": "B2",
+              "midi": 47,
+              "finger": 3
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]
@@ -1926,14 +1926,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "B2",
+              "midi": 47,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "F3",

@@ -76,6 +76,7 @@ struct StaffMeasure {
   std::vector<StaffHarmonicLabel> harmony_labels{};
   std::optional<core::TimeSignature> time_signature{};
   int measure_ticks{core::kTicksPerQuarter * 4};
+  bool is_pickup{false};
 };
 
 enum class StaffViewMode : std::uint8_t {

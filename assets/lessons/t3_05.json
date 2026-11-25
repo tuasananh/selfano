@@ -1039,7 +1039,7 @@
             {
               "spell": "Bb4",
               "midi": 70,
-              "finger": 3
+              "finger": 1
             }
           ]
         },
@@ -1053,7 +1053,7 @@
             {
               "spell": "C5",
               "midi": 72,
-              "finger": 4
+              "finger": 2
             }
           ]
         },
@@ -1067,7 +1067,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 5
+              "finger": 3
             }
           ]
         },
@@ -1081,7 +1081,7 @@
             {
               "spell": "Eb5",
               "midi": 75,
-              "finger": 5
+              "finger": 4
             }
           ]
         }
@@ -1567,8 +1567,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]

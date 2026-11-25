@@ -4,7 +4,7 @@
     "tier": 1,
     "order_in_tier": 4,
     "title": "First Sharp & Waltz Pulse",
-    "composer_source": "Carl Czerny, Op. 599 No. 16",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 16",
     "key": {
       "fifths": 1,
       "mode": "major"
@@ -930,8 +930,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]

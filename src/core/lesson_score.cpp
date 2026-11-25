@@ -256,7 +256,15 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
         cur_meter = *m.meter_change;
       }
     }
-    const int mticks = cur_meter.measure_ticks();
+    const int full_mticks = cur_meter.measure_ticks();
+    if (m.pickup_ticks.has_value() && (*m.pickup_ticks <= 0 || *m.pickup_ticks >= full_mticks)) {
+      errors.push_back(std::format("Bar {} pickup_ticks {} must be in (0, {})", m.bar_number,
+                                   *m.pickup_ticks, full_mticks));
+    }
+    const int mticks =
+        (m.pickup_ticks.has_value() && *m.pickup_ticks > 0 && *m.pickup_ticks < full_mticks)
+            ? *m.pickup_ticks
+            : full_mticks;
     validate_staff_events(m.bar_number, "treble", m.treble_events, mticks, treble_open_ties,
                           errors);
     validate_staff_events(m.bar_number, "bass", m.bass_events, mticks, bass_open_ties, errors);

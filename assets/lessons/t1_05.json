@@ -4,7 +4,7 @@
     "tier": 1,
     "order_in_tier": 5,
     "title": "First Flat & Singing Quarter Melody",
-    "composer_source": "Carl Czerny, Op. 599 No. 19",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 19",
     "key": {
       "fifths": -1,
       "mode": "major"
@@ -1018,14 +1018,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C3",
-              "midi": 48,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "Bb3",

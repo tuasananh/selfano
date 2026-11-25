@@ -4,7 +4,7 @@
     "tier": 6,
     "order_in_tier": 4,
     "title": "Ballade No. 1 - Moderato Theme Study (6/4 Lilt)",
-    "composer_source": "Frederic Chopin, Op. 23 mm. 8-23 Idiom Study",
+    "composer_source": "Study after Frederic Chopin, Ballade No. 1 Op. 23 mm. 8-23",
     "key": {
       "fifths": -2,
       "mode": "minor"
@@ -685,16 +685,16 @@
             {
               "spell": "C3",
               "midi": 48,
-              "finger": 4
+              "finger": 5
+            },
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
-            },
-            {
-              "spell": "Eb4",
-              "midi": 63,
               "finger": 1
             }
           ]
@@ -1241,16 +1241,16 @@
             {
               "spell": "Bb2",
               "midi": 46,
-              "finger": 4
+              "finger": 5
+            },
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
-            },
-            {
-              "spell": "Eb4",
-              "midi": 63,
               "finger": 1
             }
           ]
@@ -1384,16 +1384,16 @@
             {
               "spell": "C3",
               "midi": 48,
-              "finger": 4
+              "finger": 5
+            },
+            {
+              "spell": "Eb3",
+              "midi": 51,
+              "finger": 3
             },
             {
               "spell": "A3",
               "midi": 57,
-              "finger": 2
-            },
-            {
-              "spell": "Eb4",
-              "midi": 63,
               "finger": 1
             }
           ]

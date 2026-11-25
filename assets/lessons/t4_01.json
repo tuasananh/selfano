@@ -4,7 +4,7 @@
     "tier": 4,
     "order_in_tier": 1,
     "title": "Sonatina in C Major (Op. 36, No. 1 - Mvt. 1 Exposition)",
-    "composer_source": "Muzio Clementi, Op. 36 No. 1",
+    "composer_source": "Study after Muzio Clementi, Op. 36 No. 1",
     "key": {
       "fifths": 0,
       "mode": "major"
@@ -794,7 +794,7 @@
             {
               "spell": "F4",
               "midi": 65,
-              "finger": 3
+              "finger": 4
             }
           ]
         },
@@ -808,7 +808,7 @@
             {
               "spell": "E4",
               "midi": 64,
-              "finger": 2
+              "finger": 3
             }
           ]
         },
@@ -822,7 +822,7 @@
             {
               "spell": "D4",
               "midi": 62,
-              "finger": 1
+              "finger": 2
             }
           ]
         },

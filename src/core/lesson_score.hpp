@@ -120,6 +120,7 @@ struct HarmonicAnnotation {
 
 struct LessonMeasure {
   std::uint32_t bar_number{1};
+  std::optional<int> pickup_ticks{};
   std::optional<KeySignature> key_change{};
   std::optional<TimeSignature> meter_change{};
   std::vector<LessonEvent> treble_events;
@@ -128,6 +129,11 @@ struct LessonMeasure {
 
   bool operator==(const LessonMeasure&) const = default;
 };
+
+[[nodiscard]] constexpr int effective_measure_ticks(const LessonMeasure& m,
+                                                    TimeSignature meter) noexcept {
+  return m.pickup_ticks.value_or(meter.measure_ticks());
+}
 
 struct LessonPhrase {
   std::string label;        // e.g. "Phrase A (Bars 1-4)"

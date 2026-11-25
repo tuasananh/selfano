@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **Ready for Phase 11** (Phases 0–10 Complete; Phases 11–16 Planned in `docs/phases/`)
-- **Last Completed Phase:** Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)
+- **Active Phase:** **Ready for Phase 12** (Phases 0–11 Complete; Phases 12–16 Planned in `docs/phases/`)
+- **Last Completed Phase:** Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons
 
 ---
 
@@ -185,6 +185,20 @@
   - Desktop end-to-end verification (`--import-lesson sample.mxl` + relaunch without `--import-lesson`) confirmed persisted `<dir>/lessons/imp_e3fc699c7804a8e5.json` and `profile.json`, rendering crisp `MXL Waltz Study` (`D Major`, `3/4`, `104 BPM`) across Light & Dark themes.
   - Live headless Chromium CDP verification (`http://127.0.0.1:8095/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors**, working `.mxl`/`.musicxml` upload modal (`Save & Open`), crisp WebGL Grand Staff rendering (`MXL Waltz Study`), and full `IDBFS` `/persist/lessons/` + `/persist/profile.json` persistence across `Page.reload({ ignoreCache: true })`.
 
+### Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_score.hpp/.cpp`, `lesson_score_json.cpp` (`std::optional<int> pickup_ticks`, `effective_measure_ticks()`, `bar_number == 0` anacrusis validation & backward-compatible JSON serialization); `musicxml_importer.cpp` (`<measure implicit="yes">` / `number="0"` pickup preservation); `lesson_engine.hpp/.cpp` (fractional pickup count-in alignment, `playhead_global_beat` & `is_mid_bar` pickup support, stateful voice-led `make_voice_led_skeleton_rh` minimizing semitone displacement around `A3..E5` with strictly ascending fingerings `1-3-5`/`1-2-5`/`1-2-3-5`/`1-2-4-5`)
+  - Engraving & UI (`src/ui/`): `staff_renderer.hpp/.cpp`, `staff_primitives.hpp/.cpp`, `lesson_staff_adapter.cpp`, `lesson_view.cpp` (proportional pickup measure widths, `"Pickup"` header label, `effective_measure_ticks` beat tracking, raised harmony/Roman clearance above high-register ledger-line fingerings)
+  - 28-Lesson Curriculum Audit & Urtext Upgrades (`assets/lessons/t*.json`): fixed all ergonomic/fingering anomalies (`<= 9` semitones in Tiers 1–3, `<= 12` in Tiers 4–6, zero same-finger adjacent 1–2 semitone steps); restored authentic Bar 0 pickups & Urtext downbeats on `t5_01` (Op. 28 No. 7), `t5_03` (Op. 28 No. 4 + Bar 4 `Am/E` fix), and `t5_04` (Waltz B. 150); upgraded `t4_02` (BWV 772) and `t6_03` (Ballade No. 1 Op. 23 mm. 1–7 unison octave opening + playable Largo resolution); renamed `t1_03` to *A-Minor Lament (Leading Tone)* and clearly labeled non-Urtext adaptations as `"Study after ..."`
+  - Catch2 Guardrails (`tests/`): expanded `lesson_score_tests.cpp`, `musicxml_importer_tests.cpp`, `lesson_engine_tests.cpp`, and `lesson_library_tests.cpp` (automated span, monotonic chord fingering, same-finger step, ChordSkeleton centroid `<= 5.0` semitones, and pickup checks across all 28 lessons)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **77/77** test cases.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings and bundled all updated `assets/lessons/`.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all modified C++ files.
+  - Headless Light & Dark screenshots (`t2_05`, `t3_04`, `t5_01`, `t5_02`, `t6_03`) confirmed crisp compact `"Pickup"` engraving, playable voicings, and zero fingering/harmony overlap.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -201,8 +215,8 @@
 
 ## Next Concrete Action
 
-- **Start Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons** (`docs/phases/phase-11-score-ergonomics-pickups-voicing.md`):
-  - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[ ] Planned`)
+- **Start Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary** (`docs/phases/phase-12-music-theory-reading-and-glossary.md`):
+  - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
   - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[ ] Planned`)
   - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
   - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)

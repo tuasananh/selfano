@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 2,
     "title": "Waltz Accompaniment & Hand Shifts",
-    "composer_source": "Carl Czerny, Op. 599 No. 29",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 29",
     "key": {
       "fifths": 1,
       "mode": "major"
@@ -1660,8 +1660,13 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "B2",
+              "midi": 47,
+              "finger": 3
+            },
+            {
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]

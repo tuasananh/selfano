@@ -227,6 +227,7 @@ private:
   std::vector<LessonMeasure> display_measures_{};
   std::vector<LessonTarget> targets_{};
   std::vector<int> slice_bar_start_ticks_{};
+  std::vector<int> slice_bar_ticks_{};
   std::vector<TimeSignature> slice_bar_meters_{};
 
   std::size_t slice_start_bar_{0};
@@ -237,6 +238,8 @@ private:
   std::size_t active_target_index_{0};
   double elapsed_ticks_{0.0};
   int count_in_remaining_{0};
+  double count_in_elapsed_ticks_{0.0};
+  double count_in_target_ticks_{0.0};
   double count_in_beat_accum_ms_{0.0};
   double play_beat_accum_ticks_{0.0};
   int current_pulse_in_bar_{0};

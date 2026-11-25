@@ -253,3 +253,242 @@ TEST_CASE("LessonEngine mastery graduation, SM-2 revision, and Stage 3 split pla
   REQUIRE(with_due.active_lesson_id == "t1_02");
   REQUIRE(with_due.active_duration_sec == 420.0);
 }
+
+TEST_CASE("LessonEngine aligns SteadyPulse count-in and demo playback on pickup measures",
+          "[lesson_engine]") {
+  SECTION("3/4 with 1-quarter pickup counts in 2 beats then enters upbeat 3") {
+    LessonScore s{};
+    s.meta = LessonMetadata{
+        .id = "pickup_34",
+        .tier = 5,
+        .order_in_tier = 1,
+        .title = "Pickup 3/4",
+        .composer_source = "Test",
+        .key = KeySignature{.fifths = 0, .mode = Mode::Minor},
+        .time_signature = TimeSignature{.numerator = 3, .denominator = 4},
+        .target_bpm = 100.0, // 600 ms per beat
+    };
+    LessonMeasure p{};
+    p.bar_number = 0;
+    p.pickup_ticks = 480;
+    p.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::E, Accidental::Natural, 4, 1)}},
+    };
+    p.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+         .is_rest = true,
+         .voice = 0,
+         .notes = {}},
+    };
+    LessonMeasure m1{};
+    m1.bar_number = 1;
+    m1.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::A, Accidental::Natural, 4, 2)}},
+    };
+    m1.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::A, Accidental::Natural, 2, 5)}},
+    };
+    s.measures = {p, m1};
+
+    LessonEngine engine;
+    engine.load_score(s, LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                                      .hand_mode = LessonHandMode::HandsTogether,
+                                      .tempo_step = TempoLadderStep::Target100});
+
+    const auto demo = engine.build_demo_playback();
+    REQUIRE(demo.size() == 3U);
+    REQUIRE_THAT(demo[0].start_ms, WithinAbs(0.0, 0.5));
+    REQUIRE_THAT(demo[0].duration_ms, WithinAbs(600.0, 0.5));
+    REQUIRE_THAT(demo[1].start_ms, WithinAbs(600.0, 0.5));
+
+    const auto st = engine.start();
+    REQUIRE(st.metronome_click);
+    REQUIRE(st.metronome_accent);
+    REQUIRE(engine.playback_state() == LessonPlaybackState::CountIn);
+    REQUIRE(engine.count_in_beats_remaining() == 2);
+
+    const auto b2 = engine.update(600.0);
+    REQUIRE(b2.metronome_click);
+    REQUIRE_FALSE(b2.metronome_accent);
+    REQUIRE(engine.playback_state() == LessonPlaybackState::CountIn);
+    REQUIRE(engine.count_in_beats_remaining() == 1);
+
+    const auto b3 = engine.update(600.0);
+    REQUIRE(b3.metronome_click);
+    REQUIRE_FALSE(b3.metronome_accent);
+    REQUIRE(engine.playback_state() == LessonPlaybackState::Playing);
+    REQUIRE_THAT(engine.playhead_global_beat(), WithinAbs(0.0, 1e-3));
+
+    const auto bar1_downbeat = engine.update(600.0);
+    REQUIRE(bar1_downbeat.metronome_click);
+    REQUIRE(bar1_downbeat.metronome_accent);
+    REQUIRE_THAT(engine.playhead_global_beat(), WithinAbs(1.0, 1e-3));
+  }
+
+  SECTION("4/4 with 8th-note pickup counts in 3.5 beats and hits Bar 1 downbeat cleanly") {
+    LessonScore s{};
+    s.meta = LessonMetadata{
+        .id = "pickup_44_8th",
+        .tier = 5,
+        .order_in_tier = 1,
+        .title = "Pickup 4/4",
+        .composer_source = "Test",
+        .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+        .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
+        .target_bpm = 120.0, // 500 ms per beat
+    };
+    LessonMeasure p{};
+    p.bar_number = 0;
+    p.pickup_ticks = 240;
+    p.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Eighth, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::G, Accidental::Natural, 4, 1)}},
+    };
+    p.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Eighth, .dotted = false},
+         .is_rest = true,
+         .voice = 0,
+         .notes = {}},
+    };
+    LessonMeasure m1{};
+    m1.bar_number = 1;
+    m1.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::C, Accidental::Natural, 5, 4)}},
+    };
+    m1.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::C, Accidental::Natural, 3, 5)}},
+    };
+    s.measures = {p, m1};
+
+    LessonEngine engine;
+    engine.load_score(s, LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                                      .hand_mode = LessonHandMode::HandsTogether,
+                                      .tempo_step = TempoLadderStep::Target100});
+
+    (void)engine.start();
+    REQUIRE(engine.count_in_beats_remaining() == 4);
+    for (int i = 0; i < 3; ++i) {
+      const auto t = engine.update(500.0);
+      REQUIRE(t.metronome_click);
+      REQUIRE_FALSE(t.metronome_accent);
+    }
+    const auto enter_pickup = engine.update(250.0);
+    REQUIRE(engine.playback_state() == LessonPlaybackState::Playing);
+    REQUIRE_FALSE(enter_pickup.metronome_accent);
+
+    const auto bar1 = engine.update(250.0);
+    REQUIRE(bar1.metronome_click);
+    REQUIRE(bar1.metronome_accent);
+  }
+}
+
+TEST_CASE("LessonEngine ChordSkeleton uses smooth voice-leading and valid chord fingerings",
+          "[lesson_engine]") {
+  LessonScore s{};
+  s.meta = LessonMetadata{
+      .id = "skel_vl",
+      .tier = 3,
+      .order_in_tier = 1,
+      .title = "Voice-Led Progression",
+      .composer_source = "Test",
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+      .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
+      .target_bpm = 90.0,
+  };
+  const std::array<std::pair<const char*, const char*>, 7> prog{{
+      {"C", "I"},
+      {"G7", "V7"},
+      {"Am", "vi"},
+      {"F", "IV"},
+      {"Dm7", "ii7"},
+      {"G7", "V7"},
+      {"C", "I"},
+  }};
+  for (std::size_t i = 0; i < prog.size(); ++i) {
+    LessonMeasure m{};
+    m.bar_number = static_cast<std::uint32_t>(i + 1U);
+    m.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::C, Accidental::Natural, 4, 1)}},
+    };
+    m.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+         .is_rest = false,
+         .voice = 0,
+         .notes = {ln(NoteLetter::C, Accidental::Natural, 3, 5)}},
+    };
+    m.harmony = {HarmonicAnnotation{
+        .start_tick = 0, .chord_symbol = prog[i].first, .roman_numeral = prog[i].second}};
+    s.measures.push_back(std::move(m));
+  }
+
+  LessonEngine engine;
+  engine.load_score(s, LessonConfig{.practice_mode = LessonPracticeMode::ChordSkeleton,
+                                    .hand_mode = LessonHandMode::HandsTogether});
+  REQUIRE(engine.display_measures().size() == 7U);
+
+  double prev_centroid = 0.0;
+  double total_jump = 0.0;
+  std::size_t jump_count = 0;
+  for (std::size_t i = 0; i < engine.display_measures().size(); ++i) {
+    const auto& tr = engine.display_measures()[i].treble_events;
+    REQUIRE(tr.size() == 1U);
+    const auto& notes = tr[0].notes;
+    REQUIRE(notes.size() >= 3U);
+    REQUIRE(notes.size() <= 4U);
+
+    int min_m = 127;
+    int max_m = 0;
+    double sum_m = 0.0;
+    std::uint8_t prev_f = 0;
+    for (const auto& n : notes) {
+      REQUIRE(n.finger >= 1U);
+      REQUIRE(n.finger <= 5U);
+      REQUIRE(n.finger > prev_f);
+      prev_f = n.finger;
+      min_m = std::min<int>(min_m, n.midi);
+      max_m = std::max<int>(max_m, n.midi);
+      sum_m += static_cast<double>(n.midi);
+    }
+    REQUIRE(max_m - min_m <= 12);
+
+    const double centroid = sum_m / static_cast<double>(notes.size());
+    if (i > 0U) {
+      total_jump += std::abs(centroid - prev_centroid);
+      ++jump_count;
+    }
+    prev_centroid = centroid;
+  }
+
+  REQUIRE(jump_count == 6U);
+  REQUIRE(total_jump / static_cast<double>(jump_count) <= 4.0);
+}

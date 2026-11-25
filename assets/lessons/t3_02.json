@@ -890,13 +890,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D2",
-              "midi": 38,
+              "spell": "D3",
+              "midi": 50,
               "finger": 5
             },
             {
-              "spell": "D3",
-              "midi": 50,
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 3
+            },
+            {
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]
@@ -1325,8 +1330,8 @@
               "finger": 5
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1750,18 +1755,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D2",
-              "midi": 38,
+              "spell": "D3",
+              "midi": 50,
               "finger": 5
             },
             {
-              "spell": "A2",
-              "midi": 45,
-              "finger": 2
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 3
             },
             {
-              "spell": "D3",
-              "midi": 50,
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]

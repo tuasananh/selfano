@@ -959,6 +959,7 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
 
   int divisions = 1;
   int bass_divisions = 1;
+  std::uint32_t next_bar_num = 1U;
   MeasureParseContext ctx{.score = score, .total_measures = primary_measures.size()};
 
   for (std::size_t bi = 0; bi < primary_measures.size(); ++bi) {
@@ -979,8 +980,38 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
                           ctx.cur_meter.measure_ticks(), bi, ctx, unused_tr, bass_raw, unused_h);
     }
 
+    const int full_mticks = ctx.cur_meter.measure_ticks();
+    const bool is_implicit =
+        iequals(primary_measures[bi].attribute("implicit").as_string(), "yes") ||
+        trim_copy(primary_measures[bi].attribute("number").as_string()) == "0";
+
+    int mticks = full_mticks;
     LessonMeasure lm{};
-    lm.bar_number = static_cast<std::uint32_t>(bi + 1U);
+    if (is_implicit) {
+      int max_end = 0;
+      for (const auto& ev : treble_raw) {
+        if (ev.voice == 0U) {
+          max_end = std::max(max_end, ev.start_tick + ev.duration_ticks);
+        }
+      }
+      for (const auto& ev : bass_raw) {
+        if (ev.voice == 0U) {
+          max_end = std::max(max_end, ev.start_tick + ev.duration_ticks);
+        }
+      }
+      const int quantized_end = (max_end > 0) ? quantize_raw_ticks(max_end) : 0;
+      if (quantized_end >= 120 && quantized_end < full_mticks) {
+        mticks = quantized_end;
+        lm.pickup_ticks = quantized_end;
+      }
+    }
+
+    if (bi == 0U && lm.pickup_ticks.has_value()) {
+      lm.bar_number = 0U;
+    } else {
+      lm.bar_number = next_bar_num++;
+    }
+
     if (bi > 0U && ctx.cur_key != prev_key) {
       lm.key_change = ctx.cur_key;
     }
@@ -988,7 +1019,10 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
       lm.meter_change = ctx.cur_meter;
     }
 
-    const int mticks = ctx.cur_meter.measure_ticks();
+    for (auto& ha : harmony_out) {
+      ha.start_tick = std::clamp(ha.start_tick, 0, std::max(0, mticks - 1));
+    }
+
     normalize_staff_events(treble_raw, mticks, lm.treble_events);
     normalize_staff_events(bass_raw, mticks, lm.bass_events);
     lm.harmony = std::move(harmony_out);

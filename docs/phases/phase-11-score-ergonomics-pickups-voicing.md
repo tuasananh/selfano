@@ -1,6 +1,6 @@
 # Phase 11: Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons
 
-**Status:** `[ ] Planned` (Depends on Phase 9 & Phase 10)  
+**Status:** `[x] Complete` (Depends on Phase 9 & Phase 10)  
 **Goal:** Eliminate physically unplayable hand spans, anti-legato fingerings, shifted pickup bars, and wildly jumping Chord Skeletons across all 28 built-in classical lessons—backed by automated Catch2 ergonomic & voicing invariants so regressions can never re-enter the curriculum.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `verification-and-review`

@@ -166,7 +166,7 @@ float compute_chord_x(float m_x0, float pad_left, float usable_w, float measure_
     return m_x0 + pad_left + frac * usable_w;
   }
   if (chord.beat_offset.has_value()) {
-    const float frac = std::clamp(*chord.beat_offset / std::max(1.0f, measure_beats), 0.0f, 1.0f);
+    const float frac = std::clamp(*chord.beat_offset / std::max(0.25f, measure_beats), 0.0f, 1.0f);
     return m_x0 + pad_left + frac * usable_w;
   }
   const float slot_w =

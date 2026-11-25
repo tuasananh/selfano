@@ -20,58 +20,197 @@ namespace {
   return mask;
 }
 
-[[nodiscard]] std::vector<LessonNote> make_skeleton_chord_notes(const ChordSymbol& chord,
-                                                                KeySignature key, bool treble) {
-  std::vector<LessonNote> notes;
-  if (!treble) {
-    const std::uint8_t bass_pc = chord.bass_pc.value_or(chord.root_pc);
-    int bass_midi = 36 + static_cast<int>(bass_pc); // C2..B2
-    if (bass_midi < 40) {
-      bass_midi += 12; // Keep comfortably in bass staff E2..Eb3
-    }
-    const auto m = static_cast<MidiPitch>(bass_midi);
-    const auto sp = spell_midi_in_key(m, key);
-    notes.push_back(LessonNote{
-        .spelled = sp.value_or(
-            SpelledNote{.letter = NoteLetter::C, .accidental = Accidental::Natural, .octave = 3}),
-        .midi = m,
-        .finger = 5,
-    });
-    return notes;
+[[nodiscard]] std::vector<LessonNote> make_skeleton_lh(const ChordSymbol& chord, KeySignature key) {
+  const std::uint8_t bass_pc = chord.bass_pc.value_or(chord.root_pc);
+  int bass_midi = 36 + static_cast<int>(bass_pc); // C2..B2
+  if (bass_midi < 40) {
+    bass_midi += 12; // Keep comfortably in bass staff E2..Eb3
   }
+  const auto m = static_cast<MidiPitch>(bass_midi);
+  const auto sp = spell_midi_in_key(m, key);
+  return {LessonNote{
+      .spelled = sp.value_or(
+          SpelledNote{.letter = NoteLetter::C, .accidental = Accidental::Natural, .octave = 3}),
+      .midi = m,
+      .finger = 5,
+  }};
+}
 
-  // Close-position RH voicing starting from root around C4 (60)
-  const int root_midi = 60 + static_cast<int>(chord.root_pc);
-  std::vector<MidiPitch> rh_pitches;
-  rh_pitches.push_back(static_cast<MidiPitch>(root_midi));
+[[nodiscard]] std::vector<std::uint8_t> skeleton_pitch_classes(const ChordSymbol& chord) {
+  std::vector<std::uint8_t> pcs;
+  pcs.push_back(chord.root_pc);
   for (int offset = 1; offset < 12; ++offset) {
     const auto pc = static_cast<std::uint8_t>((chord.root_pc + offset) % 12U);
     if (chord.contains_pitch_class(pc)) {
-      rh_pitches.push_back(static_cast<MidiPitch>(root_midi + offset));
+      pcs.push_back(pc);
     }
   }
-  for (std::size_t i = 0; i < rh_pitches.size(); ++i) {
-    const MidiPitch m = rh_pitches[i];
+  if (pcs.size() > 4U) {
+    const auto fifth_pc = static_cast<std::uint8_t>((chord.root_pc + 7U) % 12U);
+    const auto it = std::ranges::find(pcs, fifth_pc);
+    if (it != pcs.end() && it != pcs.begin()) {
+      pcs.erase(it);
+    }
+  }
+  while (pcs.size() > 4U) {
+    pcs.erase(pcs.begin() + 2);
+  }
+  return pcs;
+}
+
+[[nodiscard]] std::vector<std::uint8_t>
+assign_skeleton_rh_fingerings(std::span<const MidiPitch> pitches) {
+  const std::size_t k = pitches.size();
+  if (k == 0U) {
+    return {};
+  }
+  if (k == 1U) {
+    return {3U};
+  }
+  if (k == 2U) {
+    const int span = static_cast<int>(pitches[1]) - static_cast<int>(pitches[0]);
+    return {1U, static_cast<std::uint8_t>(span >= 7 ? 5 : (span >= 5 ? 4 : 3))};
+  }
+  if (k == 3U) {
+    const int g0 = static_cast<int>(pitches[1]) - static_cast<int>(pitches[0]);
+    const int g1 = static_cast<int>(pitches[2]) - static_cast<int>(pitches[1]);
+    if (g0 <= 4 && g1 >= 5) {
+      return {1U, 2U, 5U};
+    }
+    return {1U, 3U, 5U};
+  }
+  const int g0 = static_cast<int>(pitches[1]) - static_cast<int>(pitches[0]);
+  const int g1 = static_cast<int>(pitches[2]) - static_cast<int>(pitches[1]);
+  if (g0 <= 3 && g1 >= 4) {
+    return {1U, 2U, 4U, 5U};
+  }
+  return {1U, 2U, 3U, 5U};
+}
+
+[[nodiscard]] double voice_leading_cost(std::span<const MidiPitch> cand,
+                                        std::span<const MidiPitch> prev) noexcept {
+  if (cand.empty() || prev.empty()) {
+    return 0.0;
+  }
+  if (cand.size() == prev.size()) {
+    double sum = 0.0;
+    for (std::size_t i = 0; i < cand.size(); ++i) {
+      sum += std::abs(static_cast<int>(cand[i]) - static_cast<int>(prev[i]));
+    }
+    return sum / static_cast<double>(cand.size());
+  }
+  double total = 0.0;
+  for (const MidiPitch c : cand) {
+    int best = 127;
+    for (const MidiPitch p : prev) {
+      best = std::min(best, std::abs(static_cast<int>(c) - static_cast<int>(p)));
+    }
+    total += static_cast<double>(best);
+  }
+  for (const MidiPitch p : prev) {
+    int best = 127;
+    for (const MidiPitch c : cand) {
+      best = std::min(best, std::abs(static_cast<int>(c) - static_cast<int>(p)));
+    }
+    total += static_cast<double>(best);
+  }
+  return total / static_cast<double>(cand.size() + prev.size());
+}
+
+[[nodiscard]] std::vector<LessonNote>
+make_voice_led_skeleton_rh(const ChordSymbol& chord, KeySignature key,
+                           std::optional<std::vector<MidiPitch>>& prev_rh_pitches) {
+  const auto pcs = skeleton_pitch_classes(chord);
+  std::vector<std::vector<MidiPitch>> candidates;
+
+  for (int oct = 3; oct <= 4; ++oct) {
+    for (const std::uint8_t bottom_pc : pcs) {
+      const int bottom_midi = 12 * (oct + 1) + static_cast<int>(bottom_pc);
+      std::vector<MidiPitch> voicing;
+      voicing.reserve(pcs.size());
+      for (const std::uint8_t pc : pcs) {
+        const int delta = (static_cast<int>(pc) - static_cast<int>(bottom_pc) + 12) % 12;
+        voicing.push_back(static_cast<MidiPitch>(bottom_midi + delta));
+      }
+      std::ranges::sort(voicing);
+      if (!voicing.empty() && voicing.front() >= 57 && voicing.back() <= 76 &&
+          (static_cast<int>(voicing.back()) - static_cast<int>(voicing.front())) <= 12) {
+        candidates.push_back(std::move(voicing));
+      }
+    }
+  }
+
+  if (candidates.empty()) {
+    int root_midi = 60 + static_cast<int>(chord.root_pc);
+    std::vector<MidiPitch> fallback;
+    for (const std::uint8_t pc : pcs) {
+      const int delta = (static_cast<int>(pc) - static_cast<int>(chord.root_pc) + 12) % 12;
+      fallback.push_back(static_cast<MidiPitch>(root_midi + delta));
+    }
+    std::ranges::sort(fallback);
+    if (!fallback.empty() && fallback.back() > 76) {
+      for (auto& m : fallback) {
+        m = static_cast<MidiPitch>(std::max(48, static_cast<int>(m) - 12));
+      }
+    }
+    candidates.push_back(std::move(fallback));
+  }
+
+  constexpr double kComfortCenterMidi = 65.5;
+  std::size_t best_idx = 0U;
+  double best_score = std::numeric_limits<double>::max();
+  for (std::size_t i = 0; i < candidates.size(); ++i) {
+    const auto& cand = candidates[i];
+    double sum = 0.0;
+    for (const MidiPitch m : cand) {
+      sum += static_cast<double>(m);
+    }
+    const double centroid = sum / static_cast<double>(std::max<std::size_t>(1U, cand.size()));
+    const double center_pen = std::abs(centroid - kComfortCenterMidi);
+    double score = 0.0;
+    if (!prev_rh_pitches.has_value()) {
+      score = center_pen;
+      if (!cand.empty() && (cand.front() % 12U) == chord.root_pc) {
+        score -= 0.25;
+      }
+    } else {
+      score = voice_leading_cost(cand, *prev_rh_pitches) + 0.15 * center_pen;
+    }
+    if (score < best_score) {
+      best_score = score;
+      best_idx = i;
+    }
+  }
+
+  const auto& chosen = candidates[best_idx];
+  prev_rh_pitches = chosen;
+  const auto fingers = assign_skeleton_rh_fingerings(chosen);
+
+  std::vector<LessonNote> notes;
+  notes.reserve(chosen.size());
+  for (std::size_t i = 0; i < chosen.size(); ++i) {
+    const MidiPitch m = chosen[i];
     const auto sp = spell_midi_in_key(m, key);
     notes.push_back(LessonNote{
         .spelled = sp.value_or(
             SpelledNote{.letter = NoteLetter::C, .accidental = Accidental::Natural, .octave = 4}),
         .midi = m,
-        .finger = static_cast<std::uint8_t>(std::min<std::size_t>(5U, i * 2U + 1U)),
+        .finger = fingers[i],
     });
   }
   return notes;
 }
 
-void emit_skeleton_chord_segment(LessonMeasure& sk, const ChordSymbol& chord, KeySignature key,
-                                 int start_tick, int duration_ticks) {
+void emit_skeleton_chord_segment(LessonMeasure& sk, std::span<const LessonNote> tr_template,
+                                 std::span<const LessonNote> bs_template, int start_tick,
+                                 int duration_ticks) {
   const auto vals = split_ticks_to_values(duration_ticks);
   int t = start_tick;
   for (std::size_t vi = 0; vi < vals.size(); ++vi) {
     const bool tie_s = (vi + 1U < vals.size());
     const bool tie_p = (vi > 0U);
-    auto tr_notes = make_skeleton_chord_notes(chord, key, true);
-    auto bs_notes = make_skeleton_chord_notes(chord, key, false);
+    std::vector<LessonNote> tr_notes(tr_template.begin(), tr_template.end());
+    std::vector<LessonNote> bs_notes(bs_template.begin(), bs_template.end());
     for (auto& n : tr_notes) {
       n.tie_start = tie_s;
       n.tie_stop = tie_p;
@@ -99,22 +238,26 @@ build_chord_skeleton_measures(const LessonScore& score, std::span<const KeySigna
                               std::span<const TimeSignature> bar_meters) {
   std::vector<LessonMeasure> skeleton_measures(score.measures.size());
   std::optional<ChordSymbol> last_chord;
+  std::optional<std::vector<MidiPitch>> prev_rh_pitches;
+  std::vector<LessonNote> last_tr_notes;
+  std::vector<LessonNote> last_bs_notes;
 
   for (std::size_t b = 0; b < score.measures.size(); ++b) {
     const auto& src = score.measures[b];
     LessonMeasure sk{};
     sk.bar_number = src.bar_number;
+    sk.pickup_ticks = src.pickup_ticks;
     sk.key_change = src.key_change;
     sk.meter_change = src.meter_change;
     sk.harmony = src.harmony;
 
-    const int mticks = bar_meters[b].measure_ticks();
+    const int mticks = effective_measure_ticks(src, bar_meters[b]);
     std::vector<HarmonicAnnotation> sorted_ha = src.harmony;
     std::ranges::sort(sorted_ha,
                       [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
 
     if (sorted_ha.empty() && last_chord.has_value()) {
-      emit_skeleton_chord_segment(sk, *last_chord, bar_keys[b], 0, mticks);
+      emit_skeleton_chord_segment(sk, last_tr_notes, last_bs_notes, 0, mticks);
     } else if (!sorted_ha.empty()) {
       for (std::size_t hi = 0; hi < sorted_ha.size(); ++hi) {
         const int seg_start = sorted_ha[hi].start_tick;
@@ -126,7 +269,9 @@ build_chord_skeleton_measures(const LessonScore& score, std::span<const KeySigna
         const auto parsed = parse_chord_symbol(sorted_ha[hi].chord_symbol);
         if (parsed.has_value()) {
           last_chord = *parsed;
-          emit_skeleton_chord_segment(sk, *parsed, bar_keys[b], seg_start, seg_ticks);
+          last_tr_notes = make_voice_led_skeleton_rh(*parsed, bar_keys[b], prev_rh_pitches);
+          last_bs_notes = make_skeleton_lh(*parsed, bar_keys[b]);
+          emit_skeleton_chord_segment(sk, last_tr_notes, last_bs_notes, seg_start, seg_ticks);
         } else {
           int t = seg_start;
           for (const auto& rv : split_ticks_to_values(seg_ticks)) {
@@ -168,29 +313,29 @@ build_chord_skeleton_measures(const LessonScore& score, std::span<const KeySigna
   return skeleton_measures;
 }
 
-void build_slice_targets(const LessonScore& score, const LessonConfig& config,
-                         std::span<const KeySignature> bar_keys,
-                         std::span<const TimeSignature> bar_meters, std::size_t slice_start_bar,
-                         std::size_t slice_end_bar, std::vector<int>& out_bar_start_ticks,
+void build_slice_targets(const LessonScore& score, std::span<const LessonMeasure> skeleton_measures,
+                         const LessonConfig& config, std::span<const TimeSignature> bar_meters,
+                         std::size_t slice_start_bar, std::size_t slice_end_bar,
+                         std::vector<int>& out_bar_start_ticks, std::vector<int>& out_bar_ticks,
                          std::vector<TimeSignature>& out_bar_meters,
                          std::vector<LessonTarget>& out_targets, int& out_total_ticks) {
   int acc_ticks = 0;
   for (std::size_t b = slice_start_bar; b <= slice_end_bar; ++b) {
+    const int mticks = effective_measure_ticks(score.measures[b], bar_meters[b]);
     out_bar_start_ticks.push_back(acc_ticks);
+    out_bar_ticks.push_back(mticks);
     out_bar_meters.push_back(bar_meters[b]);
-    const int mticks = bar_meters[b].measure_ticks();
 
     if (config.practice_mode == LessonPracticeMode::ChordSkeleton) {
       std::vector<HarmonicAnnotation> sorted_ha = score.measures[b].harmony;
       std::ranges::sort(sorted_ha,
                         [](const auto& a, const auto& c) { return a.start_tick < c.start_tick; });
+      const auto& sk_m = skeleton_measures[b];
       for (const auto& ha : sorted_ha) {
         const auto parsed = parse_chord_symbol(ha.chord_symbol);
         if (!parsed.has_value()) {
           continue;
         }
-        auto tr_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], true);
-        auto bs_notes = make_skeleton_chord_notes(*parsed, bar_keys[b], false);
         LessonTarget target{};
         target.bar_index = b;
         target.tick_in_bar = ha.start_tick;
@@ -199,16 +344,24 @@ void build_slice_targets(const LessonScore& score, const LessonConfig& config,
         target.pitch_class_match = true;
         if (config.hand_mode == LessonHandMode::LeftHand ||
             config.hand_mode == LessonHandMode::HandsTogether) {
-          for (const auto& n : bs_notes) {
-            target.expected_midi.push_back(n.midi);
-            target.expected_spelled.push_back(n.spelled);
+          for (const auto& ev : sk_m.bass_events) {
+            if (!ev.is_rest && ev.start_tick == ha.start_tick) {
+              for (const auto& n : ev.notes) {
+                target.expected_midi.push_back(n.midi);
+                target.expected_spelled.push_back(n.spelled);
+              }
+            }
           }
         }
         if (config.hand_mode == LessonHandMode::RightHand ||
             config.hand_mode == LessonHandMode::HandsTogether) {
-          for (const auto& n : tr_notes) {
-            target.expected_midi.push_back(n.midi);
-            target.expected_spelled.push_back(n.spelled);
+          for (const auto& ev : sk_m.treble_events) {
+            if (!ev.is_rest && ev.start_tick == ha.start_tick) {
+              for (const auto& n : ev.notes) {
+                target.expected_midi.push_back(n.midi);
+                target.expected_spelled.push_back(n.spelled);
+              }
+            }
           }
         }
         target.expected_midi = normalize_midi_set(target.expected_midi);
@@ -326,6 +479,8 @@ void LessonEngine::reset_transport_state() {
   active_target_index_ = 0;
   elapsed_ticks_ = 0.0;
   count_in_remaining_ = 0;
+  count_in_elapsed_ticks_ = 0.0;
+  count_in_target_ticks_ = 0.0;
   count_in_beat_accum_ms_ = 0.0;
   play_beat_accum_ticks_ = 0.0;
   current_pulse_in_bar_ = 0;
@@ -342,6 +497,7 @@ void LessonEngine::rebuild_slice_and_targets() {
   skeleton_measures_.clear();
   display_measures_.clear();
   slice_bar_start_ticks_.clear();
+  slice_bar_ticks_.clear();
   slice_bar_meters_.clear();
   total_slice_ticks_ = 0;
   slice_start_bar_ = 0;
@@ -379,17 +535,33 @@ void LessonEngine::rebuild_slice_and_targets() {
                           ? skeleton_measures_
                           : score_.measures;
 
-  build_slice_targets(score_, config_, bar_keys, bar_meters, slice_start_bar_, slice_end_bar_,
-                      slice_bar_start_ticks_, slice_bar_meters_, targets_, total_slice_ticks_);
+  build_slice_targets(score_, skeleton_measures_, config_, bar_meters, slice_start_bar_,
+                      slice_end_bar_, slice_bar_start_ticks_, slice_bar_ticks_, slice_bar_meters_,
+                      targets_, total_slice_ticks_);
 }
 
 LessonTickResult LessonEngine::start() {
   reset_transport_state();
-  if (score_.measures.empty() || slice_bar_meters_.empty()) {
+  if (score_.measures.empty() || slice_bar_meters_.empty() || slice_bar_ticks_.empty()) {
     return {};
   }
+  const int full_ticks = std::max(1, slice_bar_meters_.front().measure_ticks());
+  const int bar0_ticks = std::max(1, slice_bar_ticks_.front());
+  const int beat_ticks = std::max(1, slice_bar_meters_.front().beat_ticks());
+
+  int ci_ticks = full_ticks;
+  if (bar0_ticks < full_ticks) {
+    ci_ticks = full_ticks - bar0_ticks;
+    if (ci_ticks < beat_ticks) {
+      ci_ticks += full_ticks;
+    }
+  }
+
   playback_state_ = LessonPlaybackState::CountIn;
-  count_in_remaining_ = slice_bar_meters_.front().pulse_count();
+  count_in_elapsed_ticks_ = 0.0;
+  count_in_target_ticks_ = static_cast<double>(ci_ticks);
+  count_in_remaining_ =
+      static_cast<int>(std::ceil(count_in_target_ticks_ / static_cast<double>(beat_ticks)));
   count_in_beat_accum_ms_ = 0.0;
   return LessonTickResult{.metronome_click = true, .metronome_accent = true};
 }
@@ -422,20 +594,41 @@ LessonTickResult LessonEngine::update(double dt_ms) {
   const double ms_per_beat = 60000.0 / std::max(30.0, bpm);
 
   if (playback_state_ == LessonPlaybackState::CountIn) {
-    count_in_beat_accum_ms_ += dt_ms;
-    while (count_in_beat_accum_ms_ + 1e-6 >= ms_per_beat) {
-      count_in_beat_accum_ms_ -= ms_per_beat;
-      --count_in_remaining_;
+    const int beat_ticks = std::max(1, slice_bar_meters_.front().beat_ticks());
+    const double beat_ticks_d = static_cast<double>(beat_ticks);
+    const double ms_per_tick = ms_per_beat / beat_ticks_d;
+    const double dt_ticks = dt_ms / ms_per_tick;
+
+    const double old_elapsed = count_in_elapsed_ticks_;
+    const double new_elapsed = old_elapsed + dt_ticks;
+    const double clamped_new = std::min(new_elapsed, count_in_target_ticks_);
+
+    const int prev_pulse = static_cast<int>(std::floor((old_elapsed + 1e-6) / beat_ticks_d));
+    const int next_pulse = static_cast<int>(std::floor((clamped_new + 1e-6) / beat_ticks_d));
+    const int pulse_count = std::max(1, slice_bar_meters_.front().pulse_count());
+    for (int p = prev_pulse + 1; p <= next_pulse; ++p) {
       out.metronome_click = true;
-      if (count_in_remaining_ <= 0) {
-        count_in_remaining_ = 0;
-        playback_state_ = LessonPlaybackState::Playing;
+      if ((p % pulse_count) == 0) {
         out.metronome_accent = true;
-        elapsed_ticks_ = 0.0;
-        play_beat_accum_ticks_ = 0.0;
-        current_pulse_in_bar_ = 0;
-        break;
       }
+    }
+
+    count_in_elapsed_ticks_ = new_elapsed;
+    count_in_remaining_ = std::max(
+        0,
+        static_cast<int>(std::ceil((count_in_target_ticks_ - new_elapsed - 1e-6) / beat_ticks_d)));
+
+    if (new_elapsed + 1e-6 >= count_in_target_ticks_) {
+      count_in_remaining_ = 0;
+      playback_state_ = LessonPlaybackState::Playing;
+      const double overshoot = std::max(0.0, new_elapsed - count_in_target_ticks_);
+      elapsed_ticks_ = overshoot;
+
+      const int full_ticks = slice_bar_meters_.front().measure_ticks();
+      const int bar0_ticks = slice_bar_ticks_.empty() ? full_ticks : slice_bar_ticks_.front();
+      const int pickup_offset = (bar0_ticks < full_ticks) ? (full_ticks - bar0_ticks) : 0;
+      current_pulse_in_bar_ = (pickup_offset / beat_ticks) % pulse_count;
+      play_beat_accum_ticks_ = static_cast<double>(pickup_offset % beat_ticks) + overshoot;
     }
     return out;
   }
@@ -493,6 +686,13 @@ LessonTickResult LessonEngine::update(double dt_ms) {
     out.phrase_completed = true;
     if (config_.loop_phrase) {
       elapsed_ticks_ = std::max(0.0, elapsed_ticks_ - static_cast<double>(total_slice_ticks_));
+      const int full_ticks = slice_bar_meters_.front().measure_ticks();
+      const int bar0_ticks = slice_bar_ticks_.empty() ? full_ticks : slice_bar_ticks_.front();
+      const int beat_ticks = std::max(1, slice_bar_meters_.front().beat_ticks());
+      const int pulse_count = std::max(1, slice_bar_meters_.front().pulse_count());
+      const int pickup_offset = (bar0_ticks < full_ticks) ? (full_ticks - bar0_ticks) : 0;
+      current_pulse_in_bar_ = (pickup_offset / beat_ticks) % pulse_count;
+      play_beat_accum_ticks_ = static_cast<double>(pickup_offset % beat_ticks) + elapsed_ticks_;
       active_target_index_ = 0;
       for (auto& t : targets_) {
         t.status = LessonTargetStatus::Pending;
@@ -707,7 +907,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
       process_staff(lm.bass_events, 1, 78);
     }
 
-    bar_start_ms += static_cast<double>(meter.measure_ticks()) * ms_per_tick;
+    bar_start_ms += static_cast<double>(effective_measure_ticks(lm, meter)) * ms_per_tick;
   }
 
   for (const auto& ot : open_ties) {
@@ -775,14 +975,16 @@ double LessonEngine::playhead_global_beat() const noexcept {
   double beats = 0.0;
   for (std::size_t i = 0; i < slice_bar_meters_.size(); ++i) {
     const auto start = static_cast<double>(slice_bar_start_ticks_[i]);
-    const auto len = static_cast<double>(slice_bar_meters_[i].measure_ticks());
+    const int bar_ticks =
+        (i < slice_bar_ticks_.size()) ? slice_bar_ticks_[i] : slice_bar_meters_[i].measure_ticks();
+    const auto len = static_cast<double>(std::max(1, bar_ticks));
     const double beat_ticks_d = static_cast<double>(std::max(1, slice_bar_meters_[i].beat_ticks()));
+    const double bar_beats = len / beat_ticks_d;
     if (elapsed_ticks_ <= start + len || i + 1U == slice_bar_meters_.size()) {
-      const double in_bar = std::clamp((elapsed_ticks_ - start) / beat_ticks_d, 0.0,
-                                       static_cast<double>(slice_bar_meters_[i].pulse_count()));
+      const double in_bar = std::clamp((elapsed_ticks_ - start) / beat_ticks_d, 0.0, bar_beats);
       return beats + in_bar;
     }
-    beats += static_cast<double>(slice_bar_meters_[i].pulse_count());
+    beats += bar_beats;
   }
   return beats;
 }
@@ -800,7 +1002,10 @@ bool LessonEngine::is_mid_bar() const noexcept {
     return false;
   }
   const double beat = playhead_beat_in_bar(b);
-  const auto pulses = static_cast<double>(slice_bar_meters_[b].pulse_count());
+  const int bar_ticks =
+      (b < slice_bar_ticks_.size()) ? slice_bar_ticks_[b] : slice_bar_meters_[b].measure_ticks();
+  const double beat_ticks_d = static_cast<double>(std::max(1, slice_bar_meters_[b].beat_ticks()));
+  const double pulses = static_cast<double>(bar_ticks) / beat_ticks_d;
   return beat > 0.25 && beat < (pulses - 0.15);
 }
 

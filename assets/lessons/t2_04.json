@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 4,
     "title": "Dotted Rhythms & Ties",
-    "composer_source": "Czerny Op. 599, No. 38",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 38",
     "key": {
       "fifths": -1,
       "mode": "major"
@@ -1130,11 +1130,6 @@
             {
               "spell": "C3",
               "midi": 48,
-              "finger": 2
-            },
-            {
-              "spell": "F3",
-              "midi": 53,
               "finger": 1
             }
           ]

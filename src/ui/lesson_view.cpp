@@ -591,18 +591,33 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const {
   opts1.show_fingerings = show_fingerings_;
   opts1.show_harmony_labels = show_harmony_;
   opts1.show_final_barline = !has_sys2;
+  auto meter_at_bar = [&](std::size_t target_bar) noexcept {
+    core::TimeSignature mtr = meta.time_signature;
+    for (std::size_t b = 0; b <= target_bar && b < measures.size(); ++b) {
+      if (measures[b].meter_change.has_value()) {
+        mtr = *measures[b].meter_change;
+      }
+    }
+    return mtr;
+  };
+
   if (pb_st == core::LessonPlaybackState::Playing) {
     double prior_beats = 0.0;
+    core::TimeSignature cur_meter = meter_at_bar(slice_start);
     for (std::size_t b = slice_start; b < sys1_start; ++b) {
+      if (measures[b].meter_change.has_value()) {
+        cur_meter = *measures[b].meter_change;
+      }
+      const int eff_ticks = core::effective_measure_ticks(measures[b], cur_meter);
       prior_beats +=
-          static_cast<double>(measures[b].meter_change.value_or(meta.time_signature).pulse_count());
+          static_cast<double>(eff_ticks) / static_cast<double>(std::max(1, cur_meter.beat_ticks()));
     }
     opts1.playhead_beat = static_cast<float>(engine_.playhead_global_beat() - prior_beats);
   }
 
   const std::span<const core::LessonMeasure> sys1_slice(measures.data() + sys1_start,
                                                         sys1_end - sys1_start + 1U);
-  const auto sm1 = build_lesson_staff_measures(sys1_slice, sys1_start, meta.time_signature,
+  const auto sm1 = build_lesson_staff_measures(sys1_slice, sys1_start, meter_at_bar(sys1_start),
                                                show_treble, show_bass, &fb_map);
   const float h1 = compute_staff_canvas_height(opts1);
   const ImVec2 o1 = ImGui::GetCursorScreenPos();
@@ -616,7 +631,7 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const {
     const std::size_t sys2_end = std::min(slice_end, sys2_start + 3U);
     const std::span<const core::LessonMeasure> sys2_slice(measures.data() + sys2_start,
                                                           sys2_end - sys2_start + 1U);
-    const auto sm2 = build_lesson_staff_measures(sys2_slice, sys2_start, meta.time_signature,
+    const auto sm2 = build_lesson_staff_measures(sys2_slice, sys2_start, meter_at_bar(sys2_start),
                                                  show_treble, show_bass, nullptr);
     StaffRenderOptions opts2 = opts1;
     opts2.playhead_beat.reset();

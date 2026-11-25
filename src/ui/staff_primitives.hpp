@@ -15,7 +15,7 @@
 namespace selfano::ui::detail {
 
 inline constexpr float kTopMarginSpaces = 5.4f;
-inline constexpr float kTopMarginHarmonyExtraSpaces = 4.8f;
+inline constexpr float kTopMarginHarmonyExtraSpaces = 5.4f;
 inline constexpr float kBottomMarginSpaces = 5.0f;
 inline constexpr float kStaffHeightSpaces = 4.0f;
 

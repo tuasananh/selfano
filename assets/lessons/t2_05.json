@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 5,
     "title": "Dramatic D-Minor Cadences",
-    "composer_source": "Carl Czerny, Op. 599 No. 45",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 45",
     "key": {
       "fifths": -1,
       "mode": "minor"
@@ -245,14 +245,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -269,14 +269,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -315,7 +315,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -329,7 +329,7 @@
             {
               "spell": "E5",
               "midi": 76,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -428,8 +428,13 @@
               "finger": 5
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "Bb2",
+              "midi": 46,
+              "finger": 3
+            },
+            {
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]
@@ -488,13 +493,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C#3",
+              "midi": 49,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -604,13 +609,13 @@
               "finger": 5
             },
             {
-              "spell": "F3",
-              "midi": 53,
-              "finger": 2
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "F3",
+              "midi": 53,
               "finger": 1
             }
           ]
@@ -628,13 +633,13 @@
               "finger": 5
             },
             {
-              "spell": "F3",
-              "midi": 53,
-              "finger": 2
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "F3",
+              "midi": 53,
               "finger": 1
             }
           ]
@@ -739,14 +744,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C3",
-              "midi": 48,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "Bb3",
@@ -763,14 +768,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C3",
-              "midi": 48,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "Bb3",
@@ -912,18 +917,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "Bb2",
+              "midi": 46,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -982,13 +987,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C#3",
+              "midi": 49,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1001,9 +1006,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
+            },
+            {
+              "spell": "E3",
+              "midi": 52,
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1234,18 +1244,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "Bb2",
+              "midi": 46,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -1380,14 +1390,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1587,18 +1597,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "Bb2",
+              "midi": 46,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -1625,7 +1635,7 @@
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 2
+              "finger": 1
             }
           ]
         },
@@ -1639,7 +1649,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 3
+              "finger": 2
             }
           ]
         },
@@ -1653,7 +1663,7 @@
             {
               "spell": "C#5",
               "midi": 73,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -1667,7 +1677,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -1714,13 +1724,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C#3",
+              "midi": 49,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1733,14 +1743,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1874,14 +1884,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1931,18 +1941,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D2",
-              "midi": 38,
+              "spell": "D3",
+              "midi": 50,
               "finger": 5
             },
             {
-              "spell": "A2",
-              "midi": 45,
-              "finger": 2
+              "spell": "F3",
+              "midi": 53,
+              "finger": 3
             },
             {
-              "spell": "D3",
-              "midi": 50,
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]

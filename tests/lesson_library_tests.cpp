@@ -3,9 +3,12 @@
 #include "core/lesson_library.hpp"
 #include "core/musicxml_importer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <cmath>
 #include <filesystem>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -66,11 +69,107 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
       }
     }
 
-    // ChordSkeleton mode must produce >= 1 harmonic target
+    // Ergonomic & fingering invariants across every measure and hand
+    const int max_hand_span = (lesson->meta.tier <= 3U) ? 9 : 12;
+    auto check_staff_ergonomics = [&](std::uint32_t bar_num, std::string_view hand_label,
+                                      std::span<const LessonEvent> events, bool is_rh) {
+      std::optional<std::pair<MidiPitch, std::uint8_t>> prev_single;
+      for (const auto& ev : events) {
+        if (ev.is_rest) {
+          prev_single.reset();
+          continue;
+        }
+        if (ev.notes.size() > 1U) {
+          std::vector<LessonNote> sorted = ev.notes;
+          std::ranges::sort(
+              sorted, [](const LessonNote& a, const LessonNote& b) { return a.midi < b.midi; });
+          const int span =
+              static_cast<int>(sorted.back().midi) - static_cast<int>(sorted.front().midi);
+          INFO("Lesson " << lesson->meta.id << " Bar " << bar_num << " " << hand_label
+                         << " span=" << span);
+          REQUIRE(span <= max_hand_span);
+
+          bool all_fingered = true;
+          for (const auto& n : sorted) {
+            if (n.finger == 0U) {
+              all_fingered = false;
+            }
+          }
+          if (all_fingered) {
+            for (std::size_t k = 0; k + 1U < sorted.size(); ++k) {
+              if (is_rh) {
+                REQUIRE(sorted[k].finger < sorted[k + 1U].finger);
+              } else {
+                REQUIRE(sorted[k].finger > sorted[k + 1U].finger);
+              }
+            }
+          }
+          prev_single.reset();
+        } else if (ev.notes.size() == 1U) {
+          const auto& n = ev.notes[0];
+          if (n.tie_stop) {
+            continue;
+          }
+          if (prev_single.has_value()) {
+            const int diff =
+                std::abs(static_cast<int>(n.midi) - static_cast<int>(prev_single->first));
+            if (diff >= 1 && diff <= 2 && n.finger > 0U && prev_single->second > 0U) {
+              INFO("Lesson " << lesson->meta.id << " Bar " << bar_num << " " << hand_label
+                             << " same-finger step finger=" << static_cast<int>(n.finger));
+              REQUIRE(n.finger != prev_single->second);
+            }
+          }
+          prev_single = std::pair{n.midi, n.finger};
+        }
+      }
+    };
+
+    for (const auto& m : lesson->measures) {
+      check_staff_ergonomics(m.bar_number, "RH", m.treble_events, true);
+      check_staff_ergonomics(m.bar_number, "LH", m.bass_events, false);
+    }
+
+    // ChordSkeleton mode must produce >= 1 harmonic target with smooth voice-leading & valid
+    // fingerings
     LessonEngine engine;
     engine.load_score(*lesson, LessonConfig{.practice_mode = LessonPracticeMode::ChordSkeleton,
                                             .hand_mode = LessonHandMode::HandsTogether});
     REQUIRE_FALSE(engine.targets().empty());
+
+    std::optional<double> prev_centroid;
+    double jump_sum = 0.0;
+    std::size_t jump_count = 0U;
+    for (const auto& sk_m : engine.display_measures()) {
+      for (const auto& ev : sk_m.treble_events) {
+        if (ev.is_rest || ev.notes.empty()) {
+          continue;
+        }
+        std::vector<LessonNote> sorted = ev.notes;
+        std::ranges::sort(sorted,
+                          [](const LessonNote& a, const LessonNote& b) { return a.midi < b.midi; });
+        const int span =
+            static_cast<int>(sorted.back().midi) - static_cast<int>(sorted.front().midi);
+        REQUIRE(span <= 12);
+        std::uint8_t prev_f = 0U;
+        double sum_m = 0.0;
+        for (const auto& n : sorted) {
+          REQUIRE(n.finger >= 1U);
+          REQUIRE(n.finger <= 5U);
+          REQUIRE(n.finger > prev_f);
+          prev_f = n.finger;
+          sum_m += static_cast<double>(n.midi);
+        }
+        const double centroid = sum_m / static_cast<double>(sorted.size());
+        if (prev_centroid.has_value() && std::abs(centroid - *prev_centroid) > 1e-6) {
+          jump_sum += std::abs(centroid - *prev_centroid);
+          ++jump_count;
+        }
+        prev_centroid = centroid;
+      }
+    }
+    if (jump_count > 0U) {
+      REQUIRE((jump_sum / static_cast<double>(jump_count)) <= 5.0);
+    }
 
     // WaitForNote must produce >= 1 playable target
     engine.set_practice_mode(LessonPracticeMode::WaitForNote);
@@ -89,6 +188,18 @@ TEST_CASE("LessonLibrary loads and validates all 28 built-in curriculum lessons"
 
   // Circle-of-fifths key coverage across at least 13 distinct major/minor keys
   REQUIRE(distinct_keys.size() >= 13U);
+
+  // Canonical pickup and title integrity checks
+  for (const char* pickup_id : {"t5_01", "t5_03", "t5_04"}) {
+    const auto* l = lib.find_lesson(pickup_id);
+    REQUIRE(l != nullptr);
+    REQUIRE_FALSE(l->measures.empty());
+    REQUIRE(l->measures[0].bar_number == 0U);
+    REQUIRE(l->measures[0].pickup_ticks.has_value());
+  }
+  const auto* t103 = lib.find_lesson("t1_03");
+  REQUIRE(t103 != nullptr);
+  REQUIRE(t103->meta.title != "Natural Minor Lament");
 
   // Full next_lesson_id progression from t1_01 to t6_04 (27 hops)
   std::string cur = "t1_01";

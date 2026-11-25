@@ -15,15 +15,16 @@
     },
     "target_bpm": 84.0,
     "theory": {
-      "summary": "Complete 16-bar Chopin prelude in A Major (3 sharps) pairing wide left-hand leaps with poised 3/4 cantabile chords and V7/ii color.",
-      "pattern_tip": "Trace the alternating dominant-to-tonic arches: Bars 1-4 (E7 -> A), Bars 5-8 (E7 -> A), peaking at the famous F#7 (V7/ii) chord in Bars 11-12.",
-      "technique_tip": "Roll any wide left-hand reach lightly without tension and voice the top soprano note of every right-hand chord.",
-      "ballade_link": "Trains Chopin's wide left-hand stride, three-sharp reading, and luminous secondary-dominant voicing."
+      "summary": "Complete 16-bar Chopin prelude in A Major (3 sharps) opening with an authentic quarter-note pickup (anacrusis) into mazurka-like 2-bar arches and a luminous F#7 (V7/ii) climax.",
+      "pattern_tip": "Feel the beat-3 pickup breathe into beat 1 of each odd measure: Bars 1-4 (E7 -> A), Bars 5-8 (E7 -> A), peaking at F#7 (V7/ii) in Bars 11-12.",
+      "technique_tip": "Voice the top soprano note of every right-hand chord while keeping the left-hand leaps light and pedal-supported.",
+      "ballade_link": "Trains Chopin's wide left-hand stride, three-sharp reading, and secondary-dominant voicing."
     }
   },
   "measures": [
     {
-      "bar_number": 1,
+      "bar_number": 0,
+      "pickup_ticks": 480,
       "treble_events": [
         {
           "start_tick": 0,
@@ -38,9 +39,25 @@
               "finger": 1
             }
           ]
-        },
+        }
+      ],
+      "bass_events": [
         {
-          "start_tick": 480,
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": []
+    },
+    {
+      "bar_number": 1,
+      "treble_events": [
+        {
+          "start_tick": 0,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -49,12 +66,12 @@
             {
               "spell": "C#5",
               "midi": 73,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -68,12 +85,31 @@
           ]
         },
         {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "B4",
+              "midi": 71,
+              "finger": 3
+            }
+          ]
+        },
+        {
           "start_tick": 960,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
+              "finger": 2
+            },
             {
               "spell": "B4",
               "midi": 71,
@@ -203,14 +239,9 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G#4",
-              "midi": 68,
+              "spell": "A4",
+              "midi": 69,
               "finger": 2
-            },
-            {
-              "spell": "B4",
-              "midi": 71,
-              "finger": 4
             }
           ]
         }
@@ -292,20 +323,6 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "A4",
-              "midi": 69,
-              "finger": 3
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -319,12 +336,12 @@
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -338,7 +355,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 480,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -348,6 +365,25 @@
               "spell": "A4",
               "midi": 69,
               "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "C#4",
+              "midi": 61,
+              "finger": 1
+            },
+            {
+              "spell": "A4",
+              "midi": 69,
+              "finger": 5
             }
           ]
         }
@@ -522,8 +558,8 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
+          "dur": "8th",
+          "dotted": true,
           "is_rest": false,
           "voice": 0,
           "notes": [
@@ -533,28 +569,14 @@
               "finger": 1
             },
             {
-              "spell": "B4",
-              "midi": 71,
+              "spell": "D5",
+              "midi": 74,
               "finger": 4
             }
           ]
         },
         {
-          "start_tick": 480,
-          "dur": "8th",
-          "dotted": true,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "D5",
-              "midi": 74,
-              "finger": 5
-            }
-          ]
-        },
-        {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -568,7 +590,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 480,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -578,6 +600,25 @@
               "spell": "C#5",
               "midi": 73,
               "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
+              "finger": 1
+            },
+            {
+              "spell": "B4",
+              "midi": 71,
+              "finger": 3
             }
           ]
         }
@@ -667,12 +708,12 @@
             {
               "spell": "G#4",
               "midi": 68,
-              "finger": 2
+              "finger": 1
             },
             {
-              "spell": "B4",
-              "midi": 71,
-              "finger": 4
+              "spell": "E5",
+              "midi": 76,
+              "finger": 5
             }
           ]
         },
@@ -689,9 +730,9 @@
               "finger": 1
             },
             {
-              "spell": "E5",
-              "midi": 76,
-              "finger": 5
+              "spell": "B4",
+              "midi": 71,
+              "finger": 3
             }
           ]
         },
@@ -703,13 +744,13 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G#4",
-              "midi": 68,
-              "finger": 2
+              "spell": "E4",
+              "midi": 64,
+              "finger": 1
             },
             {
-              "spell": "B4",
-              "midi": 71,
+              "spell": "C#5",
+              "midi": 73,
               "finger": 4
             }
           ]
@@ -792,25 +833,6 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "E4",
-              "midi": 64,
-              "finger": 1
-            },
-            {
-              "spell": "C#5",
-              "midi": 73,
-              "finger": 5
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -824,12 +846,12 @@
             {
               "spell": "C#5",
               "midi": 73,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -843,7 +865,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 480,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -853,6 +875,25 @@
               "spell": "C#5",
               "midi": 73,
               "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "E4",
+              "midi": 64,
+              "finger": 1
+            },
+            {
+              "spell": "C#5",
+              "midi": 73,
+              "finger": 5
             }
           ]
         }
@@ -1027,25 +1068,6 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "G#4",
-              "midi": 68,
-              "finger": 1
-            },
-            {
-              "spell": "D5",
-              "midi": 74,
-              "finger": 5
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -1064,7 +1086,7 @@
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -1078,7 +1100,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 480,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -1087,6 +1109,25 @@
             {
               "spell": "C#5",
               "midi": 73,
+              "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
+              "finger": 1
+            },
+            {
+              "spell": "B4",
+              "midi": 71,
               "finger": 3
             }
           ]
@@ -1213,13 +1254,13 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G#4",
-              "midi": 68,
-              "finger": 2
+              "spell": "E4",
+              "midi": 64,
+              "finger": 1
             },
             {
-              "spell": "B4",
-              "midi": 71,
+              "spell": "C#5",
+              "midi": 73,
               "finger": 4
             }
           ]
@@ -1302,25 +1343,6 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "E4",
-              "midi": 64,
-              "finger": 1
-            },
-            {
-              "spell": "C#5",
-              "midi": 73,
-              "finger": 4
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -1334,12 +1356,12 @@
             {
               "spell": "F#5",
               "midi": 78,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -1353,7 +1375,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 480,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -1363,6 +1385,25 @@
               "spell": "E5",
               "midi": 76,
               "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "A#4",
+              "midi": 70,
+              "finger": 2
+            },
+            {
+              "spell": "E5",
+              "midi": 76,
+              "finger": 5
             }
           ]
         }
@@ -1390,14 +1431,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C#3",
-              "midi": 49,
-              "finger": 4
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 5
             },
             {
               "spell": "A#3",
               "midi": 58,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "E4",
@@ -1414,14 +1455,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C#3",
-              "midi": 49,
-              "finger": 4
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 5
             },
             {
               "spell": "A#3",
               "midi": 58,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "E4",
@@ -1537,25 +1578,6 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "G#4",
-              "midi": 68,
-              "finger": 1
-            },
-            {
-              "spell": "E5",
-              "midi": 76,
-              "finger": 5
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -1569,12 +1591,12 @@
             {
               "spell": "E5",
               "midi": 76,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -1588,7 +1610,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 480,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -1598,6 +1620,25 @@
               "spell": "D5",
               "midi": 74,
               "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
+              "finger": 1
+            },
+            {
+              "spell": "B4",
+              "midi": 71,
+              "finger": 3
             }
           ]
         }
@@ -1690,28 +1731,14 @@
               "finger": 1
             },
             {
-              "spell": "B4",
-              "midi": 71,
-              "finger": 3
+              "spell": "D5",
+              "midi": 74,
+              "finger": 5
             }
           ]
         },
         {
           "start_tick": 480,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "D5",
-              "midi": 74,
-              "finger": 4
-            }
-          ]
-        },
-        {
-          "start_tick": 960,
           "dur": "quarter",
           "dotted": false,
           "is_rest": false,
@@ -1726,6 +1753,25 @@
               "spell": "B4",
               "midi": 71,
               "finger": 3
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "E4",
+              "midi": 64,
+              "finger": 1
+            },
+            {
+              "spell": "C#5",
+              "midi": 73,
+              "finger": 5
             }
           ]
         }
@@ -1807,25 +1853,6 @@
       "treble_events": [
         {
           "start_tick": 0,
-          "dur": "quarter",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
-              "spell": "E4",
-              "midi": 64,
-              "finger": 1
-            },
-            {
-              "spell": "C#5",
-              "midi": 73,
-              "finger": 5
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
           "dur": "8th",
           "dotted": true,
           "is_rest": false,
@@ -1839,7 +1866,7 @@
           ]
         },
         {
-          "start_tick": 840,
+          "start_tick": 360,
           "dur": "16th",
           "dotted": false,
           "is_rest": false,
@@ -1849,6 +1876,20 @@
               "spell": "B4",
               "midi": 71,
               "finger": 4
+            }
+          ]
+        },
+        {
+          "start_tick": 480,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "G#4",
+              "midi": 68,
+              "finger": 2
             }
           ]
         },
@@ -1863,6 +1904,11 @@
               "spell": "G#4",
               "midi": 68,
               "finger": 2
+            },
+            {
+              "spell": "B4",
+              "midi": 71,
+              "finger": 4
             }
           ]
         }
@@ -1917,6 +1963,11 @@
               "spell": "E2",
               "midi": 40,
               "finger": 5
+            },
+            {
+              "spell": "D3",
+              "midi": 50,
+              "finger": 1
             }
           ]
         }
@@ -1940,7 +1991,7 @@
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
@@ -1960,13 +2011,21 @@
               "finger": 5
             }
           ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
         }
       ],
       "bass_events": [
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
@@ -1986,6 +2045,14 @@
               "finger": 1
             }
           ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
         }
       ],
       "harmony": [
@@ -1999,24 +2066,24 @@
   ],
   "phrases": [
     {
-      "label": "Phrase A (Bars 1-4)",
+      "label": "Phrase A (Pickup - Bar 4)",
       "start_bar": 0,
-      "end_bar": 3
+      "end_bar": 4
     },
     {
       "label": "Phrase B (Bars 5-8)",
-      "start_bar": 4,
-      "end_bar": 7
+      "start_bar": 5,
+      "end_bar": 8
     },
     {
       "label": "Phrase C (Bars 9-12)",
-      "start_bar": 8,
-      "end_bar": 11
+      "start_bar": 9,
+      "end_bar": 12
     },
     {
       "label": "Phrase D (Bars 13-16)",
-      "start_bar": 12,
-      "end_bar": 15
+      "start_bar": 13,
+      "end_bar": 16
     }
   ]
 }

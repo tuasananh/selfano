@@ -346,7 +346,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       const float staff_top_y = bottom_y - detail::kStaffHeightSpaces * space;
       if (clef == core::Clef::Treble) {
         const float top_nh_y = core::step_to_y(layout.noteheads.back().step, clef, bottom_y, space);
-        float anchor_y = std::min(staff_top_y - 1.15f * space, top_nh_y - 1.45f * space);
+        float anchor_y = std::min(staff_top_y - 1.15f * space, top_nh_y - 1.18f * space);
         if (slot.duration != NoteDuration::Whole && stem_dir == core::StemDirection::Up) {
           anchor_y = std::min(anchor_y, sy_end - 0.85f * space);
         }
@@ -354,7 +354,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
           const std::string fstr = std::to_string(chord_fingers[fi]);
           const ImVec2 fsz =
               finger_font->CalcTextSizeA(finger_size_px, FLT_MAX, 0.0f, fstr.c_str());
-          const float fy = anchor_y - static_cast<float>(fi) * (0.78f * space);
+          const float fy = anchor_y - static_cast<float>(fi) * (0.70f * space);
           draw_list->AddText(
               finger_font, finger_size_px,
               ImVec2(std::round(center_x - fsz.x * 0.5f), std::round(fy - fsz.y * 0.5f)), pal.ink,
@@ -538,7 +538,36 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     return;
   }
 
-  const float measure_w = (content_right_x - content_left_x) / static_cast<float>(measures.size());
+  const float total_w = content_right_x - content_left_x;
+  core::TimeSignature running_meter =
+      header_meter.value_or(core::TimeSignature{.numerator = 4, .denominator = 4});
+  std::vector<float> m_weights(measures.size(), 1.0f);
+  float weight_sum = 0.0f;
+  for (std::size_t m = 0; m < measures.size(); ++m) {
+    if (measures[m].time_signature.has_value()) {
+      running_meter = *measures[m].time_signature;
+    }
+    const int full_ticks = std::max(1, running_meter.measure_ticks());
+    const float w = measures[m].is_pickup
+                        ? std::clamp(static_cast<float>(measures[m].measure_ticks) /
+                                         static_cast<float>(full_ticks),
+                                     0.45f, 1.0f)
+                        : 1.0f;
+    m_weights[m] = w;
+    weight_sum += w;
+  }
+  std::vector<float> m_x0s(measures.size(), content_left_x);
+  std::vector<float> m_ws(measures.size(), total_w / static_cast<float>(measures.size()));
+  {
+    float cur_x = content_left_x;
+    const float safe_sum = std::max(0.01f, weight_sum);
+    for (std::size_t m = 0; m < measures.size(); ++m) {
+      m_x0s[m] = cur_x;
+      m_ws[m] = total_w * (m_weights[m] / safe_sum);
+      cur_x += m_ws[m];
+    }
+  }
+
   core::MeasureAccidentalState acc_treble{options.key};
   core::MeasureAccidentalState acc_bass{options.key};
   ImFont* ann_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
@@ -553,8 +582,8 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     acc_treble.reset_measure();
     acc_bass.reset_measure();
 
-    const float m_x0 = content_left_x + static_cast<float>(m) * measure_w;
-    const float m_x1 = m_x0 + measure_w;
+    const float m_x0 = m_x0s[m];
+    const float m_x1 = m_x0 + m_ws[m];
     const auto& measure = measures[m];
     if (measure.time_signature.has_value()) {
       active_meter = *measure.time_signature;
@@ -579,7 +608,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     const float pad_left = std::min(2.4f * s, local_w * 0.15f);
     const float pad_right = std::min(2.0f * s, local_w * 0.14f);
     const float usable_w = std::max(10.0f, local_w - pad_left - pad_right);
-    const float measure_beats = std::max(1.0f, measure.beats_per_measure);
+    const float measure_beats = std::max(0.25f, measure.beats_per_measure);
 
     const float ann_size_px = draw_font_size(11.5f);
     const float chord_sz_px = draw_font_size(12.5f);
@@ -587,7 +616,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     const float label_gap_px = std::max(1.5f, 0.14f * s);
     const float roman_top_y =
         std::max(origin.y + 0.45f * s + ann_size_px + chord_sz_px + 2.0f * label_gap_px,
-                 system_top_y - 3.85f * s - roman_sz_px);
+                 system_top_y - 5.35f * s - roman_sz_px);
     const float chord_top_y = roman_top_y - label_gap_px - chord_sz_px;
     const float bar_top_y = chord_top_y - label_gap_px - ann_size_px;
 
@@ -696,16 +725,17 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   if (options.playhead_beat.has_value() && *options.playhead_beat >= 0.0f) {
     float acc_beats = 0.0f;
     for (std::size_t m = 0; m < measures.size(); ++m) {
-      const float mb = std::max(1.0f, measures[m].beats_per_measure);
+      const float mb = std::max(0.25f, measures[m].beats_per_measure);
       if (*options.playhead_beat <= acc_beats + mb || (m + 1 == measures.size())) {
         if (*options.playhead_beat > acc_beats + mb) {
           break;
         }
         const float beat_in_bar = std::clamp(*options.playhead_beat - acc_beats, 0.0f, mb);
-        const float m_x0 = content_left_x + static_cast<float>(m) * measure_w;
-        const float pad_left = std::min(2.4f * s, measure_w * 0.15f);
-        const float pad_right = std::min(2.0f * s, measure_w * 0.14f);
-        const float usable_w = std::max(10.0f, measure_w - pad_left - pad_right);
+        const float m_x0 = m_x0s[m];
+        const float mw = m_ws[m];
+        const float pad_left = std::min(2.4f * s, mw * 0.15f);
+        const float pad_right = std::min(2.0f * s, mw * 0.14f);
+        const float usable_w = std::max(10.0f, mw - pad_left - pad_right);
         const float px = std::round(m_x0 + pad_left + (beat_in_bar / mb) * usable_w +
                                     kNoteheadBlackWidthSpaces * 0.5f * s);
         const float py0 = system_top_y - 1.35f * s;
