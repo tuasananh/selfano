@@ -30,7 +30,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 7** | Core `LessonScore` Model & Classical Grand Staff Engraving Upgrade | [phase-7-score-model-and-notation.md](./phases/phase-7-score-model-and-notation.md) | `[x] Complete` |
 | **Phase 8** | Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons) | [phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md) | `[x] Complete` |
 | **Phase 9** | Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*) | [phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md) | `[x] Complete` |
-| **Phase 10** | `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web) | [phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md) | `[ ] Planned` |
+| **Phase 10** | `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web) | [phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md) | `[x] Complete` |
 
 ---
 
@@ -54,7 +54,7 @@ Phase 0 (Workflow/Repo)
 
 ## Post-MVP (v2 Backlog)
 
-- **Phases 7–10 (Planned — Specs Locked):** Replace Autopilot Stage 3 with a book-anchored **Guided Lessons & Curriculum** system (tucking Companion Mode under Tools), split cleanly into four independently verifiable phases:
+- **Phases 7–10 (Complete):** Replaced Autopilot Stage 3 with a book-anchored **Guided Lessons & Curriculum** system (tucking Companion Mode under Tools) plus `.musicxml`/`.mxl` importing across Desktop & Web:
   - [Phase 7 — Score Model & Classical Engraving](./phases/phase-7-score-model-and-notation.md)
   - [Phase 8 — Lesson Engine, Stage 3 Autopilot & UI (6 Starters)](./phases/phase-8-lesson-engine-and-stage3-ui.md)
   - [Phase 9 — Complete 28-Lesson Classical Curriculum](./phases/phase-9-classical-curriculum-28-lessons.md)

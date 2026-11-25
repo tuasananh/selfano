@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)**
-- **Last Completed Phase:** Phase 9 — Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*)
+- **Active Phase:** **All Roadmap Phases (0–10) Complete**
+- **Last Completed Phase:** Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)
 
 ---
 
@@ -169,6 +169,22 @@
   - `src/core/` purity check returned 0 matches; `clang-format --dry-run --Werror` clean on `tests/lesson_library_tests.cpp`.
   - Headless Light & Dark spot-check screenshots (`t1_05`, `t2_03`, `t3_04`, `t4_02`, `t5_01`, `t6_03`) visually confirmed crisp beaming, rests, key signatures, ties, fingerings, and harmonic labels across all 6 tiers.
 
+### Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Build system & `FetchContent` dependencies (`CMakeLists.txt`): pinned `pugixml` (`v1.15`) and `miniz` (`3.0.2`, static target built via `SOURCE_SUBDIR _skip_subdir_` + `generate_export_header`) linked privately into `piano_core` with `SYSTEM` includes; upgraded native runtime asset sync to `selfano_sync_assets` (`copy_directory_if_different`).
+  - Pure C++23 MusicXML / `.mxl` importer (`src/core/musicxml_importer.hpp/.cpp`): `import_musicxml_string`, `import_mxl_bytes`, `import_musicxml_file`, `is_mxl_zip_bytes`, `generate_imported_lesson_id` with defensive limits (`16 MiB` `.mxl`, `32 MiB` XML payload, `512` max measures), `META-INF/container.xml` rootfile resolution, `<backup>`/`<forward>`/`<chord/>`/`<tie>`/fingerings/`<harmony>`/`<sound tempo>`/`<metronome>` normalization, non-fatal grace-note warnings, and automatic 4-to-8 bar phrase slicing (`auto_partition_phrases`).
+  - Imported lesson CRUD (`src/core/lesson_library.hpp/.cpp`): atomic temp+rename disk CRUD (`save_imported_lesson`, `load_imported_lessons_from_directory`, `delete_imported_lesson_file`) supporting desktop (`<pref_dir>/lessons/`) and Emscripten (`IDBFS` `/persist/lessons/`).
+  - Cross-platform file I/O & `My Books` UI (`src/ui/lesson_view.hpp/.cpp`, `src/main.cpp`): Desktop `SDL_ShowOpenFileDialog` (thread-safe main-thread handoff), `SDL_EVENT_DROP_FILE`, `--import-lesson <path>`, Emscripten `EM_JS` `<input type="file">` + `#canvas` drag/drop + `selfano_alloc_bytes`/`selfano_free_bytes`/`selfano_on_imported_file` bridge (`std::vector` staging buffers), and `My Books` Edit/Delete + Import Preview & Bar Harmony Quick-Edit Modal.
+  - Catch2 test suite (`tests/musicxml_importer_tests.cpp`, expanded `tests/lesson_library_tests.cpp`): Grand Staff multi-staff fixture (`<backup>`, `<chord/>`, ties, 16ths, fingerings, `<harmony>`), compressed `.mxl` container lookup, 32-bar phrase slicing, security/error rejection (malformed XML, corrupt ZIP, oversized payload), and `My Books` CRUD disk round-trip.
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **70/70** test cases in `0.65 s`.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled `pugixml`, `miniz`, and `selfano` cleanly with 0 project warnings (`selfano.html`, `selfano.js`, `selfano.wasm`, `selfano.data`).
+  - `src/core/` purity check (`imgui|SDL|libremidi|emscripten|steady_clock::now|system_clock::now|random_device`) returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 10 C++ files.
+  - Desktop end-to-end verification (`--import-lesson sample.mxl` + relaunch without `--import-lesson`) confirmed persisted `<dir>/lessons/imp_e3fc699c7804a8e5.json` and `profile.json`, rendering crisp `MXL Waltz Study` (`D Major`, `3/4`, `104 BPM`) across Light & Dark themes.
+  - Live headless Chromium CDP verification (`http://127.0.0.1:8095/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors**, working `.mxl`/`.musicxml` upload modal (`Save & Open`), crisp WebGL Grand Staff rendering (`MXL Waltz Study`), and full `IDBFS` `/persist/lessons/` + `/persist/profile.json` persistence across `Page.reload({ ignoreCache: true })`.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -185,11 +201,11 @@
 
 ## Next Concrete Action
 
-- **Phases 7–10 Specs Locked (Not Yet Started):** Split the Stage 3 Guided Lessons & MusicXML roadmap into 4 independently verifiable phases:
+- **Phases 7–10 Complete:** All planned Phases 0–10 are implemented and verified on `main`:
   - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving (`[x] Complete`)
   - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons (`[x] Complete`)
   - **Phase 9:** Complete 28-Lesson Classical Curriculum (`[x] Complete`)
-  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web ([phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md)) — *starting Slice 10.1*
+  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web (`[x] Complete`)
 
 ---
 
