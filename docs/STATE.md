@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-24
-- **Active Phase:** **Phase 8 — Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI**
-- **Last Completed Phase:** Phase 7 — Core `LessonScore` Model & Classical Grand Staff Engraving Upgrade
+- **Last Updated:** 2026-11-25
+- **Active Phase:** **Phase 9 — Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*)**
+- **Last Completed Phase:** Phase 8 — Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons)
 
 ---
 
@@ -137,6 +137,20 @@
   - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 7 files.
   - Headless Light & Dark screenshots (`--tab showcase --showcase-preset classical`, `--tab warmup`, `--tab etude`) verified crisp `6/8` compound beaming, 16th beams/hooks, flags, dots, barline ties, fingerings `1–5`, harmonic labels, and zero regressions on existing screens.
 
+### Phase 8 — Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons)
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_engine.hpp/.cpp` (`ChordSkeleton`, `WaitForNote`, `SteadyPulse` modes; `RightHand`/`LeftHand`/`HandsTogether`; 60%/80%/100% Tempo Ladder; `tie_stop` exclusion; merged-tie `build_demo_playback`; mastery graduation + SM-2 guided revision + `plan_stage3_session` `180s/420s` split), `lesson_library.hpp/.cpp` (`curriculum.json` + tier/ID queries), updated `autopilot.hpp/.cpp` (`Stage3Lessons` replacing Companion in Autopilot while keeping Companion Mode intact under Tools), `profile_store.hpp/.cpp` (`active_lesson_id`, `lesson_progress`, `imported_lesson_ids`, lesson preferences, backward-compatible `v1` load), `piano_remote.hpp/.cpp` (`E7/F7/G7/C#7/D#7/A7/B7/F#7/C8` bindings + `CC 67` extreme-range guard)
+  - Starter curriculum (`assets/lessons/`): `curriculum.json` + 6 hand-verified starter scores (`t1_01`, `t2_04`, `t3_01`, `t4_03`, `t5_02`, `t6_04`)
+  - Catch2 unit tests (`tests/`): `lesson_engine_tests.cpp`, `lesson_library_tests.cpp`, expanded `autopilot_tests.cpp`, `profile_store_tests.cpp`, `piano_remote_tests.cpp`
+  - UI & app shell (`src/ui/`, `src/main.cpp`): `lesson_view.hpp/.cpp` (top control strip, Practice Scaffold bar, collapsible Theory Lens, 2-system Grand Staff canvas, Mastery celebration banner, Tiers 1-6 + `My Books` Curriculum Browser modal), pixel-aware `Bar N` / chord / Roman spacing in `staff_renderer.cpp`, updated `home_dashboard.hpp/.cpp`, `autopilot_chrome.cpp`, and `main.cpp` (Sync Weekly Key, Stage 3 split, `--lesson` CLI flag, Piano Remote & preference sync)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed 65/65 test cases.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings, bundling `assets/lessons/` into `selfano.data`.
+  - `src/core/` purity check returned 0 matches; `clang-format --dry-run --Werror` clean on all modified/created C++ files.
+  - Headless Light & Dark screenshots (`--tab lessons`, `--lesson t6_04`, `--tab home`, `--tab autopilot`, `--tab companion`, `--tab showcase --showcase-preset classical`) confirmed crisp layout, zero clipping, and zero regressions; `--profile` round-trip verified `t3_01` + legacy `repertoire_phrases`/`srs_cards` persistence across relaunch.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -155,8 +169,8 @@
 
 - **Phases 7–10 Specs Locked (Not Yet Started):** Split the Stage 3 Guided Lessons & MusicXML roadmap into 4 independently verifiable phases:
   - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving (`[x] Complete`)
-  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons ([phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md)) — *starting Slice 8.1*
-  - **Phase 9:** Complete 28-Lesson Classical Curriculum ([phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md))
+  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons (`[x] Complete`)
+  - **Phase 9:** Complete 28-Lesson Classical Curriculum ([phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md)) — *starting Slice 9.1*
   - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web ([phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md))
 
 ---
