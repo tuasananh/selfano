@@ -181,6 +181,7 @@ add_library(piano_ui STATIC
   src/ui/warmup_view.cpp
   src/ui/flashcard_view.cpp
   src/ui/etude_view.cpp
+  src/ui/lesson_view.cpp
   src/ui/companion_view.cpp
   src/ui/srs_view.cpp
   src/ui/ear_trainer_view.cpp

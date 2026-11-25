@@ -1,4 +1,5 @@
 #include "core/autopilot.hpp"
+#include "core/lesson_library.hpp"
 #include "core/piano_remote.hpp"
 #include "core/profile_store.hpp"
 #include "core/weekly_key.hpp"
@@ -18,6 +19,7 @@
 #include "ui/font_loader.hpp"
 #include "ui/home_dashboard.hpp"
 #include "ui/icons.hpp"
+#include "ui/lesson_view.hpp"
 #include "ui/midi_device_bar.hpp"
 #include "ui/midi_monitor_view.hpp"
 #include "ui/phase2_sandbox.hpp"
@@ -70,6 +72,7 @@ struct CliOptions {
   std::string screenshot_path;
   std::vector<std::uint8_t> inject_notes;
   std::string profile_path;
+  std::string lesson_id_override;
   AppMode initial_mode{AppMode::Home};
   selfano::core::AutopilotStage initial_free_stage{selfano::core::AutopilotStage::Stage1WarmUp};
   int initial_dev_subtab{0};
@@ -84,11 +87,29 @@ struct SessionBaselines {
   std::uint32_t etude_bars{0};
   std::uint32_t etude_hits{0};
   std::uint32_t etude_misses{0};
+  std::uint32_t lesson_runs{0};
+  std::uint32_t lesson_revisions{0};
   std::uint32_t companion_reps{0};
   std::uint32_t srs_reviews{0};
   std::uint32_t ear_solved{0};
   double flashcard_avg_rt_ms{0.0};
 };
+
+[[nodiscard]] std::filesystem::path resolve_lessons_dir() {
+  std::vector<std::filesystem::path> candidates;
+  if (const char* base_path = SDL_GetBasePath(); base_path != nullptr) {
+    candidates.emplace_back(std::filesystem::path(base_path) / "assets" / "lessons");
+  }
+  candidates.emplace_back(std::filesystem::path("assets") / "lessons");
+  candidates.emplace_back(std::filesystem::path("/assets") / "lessons");
+  std::error_code ec;
+  for (const auto& c : candidates) {
+    if (std::filesystem::exists(c / "curriculum.json", ec) && !ec) {
+      return c;
+    }
+  }
+  return std::filesystem::path("assets") / "lessons";
+}
 
 [[nodiscard]] std::int64_t current_epoch_day() noexcept {
   const auto now = std::chrono::system_clock::now();
@@ -189,6 +210,8 @@ void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
       opts.inject_notes = parse_note_csv(argv[++i]);
     } else if (arg == "--profile" && i + 1 < argc) {
       opts.profile_path = argv[++i];
+    } else if (arg == "--lesson" && i + 1 < argc) {
+      opts.lesson_id_override = argv[++i];
     } else if (arg == "--tab" && i + 1 < argc) {
       parse_tab_arg(argv[++i], opts);
     } else if (arg == "--theme" && i + 1 < argc) {
@@ -368,6 +391,8 @@ struct AppContext {
   selfano::ui::WarmUpView warmup_view;
   selfano::ui::FlashcardView flashcard_view;
   selfano::ui::EtudeView etude_view;
+  selfano::core::LessonLibrary lesson_library;
+  selfano::ui::LessonView lesson_view;
   selfano::ui::CompanionView companion_view;
   selfano::ui::SrsView srs_view;
   selfano::ui::EarTrainerView ear_trainer_view;
@@ -412,6 +437,9 @@ struct AppContext {
   selfano::core::AutopilotSession autopilot{3.0};
   SessionBaselines session_baselines{};
   bool session_recap_persisted{false};
+  selfano::core::Stage3SessionPlan stage3_plan{};
+  bool stage3_revision_active{false};
+  double stage3_subphase_elapsed_sec{0.0};
 
   std::vector<selfano::midi::MidiNoteEvent> frame_events;
   std::vector<selfano::midi::MidiNoteEvent> virtual_events;
@@ -450,6 +478,89 @@ struct AppContext {
     ear_trainer_view.set_key(k);
   }
 
+  void sync_weekly_key_to_active_lesson(double now_ms) {
+    if (!profile.preferences.sync_weekly_key_to_lesson) {
+      return;
+    }
+    const auto lesson_key = lesson_view.engine().score().meta.key;
+    auto idx = selfano::core::find_weekly_key_index(lesson_key);
+    if (!idx.has_value()) {
+      idx = selfano::core::find_weekly_key_index(selfano::core::relative_key(lesson_key));
+    }
+    if (idx.has_value() && profile.weekly_key.key_index != *idx) {
+      profile.weekly_key.key_index = *idx;
+      profile.weekly_key.manual_override = true;
+      apply_weekly_key_to_views(now_ms);
+    }
+  }
+
+  bool select_active_lesson(std::string_view lesson_id, double now_ms, bool persist = true) {
+    const auto* score = lesson_library.find_lesson(lesson_id);
+    if (score == nullptr) {
+      return false;
+    }
+    profile.active_lesson_id = score->meta.id;
+    lesson_view.load_lesson(*score);
+    lesson_view.set_revision_context(false);
+    sync_weekly_key_to_active_lesson(now_ms);
+    if (persist) {
+      persist_profile_now();
+    }
+    return true;
+  }
+
+  void promote_lesson_to_srs(std::string_view lesson_id, std::int64_t today_epoch_day,
+                             double now_ms) {
+    const auto* score = lesson_library.find_lesson(lesson_id);
+    if (score == nullptr) {
+      return;
+    }
+    std::string hint;
+    for (std::size_t b = 0; b < score->measures.size() && b < 4U; ++b) {
+      for (const auto& ha : score->measures[b].harmony) {
+        if (!ha.chord_symbol.empty()) {
+          if (!hint.empty()) {
+            hint += " -> ";
+          }
+          hint += ha.chord_symbol;
+        }
+      }
+    }
+    if (hint.empty()) {
+      hint = selfano::core::format_key_name(score->meta.key);
+    }
+    selfano::core::SrsCard card{};
+    card.id = "srs_lesson_" + score->meta.id;
+    card.piece_name = score->meta.title;
+    card.section_name = std::format("Tier {} ({} bars)", score->meta.tier, score->measures.size());
+    card.chord_roadmap_hint = hint;
+    card.due_epoch_day = today_epoch_day + 1;
+    if (srs_view.deck().find_card(card.id) == nullptr) {
+      (void)srs_view.mutable_deck().add_card(std::move(card));
+    }
+    profile.lesson_progress[score->meta.id].added_to_srs = true;
+    persist_profile_now();
+    show_hud_toast("Added to Stage 4A Retention Deck", now_ms);
+  }
+
+  void enter_stage3_autopilot_block(std::int64_t today_epoch_day, double now_ms) {
+    stage3_plan = selfano::core::plan_stage3_session(profile.lesson_progress,
+                                                     profile.active_lesson_id, today_epoch_day);
+    stage3_subphase_elapsed_sec = 0.0;
+    if (stage3_plan.has_revision) {
+      if (const auto* rev = lesson_library.find_lesson(stage3_plan.revision_lesson_id);
+          rev != nullptr) {
+        lesson_view.load_lesson(*rev);
+        lesson_view.set_revision_context(true, rev->meta.id);
+        stage3_revision_active = true;
+        show_hud_toast("Stage 3A: Guided Revision (" + rev->meta.title + ")", now_ms);
+        return;
+      }
+    }
+    stage3_revision_active = false;
+    (void)select_active_lesson(stage3_plan.active_lesson_id, now_ms, false);
+  }
+
   void apply_profile_to_views(double now_ms) {
     apply_theme_from_profile();
     chord_grouper.set_window_ms(profile.preferences.chord_window_ms);
@@ -463,6 +574,15 @@ struct AppContext {
     etude_view.apply_preferences(profile.preferences.metronome_enabled,
                                  profile.preferences.light_paper_staff,
                                  profile.preferences.default_bpm, profile.preferences.hand_mode);
+    lesson_view.apply_preferences(
+        profile.preferences.metronome_enabled, profile.preferences.light_paper_staff,
+        profile.preferences.lesson_show_fingerings, profile.preferences.lesson_show_harmony);
+    if (!select_active_lesson(profile.active_lesson_id, now_ms, false)) {
+      if (!lesson_library.built_in_lessons().empty()) {
+        (void)select_active_lesson(lesson_library.built_in_lessons().front()->meta.id, now_ms,
+                                   false);
+      }
+    }
     companion_view.set_phrases(profile.repertoire_phrases, now_ms);
     companion_view.apply_preferences(profile.preferences.companion_dwell_ms,
                                      profile.preferences.companion_chime_enabled);
@@ -558,6 +678,7 @@ struct AppContext {
   void cleanup_stage_transitions(double now_ms) {
     warmup_view.pause_transport();
     etude_view.stop();
+    lesson_view.stop();
     shared_piano_dock.release_mouse_key(now_ms, frame_events);
     phase2_sandbox.release_virtual_piano(now_ms, frame_events);
     midi_monitor_view.release_virtual_piano(now_ms, frame_events);
@@ -583,6 +704,10 @@ struct AppContext {
     s.etude_accuracy =
         (dh + dm) == 0 ? 0.0 : static_cast<double>(dh) / static_cast<double>(dh + dm);
     s.etude_bars_read = etude_view.engine().completed_bars() - session_baselines.etude_bars;
+    s.lesson_runs_completed = lesson_view.completed_runs() - session_baselines.lesson_runs;
+    s.lesson_revisions_completed =
+        lesson_view.completed_revisions() - session_baselines.lesson_revisions;
+    s.active_lesson_title = lesson_view.engine().score().meta.title;
     s.companion_reps = companion_view.matcher().completed_reps() - session_baselines.companion_reps;
     s.srs_cards_reviewed = srs_view.deck().session_reviews() - session_baselines.srs_reviews;
     s.ear_melodies_solved =
@@ -605,6 +730,9 @@ struct AppContext {
         .flashcard_accuracy = sum.flashcard_accuracy,
         .flashcard_avg_rt_ms = sum.flashcard_avg_rt_ms,
         .etude_accuracy = sum.etude_accuracy,
+        .lesson_runs_completed = sum.lesson_runs_completed,
+        .lesson_revisions_completed = sum.lesson_revisions_completed,
+        .active_lesson_title = sum.active_lesson_title,
         .companion_reps = sum.companion_reps,
         .srs_cards_reviewed = sum.srs_cards_reviewed,
         .ear_melodies_solved = sum.ear_melodies_solved,
@@ -619,6 +747,8 @@ struct AppContext {
         .etude_bars = etude_view.engine().completed_bars(),
         .etude_hits = etude_view.engine().hit_targets(),
         .etude_misses = etude_view.engine().missed_targets(),
+        .lesson_runs = lesson_view.completed_runs(),
+        .lesson_revisions = lesson_view.completed_revisions(),
         .companion_reps = companion_view.matcher().completed_reps(),
         .srs_reviews = srs_view.deck().session_reviews(),
         .ear_solved = ear_trainer_view.engine().melodies_solved(),
@@ -697,13 +827,15 @@ struct AppContext {
     case selfano::core::AutopilotStage::Stage4BEarTrainer:
       return ear_trainer_view.expected_chord_cardinality();
     case selfano::core::AutopilotStage::Stage3Lessons:
+      return lesson_view.expected_chord_cardinality();
     case selfano::core::AutopilotStage::Stage4ASrs:
       return 1;
     }
     return 1;
   }
 
-  void route_played_chord(const selfano::midi::PlayedChord& chord, double now_ms) {
+  void route_played_chord(const selfano::midi::PlayedChord& chord, double now_ms,
+                          std::int64_t today_epoch_day) {
     if (app_mode == AppMode::DevTools) {
       phase2_sandbox.on_played_chord(chord, now_ms);
       return;
@@ -728,10 +860,22 @@ struct AppContext {
     case selfano::core::AutopilotStage::Stage2BEtudes:
       etude_view.on_played_chord(chord);
       break;
+    case selfano::core::AutopilotStage::Stage3Lessons: {
+      bool chime = false;
+      bool just_mastered = false;
+      (void)lesson_view.on_played_chord(chord, profile, today_epoch_day, chime, just_mastered);
+      if (chime) {
+        audio_synth.play_confirmation_chime();
+        persist_profile_now();
+      }
+      if (just_mastered) {
+        show_hud_toast("Piece Mastered!", now_ms);
+      }
+      break;
+    }
     case selfano::core::AutopilotStage::Stage4BEarTrainer:
       ear_trainer_view.on_played_chord(chord);
       break;
-    case selfano::core::AutopilotStage::Stage3Lessons:
     case selfano::core::AutopilotStage::Stage4ASrs:
       break;
     }
@@ -758,6 +902,7 @@ struct AppContext {
         preview = flashcard_view.build_current_prompt_preview(now_ms);
         break;
       case selfano::core::AutopilotStage::Stage3Lessons:
+        lesson_view.build_demo_playback(now_ms, preview);
         break;
       case selfano::core::AutopilotStage::Stage4BEarTrainer:
         ear_trainer_view.trigger_replay(now_ms, preview);
@@ -848,14 +993,18 @@ struct AppContext {
         if (autopilot.state() == selfano::core::AutopilotState::TransitionBanner) {
           autopilot.dismiss_transition();
           cleanup_stage_transitions(now_ms);
-          if (autopilot.current_block().stage == S::Stage4BEarTrainer) {
+          if (autopilot.current_block().stage == S::Stage3Lessons) {
+            enter_stage3_autopilot_block(today_epoch_day, now_ms);
+          } else if (autopilot.current_block().stage == S::Stage4BEarTrainer) {
             ear_trainer_view.trigger_replay(now_ms, pending_playback);
           }
           show_hud_toast("Next Block", now_ms);
         } else {
           const auto res = autopilot.skip_block();
           cleanup_stage_transitions(now_ms);
-          if (res.stage_changed && autopilot.current_block().stage == S::Stage4BEarTrainer) {
+          if (res.stage_changed && autopilot.current_block().stage == S::Stage3Lessons) {
+            enter_stage3_autopilot_block(today_epoch_day, now_ms);
+          } else if (res.stage_changed && autopilot.current_block().stage == S::Stage4BEarTrainer) {
             ear_trainer_view.trigger_replay(now_ms, pending_playback);
           }
           if (res.session_completed) {
@@ -889,6 +1038,18 @@ struct AppContext {
                            ? "Etude Paused"
                            : "Etude Playing",
                        now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        bool click = false;
+        bool accent = false;
+        lesson_view.toggle_play_pause(click, accent);
+        if (click) {
+          audio_synth.play_metronome_click(accent);
+        }
+        show_hud_toast(lesson_view.engine().playback_state() ==
+                               selfano::core::LessonPlaybackState::Paused
+                           ? "Lesson Paused"
+                           : "Steady Pulse Active",
+                       now_ms);
       } else if (app_mode == AppMode::CompanionTool) {
         const bool running = companion_view.toggle_timer();
         show_hud_toast(running ? "Chunk Timer Started" : "Chunk Timer Paused", now_ms);
@@ -913,6 +1074,9 @@ struct AppContext {
       } else if (stage == S::Stage2BEtudes) {
         etude_view.stop();
         show_hud_toast("Etude Reset", now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        lesson_view.reset_phrase();
+        show_hud_toast("Phrase Reset", now_ms);
       } else if (app_mode == AppMode::CompanionTool) {
         companion_view.reset_phrase(now_ms);
         show_hud_toast("Phrase Reset to Bar 1", now_ms);
@@ -931,6 +1095,9 @@ struct AppContext {
       } else if (stage == S::Stage2BEtudes) {
         etude_view.new_passage();
         show_hud_toast("New Etude Passage", now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        const std::string lbl = lesson_view.cycle_phrase();
+        show_hud_toast(lbl, now_ms);
       } else if (stage == S::Stage4BEarTrainer) {
         ear_trainer_view.new_melody(now_ms, pending_playback);
         show_hud_toast("New Ear Melody", now_ms);
@@ -951,6 +1118,14 @@ struct AppContext {
       } else if (stage == S::Stage1WarmUp) {
         const int octs = warmup_view.toggle_octaves();
         show_hud_toast(std::format("{} Octave{}", octs, octs == 2 ? "s" : ""), now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        const auto m = lesson_view.cycle_mode();
+        const char* name =
+            (m == selfano::core::LessonPracticeMode::ChordSkeleton)
+                ? "Chord Skeleton"
+                : (m == selfano::core::LessonPracticeMode::WaitForNote ? "Wait-for-Note"
+                                                                       : "Steady Pulse");
+        show_hud_toast(name, now_ms);
       } else if (stage == S::Stage4ASrs) {
         const bool shown = srs_view.toggle_hint();
         show_hud_toast(shown ? "Chord Hint Shown" : "Chord Hint Hidden", now_ms);
@@ -964,10 +1139,23 @@ struct AppContext {
           autopilot.state() == selfano::core::AutopilotState::TransitionBanner) {
         autopilot.dismiss_transition();
         cleanup_stage_transitions(now_ms);
-        if (autopilot.current_block().stage == S::Stage4BEarTrainer) {
+        if (autopilot.current_block().stage == S::Stage3Lessons) {
+          enter_stage3_autopilot_block(today_epoch_day, now_ms);
+        } else if (autopilot.current_block().stage == S::Stage4BEarTrainer) {
           ear_trainer_view.trigger_replay(now_ms, pending_playback);
         }
         show_hud_toast("Continuing Session", now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        const auto& lid = lesson_view.engine().score().meta.id;
+        if (!lid.empty() && profile.lesson_progress.contains(lid) &&
+            profile.lesson_progress.at(lid).status ==
+                selfano::core::LessonMasteryStatus::Mastered &&
+            !profile.lesson_progress.at(lid).added_to_srs) {
+          promote_lesson_to_srs(lid, today_epoch_day, now_ms);
+        } else {
+          lesson_view.reset_phrase();
+          show_hud_toast("Phrase Reset", now_ms);
+        }
       } else if (stage == S::Stage4ASrs) {
         if (const auto lbl =
                 srs_view.rate_active_card(selfano::core::SrsRating::Good, today_epoch_day);
@@ -992,6 +1180,9 @@ struct AppContext {
       if (stage == S::Stage2BEtudes) {
         const double bpm = etude_view.adjust_bpm(-5.0);
         show_hud_toast(std::format("{:.0f} BPM", bpm), now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        const double bpm = lesson_view.adjust_bpm(-5.0);
+        show_hud_toast(std::format("{:.0f} BPM", bpm), now_ms);
       } else {
         shift_weekly_key(-1);
       }
@@ -999,6 +1190,9 @@ struct AppContext {
     case A::IncreaseTempoOrKey:
       if (stage == S::Stage2BEtudes) {
         const double bpm = etude_view.adjust_bpm(+5.0);
+        show_hud_toast(std::format("{:.0f} BPM", bpm), now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        const double bpm = lesson_view.adjust_bpm(+5.0);
         show_hud_toast(std::format("{:.0f} BPM", bpm), now_ms);
       } else {
         shift_weekly_key(+1);
@@ -1017,6 +1211,15 @@ struct AppContext {
         show_hud_toast(ch ? "Chime On" : "Chime Off", now_ms);
       } else if (stage == S::Stage1WarmUp) {
         const bool met = warmup_view.toggle_metronome();
+        show_hud_toast(met ? "Metronome On" : "Metronome Off", now_ms);
+      } else if (stage == S::Stage3Lessons) {
+        const bool met = lesson_view.toggle_metronome();
+        profile.preferences.metronome_enabled = met;
+        warmup_view.set_metronome_enabled(met);
+        etude_view.apply_preferences(met, profile.preferences.light_paper_staff,
+                                     etude_view.engine().config().bpm,
+                                     etude_view.engine().config().hand_mode);
+        persist_profile_now();
         show_hud_toast(met ? "Metronome On" : "Metronome Off", now_ms);
       } else {
         const bool met = etude_view.toggle_metronome();
@@ -1080,12 +1283,16 @@ struct AppContext {
 
       // Intercept Piano Remote commands before scoring or software synth echo
       if (ev.is_note_on && ev.note < 128U) {
+        const bool needs_soft_guard =
+            (app_mode == AppMode::CompanionTool) ||
+            (active_practice_stage() == selfano::core::AutopilotStage::Stage3Lessons &&
+             selfano::core::score_uses_remote_keys(lesson_view.engine().score()));
         const selfano::core::PianoRemoteContext pr_ctx{
             .enabled = midi_bar_state.piano_remote_enabled,
             .in_midi_monitor = (app_mode == AppMode::MidiMonitor),
             .active_stage = active_practice_stage(),
             .soft_pedal_held = soft_pedal_down,
-            .require_soft_pedal_guard = (app_mode == AppMode::CompanionTool),
+            .require_soft_pedal_guard = needs_soft_guard,
         };
         const auto action = selfano::core::resolve_piano_remote_action(ev.note, pr_ctx);
         if (action != selfano::core::PianoRemoteAction::None) {
@@ -1147,7 +1354,43 @@ struct AppContext {
       break;
     }
     case selfano::core::AutopilotStage::Stage3Lessons: {
-      ImGui::TextUnformatted("Stage 3: Guided Lessons (loading in Slice 8.4)");
+      const auto lv_act = lesson_view.draw(fonts.smufl_font, fonts.ui_font, lesson_library, profile,
+                                           today_epoch_day);
+      if (lv_act.metronome_click) {
+        audio_synth.play_metronome_click(lv_act.metronome_accent);
+      }
+      if (lv_act.phrase_chime) {
+        audio_synth.play_confirmation_chime();
+      }
+      if (lv_act.trigger_demo_playback) {
+        for (const auto& act : playback_scheduler.panic_all_notes_off()) {
+          send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+        }
+        lesson_view.build_demo_playback(now_ms, pending_playback);
+      }
+      if (lv_act.select_lesson_id.has_value()) {
+        lesson_view.set_revision_context(false);
+        (void)select_active_lesson(*lv_act.select_lesson_id, now_ms, true);
+      } else if (lv_act.next_lesson_id.has_value()) {
+        lesson_view.set_revision_context(false);
+        (void)select_active_lesson(*lv_act.next_lesson_id, now_ms, true);
+      }
+      if (lv_act.weekly_key_sync_requested) {
+        sync_weekly_key_to_active_lesson(now_ms);
+      }
+      if (lv_act.add_to_srs_requested) {
+        promote_lesson_to_srs(lv_act.add_to_srs_lesson_id, today_epoch_day, now_ms);
+      }
+      if (lv_act.profile_dirty) {
+        warmup_view.set_metronome_enabled(profile.preferences.metronome_enabled);
+        warmup_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+        flashcard_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+        etude_view.apply_preferences(
+            profile.preferences.metronome_enabled, profile.preferences.light_paper_staff,
+            etude_view.engine().config().bpm, etude_view.engine().config().hand_mode);
+        ear_trainer_view.set_light_paper_theme(profile.preferences.light_paper_staff);
+        persist_profile_now();
+      }
       break;
     }
     case selfano::core::AutopilotStage::Stage4ASrs:
@@ -1238,6 +1481,16 @@ struct AppContext {
 
       const std::size_t due_srs = srs_view.deck().due_cards(today_epoch_day).size();
       const std::string due_badge = due_srs > 0 ? std::to_string(due_srs) : std::string{};
+      std::size_t due_lessons = 0;
+      for (const auto& [lid, lp] : profile.lesson_progress) {
+        (void)lid;
+        if (selfano::core::effective_mastery_status(lp, today_epoch_day) ==
+            selfano::core::LessonMasteryStatus::NeedsReview) {
+          ++due_lessons;
+        }
+      }
+      const std::string due_lessons_badge =
+          due_lessons > 0 ? std::to_string(due_lessons) : std::string{};
 
       struct StageNavEntry {
         const char* id;
@@ -1254,7 +1507,8 @@ struct AppContext {
           {"##nav_s2b", "Continuous Etudes", selfano::ui::IconId::MusicNote,
            selfano::core::AutopilotStage::Stage2BEtudes, nullptr},
           {"##nav_s3", "Guided Lessons", selfano::ui::IconId::Chords,
-           selfano::core::AutopilotStage::Stage3Lessons, nullptr},
+           selfano::core::AutopilotStage::Stage3Lessons,
+           due_lessons_badge.empty() ? nullptr : due_lessons_badge.c_str()},
           {"##nav_s4a", "Retention Deck", selfano::ui::IconId::Layers,
            selfano::core::AutopilotStage::Stage4ASrs,
            due_badge.empty() ? nullptr : due_badge.c_str()},
@@ -1501,6 +1755,11 @@ struct AppContext {
     profile = selfano::core::make_default_profile(boot_epoch_day);
     prev_now_ms = selfano::midi::MidiEngine::now_ms();
 
+    if (const auto lib_res = lesson_library.load_built_in_from_directory(resolve_lessons_dir());
+        !lib_res.has_value()) {
+      std::cerr << "Warning: failed loading built-in lessons: " << lib_res.error() << '\n';
+    }
+
 #ifdef __EMSCRIPTEN__
     idbfs_hydrated = false;
     selfano_idbfs_mount_and_load();
@@ -1540,6 +1799,10 @@ struct AppContext {
       staff_showcase.set_preset(*cli.showcase_preset);
     }
     show_piano_remote_overlay = cli.open_keymap;
+
+    if (!cli.lesson_id_override.empty()) {
+      (void)select_active_lesson(cli.lesson_id_override, prev_now_ms, false);
+    }
 
     if (cli.initial_mode == AppMode::Autopilot) {
       start_autopilot_session(prev_now_ms);
@@ -1726,7 +1989,7 @@ struct AppContext {
     (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
     chord_grouper.update(now_ms);
     for (const auto& chord : chord_grouper.take_completed_chords()) {
-      route_played_chord(chord, now_ms);
+      route_played_chord(chord, now_ms, today_epoch_day);
     }
 
     if (app_mode == AppMode::Autopilot) {
@@ -1738,7 +2001,16 @@ struct AppContext {
         } else if (st == selfano::core::AutopilotStage::Stage2BEtudes) {
           safe_boundary = !etude_view.is_mid_bar();
         } else if (st == selfano::core::AutopilotStage::Stage3Lessons) {
-          safe_boundary = true;
+          safe_boundary = !lesson_view.is_mid_bar();
+          if (stage3_revision_active) {
+            stage3_subphase_elapsed_sec += dt_ms / 1000.0;
+            if (stage3_subphase_elapsed_sec >= stage3_plan.revision_duration_sec && safe_boundary) {
+              stage3_revision_active = false;
+              cleanup_stage_transitions(now_ms);
+              (void)select_active_lesson(stage3_plan.active_lesson_id, now_ms, false);
+              show_hud_toast("Stage 3B: Active Lesson", now_ms);
+            }
+          }
         }
       }
       const auto tick_ev = autopilot.update(dt_ms / 1000.0, safe_boundary);
@@ -1747,7 +2019,10 @@ struct AppContext {
       }
       if (tick_ev.stage_changed) {
         cleanup_stage_transitions(now_ms);
-        if (autopilot.current_block().stage == selfano::core::AutopilotStage::Stage4BEarTrainer) {
+        if (autopilot.current_block().stage == selfano::core::AutopilotStage::Stage3Lessons) {
+          enter_stage3_autopilot_block(today_epoch_day, now_ms);
+        } else if (autopilot.current_block().stage ==
+                   selfano::core::AutopilotStage::Stage4BEarTrainer) {
           ear_trainer_view.trigger_replay(now_ms, pending_playback);
         }
       }
@@ -1773,6 +2048,22 @@ struct AppContext {
         etude_view.update(dt_ms, click, accent);
         if (click) {
           audio_synth.play_metronome_click(accent);
+        }
+      } else if (*stage == selfano::core::AutopilotStage::Stage3Lessons) {
+        bool click = false;
+        bool accent = false;
+        bool chime = false;
+        bool just_mastered = false;
+        lesson_view.update(dt_ms, profile, today_epoch_day, click, accent, chime, just_mastered);
+        if (click) {
+          audio_synth.play_metronome_click(accent);
+        }
+        if (chime) {
+          audio_synth.play_confirmation_chime();
+          persist_profile_now();
+        }
+        if (just_mastered) {
+          show_hud_toast("Piece Mastered!", now_ms);
         }
       }
     }
@@ -1860,8 +2151,8 @@ struct AppContext {
         if (app_mode == AppMode::Home) {
           if (ImGui::BeginChild("##home_scroll", ImVec2(0.0f, 0.0f))) {
             sync_profile_from_views();
-            const auto home_actions =
-                selfano::ui::draw_home_dashboard(profile, flashcard_view.engine(), today_epoch_day);
+            const auto home_actions = selfano::ui::draw_home_dashboard(
+                profile, flashcard_view.engine(), today_epoch_day, &lesson_library);
             if (home_actions.weekly_key_changed) {
               apply_weekly_key_to_views(now_ms);
               persist_profile_now();
@@ -1905,8 +2196,12 @@ struct AppContext {
             if (ap_act.skip_block) {
               const auto res = autopilot.skip_block();
               cleanup_stage_transitions(now_ms);
-              if (res.stage_changed && autopilot.current_block().stage ==
-                                           selfano::core::AutopilotStage::Stage4BEarTrainer) {
+              if (res.stage_changed &&
+                  autopilot.current_block().stage == selfano::core::AutopilotStage::Stage3Lessons) {
+                enter_stage3_autopilot_block(today_epoch_day, now_ms);
+              } else if (res.stage_changed &&
+                         autopilot.current_block().stage ==
+                             selfano::core::AutopilotStage::Stage4BEarTrainer) {
                 ear_trainer_view.trigger_replay(now_ms, pending_playback);
               }
               if (res.session_completed) {
@@ -1926,7 +2221,10 @@ struct AppContext {
                 autopilot.dismiss_transition();
                 cleanup_stage_transitions(now_ms);
                 if (autopilot.current_block().stage ==
-                    selfano::core::AutopilotStage::Stage4BEarTrainer) {
+                    selfano::core::AutopilotStage::Stage3Lessons) {
+                  enter_stage3_autopilot_block(today_epoch_day, now_ms);
+                } else if (autopilot.current_block().stage ==
+                           selfano::core::AutopilotStage::Stage4BEarTrainer) {
                   ear_trainer_view.trigger_replay(now_ms, pending_playback);
                 }
               }
@@ -2023,6 +2321,7 @@ struct AppContext {
               hi = etude_view.virtual_piano_highlights(chord_grouper.held_notes());
               break;
             case selfano::core::AutopilotStage::Stage3Lessons:
+              hi = lesson_view.virtual_piano_highlights(chord_grouper.held_notes());
               break;
             case selfano::core::AutopilotStage::Stage4BEarTrainer:
               hi = ear_trainer_view.virtual_piano_highlights(chord_grouper.held_notes());
@@ -2041,9 +2340,13 @@ struct AppContext {
       ImGui::PopStyleVar(2);
 
       // Piano Remote interactive 88-key Cheat-Sheet Overlay (toggled by A#0 or Key Map button)
-      if (selfano::ui::draw_piano_remote_overlay(
-              show_piano_remote_overlay, midi_bar_state.piano_remote_enabled,
-              active_practice_stage(), app_mode == AppMode::CompanionTool)) {
+      const bool soft_guard_active =
+          (app_mode == AppMode::CompanionTool) ||
+          (active_practice_stage() == selfano::core::AutopilotStage::Stage3Lessons &&
+           selfano::core::score_uses_remote_keys(lesson_view.engine().score()));
+      if (selfano::ui::draw_piano_remote_overlay(show_piano_remote_overlay,
+                                                 midi_bar_state.piano_remote_enabled,
+                                                 active_practice_stage(), soft_guard_active)) {
         persist_profile_now();
       }
 
@@ -2086,7 +2389,7 @@ struct AppContext {
       (void)chord_grouper.flush_if_cardinality(current_expected_cardinality(), now_ms);
       chord_grouper.update(now_ms);
       for (const auto& chord : chord_grouper.take_completed_chords()) {
-        route_played_chord(chord, now_ms);
+        route_played_chord(chord, now_ms, today_epoch_day);
       }
     }
     if (!pending_playback.empty()) {

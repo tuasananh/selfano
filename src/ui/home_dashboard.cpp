@@ -104,7 +104,8 @@ namespace {
 
 HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
                                          const core::FlashcardEngine& flashcard_engine,
-                                         std::int64_t today_epoch_day) {
+                                         std::int64_t today_epoch_day,
+                                         const core::LessonLibrary* lesson_library) {
   HomeDashboardActions actions{};
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
@@ -158,7 +159,7 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
       ScopedFont sub(TypeStyle::Subheadline);
       ImGui::TextColored(c.text_secondary,
                          "Warm-Up  \xC2\xB7  Flashcards  \xC2\xB7  Continuous Etudes  \xC2\xB7  "
-                         "Companion  \xC2\xB7  Retention Deck  \xC2\xB7  Ear Trainer");
+                         "Guided Lessons  \xC2\xB7  Retention Deck  \xC2\xB7  Ear Trainer");
     }
 
     ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
@@ -339,47 +340,69 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
 
   ImGui::SameLine(0.0f, col_gap);
 
-  // Column C: Repertoire & Due SRS Deck
+  // Column C: Active Lesson & Retention Deck
   begin_card("##bento_rep", ImVec2(col_w, bento_h), 16.0f, 14.0f, false, true);
   {
-    std::size_t due_count = 0;
+    std::size_t due_srs = 0;
     for (const auto& card : profile.srs_cards) {
       if (card.due_epoch_day <= today_epoch_day) {
-        ++due_count;
+        ++due_srs;
       }
     }
+    std::size_t due_rev = 0;
+    for (const auto& [lid, lp] : profile.lesson_progress) {
+      (void)lid;
+      if (core::effective_mastery_status(lp, today_epoch_day) ==
+          core::LessonMasteryStatus::NeedsReview) {
+        ++due_rev;
+      }
+    }
+    const core::LessonScore* active_lesson =
+        (lesson_library != nullptr) ? lesson_library->find_lesson(profile.active_lesson_id)
+                                    : nullptr;
 
-    section_kicker("REPERTOIRE & RETENTION");
+    section_kicker("CURRICULUM & RETENTION");
     ImGui::Spacing();
     {
       ScopedFont tf(TypeStyle::Title);
-      ImGui::TextColored(due_count > 0 ? c.warning_text : c.success_text, "%zu due", due_count);
+      const std::size_t tot_due = due_srs + due_rev;
+      ImGui::TextColored(tot_due > 0 ? c.warning_text : c.success_text, "%zu due", tot_due);
       ImGui::SameLine(0.0f, 8.0f * scale);
       ScopedFont sf(TypeStyle::Subheadline);
       ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5.0f * scale);
-      ImGui::TextColored(c.text_secondary, "of %zu sections", profile.srs_cards.size());
+      ImGui::TextColored(c.text_secondary, "%zu rev  \xC2\xB7  %zu SRS", due_rev, due_srs);
     }
 
     ImGui::Spacing();
     {
       ScopedFont sub(TypeStyle::Subheadline);
-      if (profile.repertoire_phrases.empty()) {
-        ImGui::TextColored(c.text_tertiary, "No active phrase yet");
-      } else {
+      if (active_lesson != nullptr) {
+        ImGui::TextColored(c.text_primary, "T%u: %s", active_lesson->meta.tier,
+                           active_lesson->meta.title.c_str());
+        const auto prog_it = profile.lesson_progress.find(active_lesson->meta.id);
+        const auto prog =
+            (prog_it != profile.lesson_progress.end()) ? prog_it->second : core::LessonProgress{};
+        const int ladder_done = (prog.ladder_60_clean ? 1 : 0) + (prog.ladder_80_clean ? 1 : 0) +
+                                (prog.ladder_100_clean ? 1 : 0);
+        ImGui::TextColored(c.text_secondary, "%s  \xC2\xB7  Ladder %d/3",
+                           core::format_key_name(active_lesson->meta.key).c_str(), ladder_done);
+      } else if (!profile.repertoire_phrases.empty()) {
         const auto& p = profile.repertoire_phrases.front();
         const std::string pretty_prog = prettify_progression(p.progression_text);
         ImGui::TextColored(c.text_primary, "%s \xC2\xB7 %s", p.piece_name.c_str(),
                            p.phrase_name.c_str());
         ImGui::TextColored(c.text_secondary, "%s", pretty_prog.c_str());
+      } else {
+        ImGui::TextColored(c.text_tertiary, "Ready to start Tier 1");
       }
     }
 
     ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
     const float card_inner_w = ImGui::GetContentRegionAvail().x;
     const bool show_btn_icons = (card_inner_w >= 250.0f * scale);
-    if (pill_button("Companion##bento_comp", ButtonTone::Secondary,
+    if (pill_button("Lessons##bento_lessons", ButtonTone::Primary,
                     show_btn_icons ? IconId::Chords : IconId::None, 30.0f)) {
-      actions.open_companion_tool = true;
+      actions.open_free_stage = core::AutopilotStage::Stage3Lessons;
     }
     ImGui::SameLine(0.0f, 8.0f * scale);
     if (pill_button("Review##bento_srs", ButtonTone::SoftAccent,
@@ -457,7 +480,7 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
     ImGui::TableSetupColumn("Duration", ImGuiTableColumnFlags_WidthStretch, 0.7f);
     ImGui::TableSetupColumn("Flashcard RT", ImGuiTableColumnFlags_WidthStretch, 1.0f);
     ImGui::TableSetupColumn("Etude Acc", ImGuiTableColumnFlags_WidthStretch, 0.8f);
-    ImGui::TableSetupColumn("Reps / SRS / Ear", ImGuiTableColumnFlags_WidthStretch, 1.1f);
+    ImGui::TableSetupColumn("Lessons / SRS / Ear", ImGuiTableColumnFlags_WidthStretch, 1.1f);
     {
       ScopedFont cap(TypeStyle::Caption);
       ImGui::PushStyleColor(ImGuiCol_Text, c.text_tertiary);
@@ -481,8 +504,8 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
       ImGui::TableSetColumnIndex(4);
       ImGui::Text("%.0f%%", h.etude_accuracy * 100.0);
       ImGui::TableSetColumnIndex(5);
-      ImGui::TextColored(c.text_secondary, "%u / %u / %u", h.companion_reps, h.srs_cards_reviewed,
-                         h.ear_melodies_solved);
+      ImGui::TextColored(c.text_secondary, "%u / %u / %u", h.lesson_runs_completed,
+                         h.srs_cards_reviewed, h.ear_melodies_solved);
     }
     ImGui::EndTable();
   }

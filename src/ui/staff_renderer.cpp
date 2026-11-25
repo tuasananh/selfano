@@ -19,7 +19,7 @@ namespace selfano::ui {
 namespace {
 
 inline constexpr float kTopMarginSpaces = 5.4f;
-inline constexpr float kTopMarginHarmonyExtraSpaces = 2.8f;
+inline constexpr float kTopMarginHarmonyExtraSpaces = 4.8f;
 inline constexpr float kBottomMarginSpaces = 5.0f;
 inline constexpr float kStaffHeightSpaces = 4.0f;
 
@@ -626,16 +626,15 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       const float staff_top_y = bottom_y - kStaffHeightSpaces * space;
       if (clef == core::Clef::Treble) {
         const float top_nh_y = core::step_to_y(layout.noteheads.back().step, clef, bottom_y, space);
-        float anchor_y = std::min(staff_top_y - 1.25f * space, top_nh_y - 1.65f * space);
+        float anchor_y = std::min(staff_top_y - 1.15f * space, top_nh_y - 1.45f * space);
         if (slot.duration != NoteDuration::Whole && stem_dir == core::StemDirection::Up) {
-          anchor_y = std::min(anchor_y, sy_end - 1.40f * space);
+          anchor_y = std::min(anchor_y, sy_end - 0.85f * space);
         }
-        // Reverse so highest note's finger sits highest
         for (std::size_t fi = 0; fi < chord_fingers.size(); ++fi) {
-          const std::string fstr = std::to_string(chord_fingers[chord_fingers.size() - 1U - fi]);
+          const std::string fstr = std::to_string(chord_fingers[fi]);
           const ImVec2 fsz =
               finger_font->CalcTextSizeA(finger_size_px, FLT_MAX, 0.0f, fstr.c_str());
-          const float fy = anchor_y - static_cast<float>(fi) * (1.05f * space);
+          const float fy = anchor_y - static_cast<float>(fi) * (0.78f * space);
           draw_list->AddText(
               finger_font, finger_size_px,
               ImVec2(std::round(center_x - fsz.x * 0.5f), std::round(fy - fsz.y * 0.5f)), pal.ink,
@@ -652,7 +651,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
           const std::string fstr = std::to_string(chord_fingers[chord_fingers.size() - 1U - fi]);
           const ImVec2 fsz =
               finger_font->CalcTextSizeA(finger_size_px, FLT_MAX, 0.0f, fstr.c_str());
-          const float fy = anchor_y + static_cast<float>(fi) * (1.05f * space);
+          const float fy = anchor_y + static_cast<float>(fi) * (0.85f * space);
           draw_list->AddText(
               finger_font, finger_size_px,
               ImVec2(std::round(center_x - fsz.x * 0.5f), std::round(fy - fsz.y * 0.5f)), pal.ink,
@@ -857,6 +856,16 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     const float usable_w = std::max(10.0f, local_w - pad_left - pad_right);
     const float measure_beats = std::max(1.0f, measure.beats_per_measure);
 
+    const float ann_size_px = draw_font_size(11.5f);
+    const float chord_sz_px = draw_font_size(12.5f);
+    const float roman_sz_px = draw_font_size(11.0f);
+    const float label_gap_px = std::max(1.5f, 0.14f * s);
+    const float roman_top_y =
+        std::max(origin.y + 0.45f * s + ann_size_px + chord_sz_px + 2.0f * label_gap_px,
+                 system_top_y - 3.85f * s - roman_sz_px);
+    const float chord_top_y = roman_top_y - label_gap_px - chord_sz_px;
+    const float bar_top_y = chord_top_y - label_gap_px - ann_size_px;
+
     // 5a. Cursor highlights & simple annotations
     if (!measure.chords.empty()) {
       const float slot_w = usable_w / static_cast<float>(measure.chords.size());
@@ -888,15 +897,13 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
         }
 
         if (ann_font != nullptr && !chord.annotation.empty()) {
-          const float ann_size_px = draw_font_size(11.5f);
           const ImVec2 ann_sz =
               ann_font->CalcTextSizeA(ann_size_px, FLT_MAX, 0.0f, chord.annotation.c_str());
           const float ann_x =
               options.show_harmony_labels
                   ? (m_x0 + 0.35f * s)
                   : (chord_x + notehead_width_spaces(chord.duration) * 0.5f * s - ann_sz.x * 0.5f);
-          const float ann_y =
-              options.show_harmony_labels ? (system_top_y - 7.15f * s) : (system_top_y - 4.2f * s);
+          const float ann_y = options.show_harmony_labels ? bar_top_y : (system_top_y - 4.2f * s);
           const ImU32 ann_col = options.show_harmony_labels
                                     ? apply_alpha_scale(pal.annotation, 0.80f)
                                     : pal.annotation;
@@ -908,20 +915,17 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
 
     // 5b. Harmonic labels (Chord symbol + Roman numeral) above Treble staff
     if (options.show_harmony_labels && ann_font != nullptr) {
-      const float chord_sz_px = draw_font_size(12.5f);
-      const float roman_sz_px = draw_font_size(11.0f);
       for (const auto& hl : measure.harmony_labels) {
         const float frac = std::clamp(hl.beat_offset / measure_beats, 0.0f, 1.0f);
         const float hx = inner_m_x0 + pad_left + frac * usable_w;
         if (!hl.chord_symbol.empty()) {
-          draw_list->AddText(ann_font, chord_sz_px,
-                             ImVec2(std::round(hx), std::round(system_top_y - 5.45f * s)),
+          draw_list->AddText(ann_font, chord_sz_px, ImVec2(std::round(hx), std::round(chord_top_y)),
                              pal.harmony_chord, hl.chord_symbol.c_str());
         }
         if (!hl.roman_numeral.empty() && roman_font != nullptr) {
           draw_list->AddText(roman_font, roman_sz_px,
-                             ImVec2(std::round(hx), std::round(system_top_y - 4.05f * s)),
-                             pal.annotation, hl.roman_numeral.c_str());
+                             ImVec2(std::round(hx), std::round(roman_top_y)), pal.annotation,
+                             hl.roman_numeral.c_str());
         }
       }
     }
