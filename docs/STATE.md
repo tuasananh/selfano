@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **Phase 9 — Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*)**
-- **Last Completed Phase:** Phase 8 — Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons)
+- **Active Phase:** **Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)**
+- **Last Completed Phase:** Phase 9 — Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*)
 
 ---
 
@@ -151,6 +151,24 @@
   - `src/core/` purity check returned 0 matches; `clang-format --dry-run --Werror` clean on all modified/created C++ files.
   - Headless Light & Dark screenshots (`--tab lessons`, `--lesson t6_04`, `--tab home`, `--tab autopilot`, `--tab companion`, `--tab showcase --showcase-preset classical`) confirmed crisp layout, zero clipping, and zero regressions; `--profile` round-trip verified `t3_01` + legacy `repertoire_phrases`/`srs_cards` persistence across relaunch.
 
+### Phase 9 — Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*)
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Complete 28-lesson progressive classical curriculum (`assets/lessons/`):
+    - **Tier 1 (5 lessons):** `t1_01` (*C Major*, `4/4`), `t1_02` (*Czerny Op. 599 No. 11*, `C Major`, `4/4`), `t1_03` (*Natural Minor Lament*, `A Minor`, `4/4`), `t1_04` (*Czerny Op. 599 No. 16*, `G Major`, `3/4`), `t1_05` (*Czerny Op. 599 No. 19*, `F Major`, `4/4`)
+    - **Tier 2 (5 lessons):** `t2_01` (*Intro to Alberti Bass*, `C Major`, `4/4`), `t2_02` (*Waltz Accompaniment & Hand Shifts*, `G Major`, `3/4`), `t2_03` (*Melancholy Broken Chords*, `E Minor`, `4/4`), `t2_04` (*Dotted Rhythms & Ties*, `F Major`, `4/4`), `t2_05` (*Dramatic D-Minor Cadences*, `D Minor`, `4/4`)
+    - **Tier 3 (5 lessons):** `t3_01` (*Minuet in G Major BWV Anh. 114*, `G Major`, `3/4`), `t3_02` (*Musette in D Major BWV Anh. 126*, `D Major`, `2/4`), `t3_03` (*La Candeur Op. 100 No. 1*, `C Major`, `4/4`), `t3_04` (*Arabesque Op. 100 No. 2*, `A Minor`, `2/4`), `t3_05` (*Minuet in G Minor BWV Anh. 115*, `G Minor`, `3/4`)
+    - **Tier 4 (5 lessons):** `t4_01` (*Clementi Sonatina Op. 36 No. 1*, `C Major`, `4/4`), `t4_02` (*Bach Two-Part Invention No. 1 BWV 772*, `C Major`, `4/4`), `t4_03` (*B-Minor Expressive Study*, `B Minor`, `6/8`), `t4_04` (*Bb-Major Singing Arpeggios*, `Bb Major`, `4/4`), `t4_05` (*Burgmuller Ballade Op. 100 No. 15*, `C Minor`, `6/8`)
+    - **Tier 5 (4 lessons):** `t5_01` (*Chopin Prelude Op. 28 No. 7*, `A Major`, `3/4`), `t5_02` (*Chopin Prelude Op. 28 No. 20*, `C Minor`, `4/4`), `t5_03` (*Chopin Prelude Op. 28 No. 4*, `E Minor`, `4/4`), `t5_04` (*Chopin Waltz in A Minor B. 150*, `A Minor`, `3/4`)
+    - **Tier 6 (4 lessons):** `t6_01` (*Eb-Major Cantabile*, `Eb Major`, `6/8`), `t6_02` (*F#-Minor Chromatic Voicing*, `F# Minor`, `4/4`), `t6_03` (*Ballade No. 1 Op. 23 Opening Largo & Neapolitan `bII6`*, `G Minor`, `4/4`), `t6_04` (*Ballade No. 1 Moderato Theme*, `G Minor`, `6/4`)
+  - Updated manifest (`assets/lessons/curriculum.json`) and expanded Catch2 integrity suite (`tests/lesson_library_tests.cpp`)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed 65/65 test cases, validating all 28 lessons (per-tier counts `5/5/5/5/4/4`, unique IDs, contiguous `order_in_tier`, exact `measure_ticks()`, `midi == spelled.to_midi()`, matched ties, fingerings `0..5`, parseable chord symbols, `ChordSkeleton` targets, monotonic `build_demo_playback`, `>= 13` distinct circle-of-fifths keys, and 27-hop `next_lesson_id` chain).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings, bundling all 28 lesson JSON files into `selfano.data`.
+  - `src/core/` purity check returned 0 matches; `clang-format --dry-run --Werror` clean on `tests/lesson_library_tests.cpp`.
+  - Headless Light & Dark spot-check screenshots (`t1_05`, `t2_03`, `t3_04`, `t4_02`, `t5_01`, `t6_03`) visually confirmed crisp beaming, rests, key signatures, ties, fingerings, and harmonic labels across all 6 tiers.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -170,8 +188,8 @@
 - **Phases 7–10 Specs Locked (Not Yet Started):** Split the Stage 3 Guided Lessons & MusicXML roadmap into 4 independently verifiable phases:
   - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving (`[x] Complete`)
   - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons (`[x] Complete`)
-  - **Phase 9:** Complete 28-Lesson Classical Curriculum ([phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md)) — *starting Slice 9.1*
-  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web ([phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md))
+  - **Phase 9:** Complete 28-Lesson Classical Curriculum (`[x] Complete`)
+  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web ([phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md)) — *starting Slice 10.1*
 
 ---
 

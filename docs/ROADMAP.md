@@ -29,7 +29,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 6** | Emscripten WebAssembly Packaging, WebMIDI & Browser Verification | [phase-6-webgui-emscripten.md](./phases/phase-6-webgui-emscripten.md) | `[x] Complete` |
 | **Phase 7** | Core `LessonScore` Model & Classical Grand Staff Engraving Upgrade | [phase-7-score-model-and-notation.md](./phases/phase-7-score-model-and-notation.md) | `[x] Complete` |
 | **Phase 8** | Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons) | [phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md) | `[x] Complete` |
-| **Phase 9** | Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*) | [phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md) | `[ ] Planned` |
+| **Phase 9** | Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*) | [phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md) | `[x] Complete` |
 | **Phase 10** | `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web) | [phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md) | `[ ] Planned` |
 
 ---
