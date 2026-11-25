@@ -211,6 +211,7 @@ add_library(piano_ui STATIC
   src/ui/midi_monitor_view.cpp
   src/ui/piano_remote_overlay.cpp
   src/ui/autopilot_chrome.cpp
+  src/ui/app_shell_chrome.cpp
   src/ui/phase2_sandbox.cpp
   src/ui/warmup_view.cpp
   src/ui/flashcard_view.cpp
@@ -240,6 +241,16 @@ target_link_libraries(piano_ui
 # 4. Application executable
 add_executable(selfano
   src/main.cpp
+  src/app/cli_options.cpp
+  src/app/app_paths.cpp
+  src/app/web_platform.cpp
+  src/app/app_controller.cpp
+  src/app/piano_remote_dispatcher.cpp
+  src/app/profile_sync.cpp
+  src/app/lesson_import_controller.cpp
+)
+target_include_directories(selfano PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(selfano
   PRIVATE

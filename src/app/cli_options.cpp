@@ -1,0 +1,119 @@
+#include "app/cli_options.hpp"
+
+#include <algorithm>
+#include <charconv>
+#include <sstream>
+#include <string_view>
+
+namespace selfano::app {
+
+namespace {
+
+[[nodiscard]] std::optional<int> parse_strict_int(std::string_view token) noexcept {
+  if (token.empty()) {
+    return std::nullopt;
+  }
+  int value = 0;
+  const char* begin = token.data();
+  const char* end = token.data() + token.size();
+  const auto [ptr, ec] = std::from_chars(begin, end, value);
+  if (ec != std::errc{} || ptr != end) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+[[nodiscard]] std::vector<std::uint8_t> parse_note_csv(std::string_view csv) {
+  std::vector<std::uint8_t> notes;
+  std::stringstream ss{std::string(csv)};
+  std::string token;
+  while (std::getline(ss, token, ',')) {
+    const auto val = parse_strict_int(token);
+    if (val.has_value() && *val >= 0 && *val <= 127) {
+      notes.push_back(static_cast<std::uint8_t>(*val));
+    }
+  }
+  return notes;
+}
+
+void parse_tab_arg(std::string_view arg, CliOptions& opts) noexcept {
+  using S = core::AutopilotStage;
+  if (arg == "home") {
+    opts.initial_mode = AppMode::Home;
+  } else if (arg == "autopilot") {
+    opts.initial_mode = AppMode::Autopilot;
+  } else if (arg == "warmup") {
+    opts.initial_mode = AppMode::FreePractice;
+    opts.initial_free_stage = S::Stage1WarmUp;
+  } else if (arg == "flashcards") {
+    opts.initial_mode = AppMode::FreePractice;
+    opts.initial_free_stage = S::Stage2AFlashcards;
+  } else if (arg == "etude" || arg == "etudes") {
+    opts.initial_mode = AppMode::FreePractice;
+    opts.initial_free_stage = S::Stage2BEtudes;
+  } else if (arg == "lessons" || arg == "lesson") {
+    opts.initial_mode = AppMode::FreePractice;
+    opts.initial_free_stage = S::Stage3Lessons;
+  } else if (arg == "companion") {
+    opts.initial_mode = AppMode::CompanionTool;
+  } else if (arg == "srs") {
+    opts.initial_mode = AppMode::FreePractice;
+    opts.initial_free_stage = S::Stage4ASrs;
+  } else if (arg == "ear") {
+    opts.initial_mode = AppMode::FreePractice;
+    opts.initial_free_stage = S::Stage4BEarTrainer;
+  } else if (arg == "midi" || arg == "monitor") {
+    opts.initial_mode = AppMode::MidiMonitor;
+  } else if (arg == "devtools" || arg == "sandbox") {
+    opts.initial_mode = AppMode::DevTools;
+    opts.initial_dev_subtab = 0;
+  } else if (arg == "showcase") {
+    opts.initial_mode = AppMode::DevTools;
+    opts.initial_dev_subtab = 1;
+  }
+}
+
+} // namespace
+
+CliOptions parse_cli(int argc, char* argv[]) {
+  CliOptions opts{};
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view arg = argv[i];
+    if (arg == "--smoke-frames" && i + 1 < argc) {
+      if (const auto n = parse_strict_int(argv[++i]); n.has_value()) {
+        opts.smoke_frames = std::max(1, *n);
+      }
+    } else if (arg == "--screenshot" && i + 1 < argc) {
+      opts.screenshot_path = argv[++i];
+    } else if (arg == "--inject-notes" && i + 1 < argc) {
+      opts.inject_notes = parse_note_csv(argv[++i]);
+    } else if (arg == "--profile" && i + 1 < argc) {
+      opts.profile_path = argv[++i];
+    } else if (arg == "--lesson" && i + 1 < argc) {
+      opts.lesson_id_override = argv[++i];
+    } else if (arg == "--import-lesson" && i + 1 < argc) {
+      opts.import_lesson_path = argv[++i];
+    } else if (arg == "--tab" && i + 1 < argc) {
+      parse_tab_arg(argv[++i], opts);
+    } else if (arg == "--theme" && i + 1 < argc) {
+      const std::string_view t = argv[++i];
+      if (t == "dark") {
+        opts.theme_override = ui::AppTheme::Dark;
+      } else if (t == "light") {
+        opts.theme_override = ui::AppTheme::Light;
+      }
+    } else if (arg == "--showcase-preset" && i + 1 < argc) {
+      const std::string_view p = argv[++i];
+      if (p == "classical") {
+        opts.showcase_preset = ui::ShowcasePreset::ClassicalNotationSpecimen;
+      }
+    } else if (arg == "--keymap") {
+      opts.open_keymap = true;
+    } else if (arg == "--show-key-hints") {
+      opts.force_key_hints = true;
+    }
+  }
+  return opts;
+}
+
+} // namespace selfano::app
