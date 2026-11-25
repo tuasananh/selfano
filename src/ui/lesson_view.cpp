@@ -645,10 +645,12 @@ void LessonView::draw_curriculum_modal(const core::LessonLibrary& library,
         const auto imported = library.imported_lessons();
         if (imported.empty()) {
           begin_card("##my_books_empty", ImVec2(0.0f, 0.0f), 18.0f, 12.0f, true, false);
-          ScopedFont bf(TypeStyle::Body);
-          ImGui::TextColored(c.text_secondary,
-                             "No custom MusicXML scores imported yet. Click Import Score above "
-                             "to add your own piano books.");
+          {
+            ScopedFont bf(TypeStyle::Body);
+            ImGui::TextColored(c.text_secondary,
+                               "No custom MusicXML scores imported yet. Click Import Score above "
+                               "to add your own piano books.");
+          }
           end_card();
         } else {
           for (const auto* l : imported) {
