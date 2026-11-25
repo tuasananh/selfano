@@ -12,6 +12,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(SELFANO_BUILD_TESTS "Build Catch2 unit tests" ON)
+option(SELFANO_WARNINGS_AS_ERRORS "Treat project compiler warnings as errors" OFF)
+option(SELFANO_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer on project targets" OFF)
 if(EMSCRIPTEN)
   set(SELFANO_BUILD_TESTS OFF CACHE BOOL "Build Catch2 unit tests" FORCE)
 endif()
@@ -137,9 +139,29 @@ set_target_properties(imgui PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON 
 # --- Project Warning Policy ---
 add_library(selfano_warnings INTERFACE)
 if(MSVC)
-  target_compile_options(selfano_warnings INTERFACE /W4)
+  target_compile_options(selfano_warnings INTERFACE /W4 /utf-8)
+  if(SELFANO_WARNINGS_AS_ERRORS)
+    target_compile_options(selfano_warnings INTERFACE /WX)
+  endif()
 else()
   target_compile_options(selfano_warnings INTERFACE -Wall -Wextra -Wpedantic)
+  if(SELFANO_WARNINGS_AS_ERRORS)
+    target_compile_options(selfano_warnings INTERFACE -Werror)
+  endif()
+endif()
+if(WIN32)
+  target_compile_definitions(selfano_warnings INTERFACE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
+add_library(selfano_sanitizers INTERFACE)
+if(SELFANO_ENABLE_SANITIZERS AND NOT MSVC AND NOT EMSCRIPTEN)
+  target_compile_options(selfano_sanitizers INTERFACE
+    -fsanitize=address,undefined
+    -fno-omit-frame-pointer
+  )
+  target_link_options(selfano_sanitizers INTERFACE
+    -fsanitize=address,undefined
+  )
 endif()
 
 # --- Project Targets ---
@@ -178,6 +200,7 @@ target_link_libraries(piano_core
     pugixml::static
     miniz
     selfano_warnings
+    selfano_sanitizers
 )
 
 # 2. MIDI & audio bridge
@@ -200,6 +223,7 @@ target_link_libraries(piano_midi
     $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:libremidi>
     SDL3::SDL3
     selfano_warnings
+    selfano_sanitizers
 )
 
 # 3. Dear ImGui + SDL3 UI layer
@@ -244,6 +268,7 @@ target_link_libraries(piano_ui
     SDL3::SDL3
   PRIVATE
     selfano_warnings
+    selfano_sanitizers
 )
 
 # 4. Application executable
@@ -266,6 +291,7 @@ target_link_libraries(selfano
     piano_midi
     piano_core
     selfano_warnings
+    selfano_sanitizers
 )
 
 if(NOT EMSCRIPTEN)
@@ -329,6 +355,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
       miniz
       Catch2::Catch2WithMain
       selfano_warnings
+      selfano_sanitizers
   )
   catch_discover_tests(selfano_tests)
 endif()

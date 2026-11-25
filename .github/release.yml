@@ -1,0 +1,30 @@
+changelog:
+  exclude:
+    authors:
+      - dependabot[bot]
+  categories:
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+    - title: Bug Fixes
+      labels:
+        - bug
+        - fix
+    - title: Music & Curriculum
+      labels:
+        - curriculum
+        - notation
+        - midi
+    - title: CI & Build
+      labels:
+        - ci
+        - build
+        - dependencies
+    - title: Documentation
+      labels:
+        - documentation
+        - docs
+    - title: Other Changes
+      labels:
+        - "*"

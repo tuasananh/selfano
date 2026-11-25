@@ -1,0 +1,405 @@
+name: Release & Web Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0). Required if publish_release is enabled.'
+        required: false
+        default: ''
+        type: string
+      publish_release:
+        description: 'Create/update a GitHub Release with attached artifacts'
+        required: false
+        default: false
+        type: boolean
+      deploy_pages:
+        description: 'Deploy WebAssembly build to GitHub Pages'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare Release Metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      version_tag: ${{ steps.meta.outputs.version_tag }}
+      bundle_version: ${{ steps.meta.outputs.bundle_version }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+      should_publish_release: ${{ steps.meta.outputs.should_publish_release }}
+      should_deploy_pages: ${{ steps.meta.outputs.should_deploy_pages }}
+    steps:
+      - name: Compute release metadata
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.publish_release }}" = "true" ] && [ -z "${{ inputs.tag }}" ]; then
+            echo "::error::'tag' input is required when 'publish_release' is true."
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION_TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            VERSION_TAG="${{ inputs.tag }}"
+          else
+            VERSION_TAG="v0.0.0-dev-${{ github.run_number }}"
+          fi
+
+          CLEAN_VER="${VERSION_TAG#v}"
+          CLEAN_VER="${CLEAN_VER%%-*}"
+          if ! [[ "$CLEAN_VER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+            CLEAN_VER="0.1.0"
+          fi
+
+          if [[ "$VERSION_TAG" == *-* ]]; then
+            IS_PRERELEASE="true"
+          else
+            IS_PRERELEASE="false"
+          fi
+
+          if [[ "${{ github.ref }}" == refs/tags/v* ]] || { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.publish_release }}" = "true" ] && [ -n "${{ inputs.tag }}" ]; }; then
+            SHOULD_PUBLISH_RELEASE="true"
+          else
+            SHOULD_PUBLISH_RELEASE="false"
+          fi
+
+          if { [[ "${{ github.ref }}" == refs/tags/v* ]] && [ "$IS_PRERELEASE" = "false" ]; } || { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.deploy_pages }}" = "true" ]; }; then
+            SHOULD_DEPLOY_PAGES="true"
+          else
+            SHOULD_DEPLOY_PAGES="false"
+          fi
+
+          echo "version_tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+          echo "bundle_version=$CLEAN_VER" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "should_publish_release=$SHOULD_PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "should_deploy_pages=$SHOULD_DEPLOY_PAGES" >> "$GITHUB_OUTPUT"
+
+          echo "version_tag=$VERSION_TAG"
+          echo "bundle_version=$CLEAN_VER"
+          echo "is_prerelease=$IS_PRERELEASE"
+          echo "should_publish_release=$SHOULD_PUBLISH_RELEASE"
+          echo "should_deploy_pages=$SHOULD_DEPLOY_PAGES"
+
+  build-desktop:
+    name: Build Desktop (${{ matrix.name }})
+    needs: [prepare]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+            platform: linux
+            arch: x64
+            run_tests: true
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            run_tests: true
+          - name: macos-arm64
+            os: macos-15
+            platform: macos
+            arch: arm64
+            osx_arch: arm64
+            run_tests: true
+          - name: macos-x64
+            os: macos-15
+            platform: macos
+            arch: x64
+            osx_arch: x86_64
+            run_tests: false
+          - name: windows-x64
+            os: windows-latest
+            platform: windows
+            arch: x64
+            run_tests: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build pkg-config \
+            libasound2-dev libpipewire-0.3-dev libpulse-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev \
+            libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+            libwayland-dev wayland-protocols \
+            libegl-dev libgl-dev libgbm-dev libdrm-dev \
+            libdbus-1-dev libudev-dev libibus-1.0-dev
+
+      - name: Install macOS build dependencies
+        if: matrix.platform == 'macos'
+        run: brew install ninja
+
+      - name: Setup MSVC environment
+        if: matrix.platform == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Ensure Ninja on Windows
+        if: matrix.platform == 'windows'
+        run: |
+          if (!(Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja -y --no-progress
+          }
+
+      - name: Setup ccache
+        if: matrix.platform != 'windows'
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: release-${{ matrix.name }}
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v6
+        with:
+          path: .fetchcontent
+          key: fetchcontent-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          cmake --preset native-release \
+            -DSELFANO_WARNINGS_AS_ERRORS=ON \
+            -DFETCHCONTENT_BASE_DIR="${{ github.workspace }}/.fetchcontent" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Configure (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          cmake --preset native-release \
+            -DSELFANO_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.osx_arch }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
+            -DFETCHCONTENT_BASE_DIR="${{ github.workspace }}/.fetchcontent" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Configure (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          $fetchDir = "${{ github.workspace }}/.fetchcontent" -replace '\\', '/'
+          cmake --preset native-release `
+            -DSELFANO_WARNINGS_AS_ERRORS=ON `
+            "-DFETCHCONTENT_BASE_DIR=$fetchDir"
+
+      - name: Build
+        run: cmake --build --preset native-release
+
+      - name: Run Catch2 unit tests
+        if: matrix.run_tests
+        run: ctest --preset native-release --output-on-failure
+
+      - name: Package Linux artifact (.tar.gz)
+        if: matrix.platform == 'linux'
+        env:
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          PKG_DIR="dist/selfano-${VERSION_TAG}-linux-${ARCH}"
+          mkdir -p "$PKG_DIR"
+          cp build/native-release/selfano "$PKG_DIR/selfano"
+          chmod +x "$PKG_DIR/selfano"
+          cp -R build/native-release/assets "$PKG_DIR/assets"
+          cp README.md "$PKG_DIR/README.md"
+          tar -czf "dist/selfano-${VERSION_TAG}-linux-${ARCH}.tar.gz" -C dist "selfano-${VERSION_TAG}-linux-${ARCH}"
+          rm -rf "$PKG_DIR"
+
+      - name: Package macOS artifact (.app .zip)
+        if: matrix.platform == 'macos'
+        env:
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+          BUNDLE_VERSION: ${{ needs.prepare.outputs.bundle_version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          APP_DIR="dist/Selfano.app"
+          mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+          cp build/native-release/selfano "$APP_DIR/Contents/MacOS/selfano"
+          chmod +x "$APP_DIR/Contents/MacOS/selfano"
+          cp -R build/native-release/assets "$APP_DIR/Contents/Resources/assets"
+          cat > "$APP_DIR/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>Selfano</string>
+            <key>CFBundleDisplayName</key>
+            <string>Selfano</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.selfano.app</string>
+            <key>CFBundleExecutable</key>
+            <string>selfano</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${BUNDLE_VERSION}</string>
+            <key>CFBundleVersion</key>
+            <string>${BUNDLE_VERSION}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>14.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          codesign --force --deep --sign - "$APP_DIR"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "dist/selfano-${VERSION_TAG}-macos-${ARCH}.zip"
+          rm -rf "$APP_DIR"
+
+      - name: Package Windows artifact (.zip)
+        if: matrix.platform == 'windows'
+        env:
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          $pkgName = "selfano-$($env:VERSION_TAG)-windows-$($env:ARCH)"
+          $pkgDir = Join-Path "dist" $pkgName
+          New-Item -ItemType Directory -Force -Path $pkgDir | Out-Null
+          Copy-Item "build/native-release/selfano.exe" (Join-Path $pkgDir "selfano.exe")
+          Copy-Item "build/native-release/assets" (Join-Path $pkgDir "assets") -Recurse
+          Copy-Item "README.md" (Join-Path $pkgDir "README.md")
+          Compress-Archive -Path $pkgDir -DestinationPath (Join-Path "dist" "$pkgName.zip") -Force
+          Remove-Item -Recurse -Force $pkgDir
+
+      - name: Upload packaged desktop artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.name }}
+          path: dist/selfano-*
+          if-no-files-found: error
+
+  build-web:
+    name: Build WebAssembly
+    needs: [prepare]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Ninja and zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build zip
+
+      - name: Setup Emscripten SDK
+        uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: latest
+          actions-cache-folder: emsdk-cache
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v6
+        with:
+          path: .fetchcontent
+          key: fetchcontent-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('CMakeLists.txt') }}
+
+      - name: Configure web-release
+        run: |
+          emcmake cmake --preset web-release \
+            -DSELFANO_WARNINGS_AS_ERRORS=ON \
+            -DFETCHCONTENT_BASE_DIR="${{ github.workspace }}/.fetchcontent"
+
+      - name: Build web-release
+        run: cmake --build --preset web-release
+
+      - name: Stage and package WebAssembly bundle
+        env:
+          VERSION_TAG: ${{ needs.prepare.outputs.version_tag }}
+        run: |
+          for file in selfano.html selfano.js selfano.wasm selfano.data; do
+            test -s "build/web-release/$file"
+          done
+          mkdir -p dist/web
+          cp build/web-release/selfano.html dist/web/index.html
+          cp build/web-release/selfano.html dist/web/selfano.html
+          cp build/web-release/selfano.js dist/web/selfano.js
+          cp build/web-release/selfano.wasm dist/web/selfano.wasm
+          cp build/web-release/selfano.data dist/web/selfano.data
+          : > dist/web/.nojekyll
+          (cd dist/web && zip -r "../selfano-${VERSION_TAG}-web.zip" . -x ".nojekyll")
+          ls -lh dist/web "dist/selfano-${VERSION_TAG}-web.zip"
+
+      - name: Upload packaged Web artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-web
+          path: dist/selfano-*-web.zip
+          if-no-files-found: error
+
+      - name: Upload GitHub Pages artifact
+        if: needs.prepare.outputs.should_deploy_pages == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/web
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [prepare, build-desktop, build-web]
+    if: needs.prepare.outputs.should_publish_release == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate SHA-256 checksums
+        run: |
+          cd release-assets
+          sha256sum selfano-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare.outputs.version_tag }}
+          generate_release_notes: true
+          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          body: |
+            ### Web Version (GitHub Pages)
+            Play directly in Chromium/Chrome (with WebMIDI support): https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+
+            ### Notes
+            - **macOS:** `Selfano.app` is ad-hoc signed. If Gatekeeper blocks launch on first run, run `xattr -cr Selfano.app` in Terminal or open via right-click -> **Open**.
+            - **Checksums:** Verify downloads with `sha256sum -c SHA256SUMS.txt`.
+          files: |
+            release-assets/selfano-*
+            release-assets/SHA256SUMS.txt
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: [prepare, build-web, publish-release]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_deploy_pages == 'true' &&
+      needs.build-web.result == 'success' &&
+      (needs.publish-release.result == 'success' || needs.publish-release.result == 'skipped')
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

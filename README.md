@@ -1,5 +1,7 @@
 # Selfano
 
+[![CI](https://github.com/tuasananh/selfano/actions/workflows/ci.yml/badge.svg)](https://github.com/tuasananh/selfano/actions/workflows/ci.yml)
+
 **Offline, zero-latency, cross-platform C++23 piano sight-reading, harmony, ear training, and repertoire practice trainer.**
 
 Selfano runs natively on **Linux, macOS, and Windows** (SDL3 + Dear ImGui + `libremidi`) and offline in a local browser via **Emscripten WebAssembly** (WebGL via SDL3 + WebMIDI + WebAudio + IndexedDB `IDBFS`). All theory, sight-reading, accompaniment matching, SM-2 spaced repetition, ear training, and audio synthesis work 100% locally with no network calls or accounts.
@@ -128,3 +130,30 @@ Because a 5-pin DIN MIDI-to-USB adapter carries separate directional cables, con
    - **Soft Pedal (`CC 67` left pedal)** triggers prompt replay (Warm-Up / Flashcards / Ear Trainer) and bar/phrase reset in Companion Mode (with a 200 ms debounce).
    - **Chord Window (`80-120 ms`):** Adjust in the top bar if rolled left/right hand chords split prematurely.
    - **Panic:** Click **Panic** (or switch stages) to send All Notes Off (`CC 123`) to hardware MIDI OUT and silence the software synth immediately.
+
+---
+
+## Releases & GitHub Pages
+
+Selfano uses GitHub Actions for continuous integration ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) and automated multi-platform releases ([`.github/workflows/release.yml`](.github/workflows/release.yml)).
+
+### One-Time Repository Setup
+To enable automated WebAssembly hosting on GitHub Pages (HTTPS, required for WebMIDI):
+1. Open **Settings -> Pages -> Build and deployment** in your GitHub repository.
+2. Set **Source** to **GitHub Actions**.
+
+### Cutting a Release
+Push a version tag matching `v*` (tags containing `-` such as `v0.2.0-rc.1` are marked as prereleases and do not overwrite the live GitHub Pages site):
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds, tests, checksums (`SHA256SUMS.txt`), and attaches:
+- `selfano-<tag>-linux-x64.tar.gz` and `selfano-<tag>-linux-arm64.tar.gz`
+- `selfano-<tag>-macos-arm64.zip` and `selfano-<tag>-macos-x64.zip` (`Selfano.app` bundle)
+- `selfano-<tag>-windows-x64.zip`
+- `selfano-<tag>-web.zip` (also deployed to GitHub Pages on stable tags)
+
+> **macOS note:** Release `.app` bundles are ad-hoc signed. If Gatekeeper blocks launch on first open, run `xattr -cr Selfano.app` in Terminal or right-click -> **Open**.

@@ -26,9 +26,7 @@ public:
   explicit PolyphonicChordGrouper(double window_ms = kDefaultWindowMs) noexcept;
 
   void set_window_ms(double window_ms) noexcept;
-  [[nodiscard]] double window_ms() const noexcept {
-    return window_ms_;
-  }
+  [[nodiscard]] double window_ms() const noexcept { return window_ms_; }
 
   void push_event(const MidiNoteEvent& event);
   void update(double now_ms);
@@ -37,9 +35,7 @@ public:
   [[nodiscard]] bool flush_if_cardinality(std::size_t expected_count, double now_ms);
 
   [[nodiscard]] std::vector<PlayedChord> take_completed_chords();
-  [[nodiscard]] const std::array<bool, 128>& held_notes() const noexcept {
-    return held_notes_;
-  }
+  [[nodiscard]] const std::array<bool, 128>& held_notes() const noexcept { return held_notes_; }
 
   void clear();
 
