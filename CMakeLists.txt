@@ -182,7 +182,9 @@ add_library(piano_midi STATIC
   src/midi/chord_grouper.cpp
   src/midi/midi_scheduler.cpp
   src/midi/audio_synth.cpp
-  src/midi/midi_engine.cpp
+  src/midi/midi_engine_common.cpp
+  $<$<BOOL:${EMSCRIPTEN}>:src/midi/midi_engine_web.cpp>
+  $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:src/midi/midi_engine_native.cpp>
   src/midi/qwerty_mapper.cpp
 )
 target_include_directories(piano_midi PUBLIC
@@ -216,6 +218,8 @@ add_library(piano_ui STATIC
   src/ui/warmup_view.cpp
   src/ui/flashcard_view.cpp
   src/ui/etude_view.cpp
+  src/ui/curriculum_modal.cpp
+  src/ui/import_lesson_modal.cpp
   src/ui/lesson_view.cpp
   src/ui/companion_view.cpp
   src/ui/srs_view.cpp

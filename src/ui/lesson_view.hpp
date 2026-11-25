@@ -8,6 +8,8 @@
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_scheduler.hpp"
 
+#include "ui/curriculum_modal.hpp"
+#include "ui/import_lesson_modal.hpp"
 #include "ui/staff_renderer.hpp"
 #include "ui/virtual_piano.hpp"
 
@@ -84,11 +86,8 @@ public:
                                        const core::LessonLibrary& library,
                                        core::UserProfile& profile, std::int64_t today_epoch_day);
 
-  void open_curriculum_browser() noexcept { curriculum_open_ = true; }
-  void open_my_books_tab() noexcept {
-    curriculum_open_ = true;
-    curriculum_tab_ = 1;
-  }
+  void open_curriculum_browser() noexcept { curriculum_modal_.open(); }
+  void open_my_books_tab() noexcept { curriculum_modal_.open_my_books(); }
   void open_import_preview(core::MusicXmlImportResult result);
   void open_edit_imported_lesson(const core::LessonScore& score);
   void set_import_error(std::string message);
@@ -97,9 +96,14 @@ public:
 private:
   void finalize_completed_run(core::UserProfile& profile, std::int64_t today_epoch_day,
                               bool& out_chime, bool& out_just_mastered);
-  void draw_curriculum_modal(const core::LessonLibrary& library, const core::UserProfile& profile,
-                             std::int64_t today_epoch_day, LessonViewActions& actions);
-  void draw_import_modal(LessonViewActions& actions);
+  void draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
+                      LessonViewActions& actions);
+  void draw_scaffold_bar(const core::LessonProgress& prog);
+  void draw_theory_lens(bool is_running);
+  void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
+                           LessonViewActions& actions);
+  void draw_status_strip() const;
+  void draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const;
 
   core::LessonEngine engine_{};
   bool metronome_enabled_{true};
@@ -107,18 +111,8 @@ private:
   bool show_fingerings_{true};
   bool show_harmony_{true};
   bool theory_expanded_{false};
-  bool curriculum_open_{false};
-  int curriculum_tab_{0}; // 0 = Tiers 1-6, 1 = My Books
-  bool import_modal_open_{false};
-  bool import_is_editing_{false};
-  core::LessonScore import_draft_{};
-  std::vector<std::string> import_warnings_{};
-  std::string import_error_{};
-  std::array<char, 160> import_title_buf_{};
-  std::array<char, 160> import_composer_buf_{};
-  float import_bpm_buf_{84.0f};
-  std::vector<std::string> import_bar_chords_{};
-  bool import_harmony_expanded_{false};
+  CurriculumModal curriculum_modal_{};
+  ImportLessonModal import_modal_{};
   bool just_mastered_banner_{false};
   bool is_revision_mode_{false};
   std::string revision_lesson_id_{};

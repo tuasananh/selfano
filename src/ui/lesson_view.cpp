@@ -1,8 +1,6 @@
 #include "ui/lesson_view.hpp"
 
-#include "core/chord_symbol.hpp"
 #include "core/key_signature.hpp"
-#include "core/pitch.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
@@ -13,44 +11,11 @@
 
 #include <algorithm>
 #include <array>
-#include <cstring>
 #include <format>
 #include <string_view>
 #include <vector>
 
 namespace selfano::ui {
-
-namespace {
-
-[[nodiscard]] const char* mastery_status_label(core::LessonMasteryStatus st) noexcept {
-  switch (st) {
-  case core::LessonMasteryStatus::New:
-    return "New";
-  case core::LessonMasteryStatus::Learning:
-    return "Learning";
-  case core::LessonMasteryStatus::Mastered:
-    return "Mastered";
-  case core::LessonMasteryStatus::NeedsReview:
-    return "Needs Review";
-  }
-  return "New";
-}
-
-[[nodiscard]] StatusTone mastery_status_tone(core::LessonMasteryStatus st) noexcept {
-  switch (st) {
-  case core::LessonMasteryStatus::New:
-    return StatusTone::Neutral;
-  case core::LessonMasteryStatus::Learning:
-    return StatusTone::Accent;
-  case core::LessonMasteryStatus::Mastered:
-    return StatusTone::Success;
-  case core::LessonMasteryStatus::NeedsReview:
-    return StatusTone::Warning;
-  }
-  return StatusTone::Neutral;
-}
-
-} // namespace
 
 void LessonView::load_lesson(const core::LessonScore& score,
                              std::optional<core::LessonConfig> cfg) {
@@ -224,366 +189,22 @@ LessonView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) co
 }
 
 void LessonView::open_import_preview(core::MusicXmlImportResult result) {
-  import_draft_ = std::move(result.score);
-  import_warnings_ = std::move(result.warnings);
-  import_error_.clear();
-  import_is_editing_ = false;
-  import_harmony_expanded_ = false;
-  std::snprintf(import_title_buf_.data(), import_title_buf_.size(), "%s",
-                import_draft_.meta.title.c_str());
-  std::snprintf(import_composer_buf_.data(), import_composer_buf_.size(), "%s",
-                import_draft_.meta.composer_source.c_str());
-  import_bpm_buf_ = static_cast<float>(std::clamp(import_draft_.meta.target_bpm, 36.0, 220.0));
-  import_bar_chords_.clear();
-  import_bar_chords_.reserve(import_draft_.measures.size());
-  for (const auto& m : import_draft_.measures) {
-    import_bar_chords_.push_back(m.harmony.empty() ? std::string{}
-                                                   : m.harmony.front().chord_symbol);
-  }
-  import_modal_open_ = true;
+  import_modal_.open_preview(std::move(result));
 }
 
 void LessonView::open_edit_imported_lesson(const core::LessonScore& score) {
-  import_draft_ = score;
-  import_warnings_.clear();
-  import_error_.clear();
-  import_is_editing_ = true;
-  import_harmony_expanded_ = false;
-  std::snprintf(import_title_buf_.data(), import_title_buf_.size(), "%s",
-                import_draft_.meta.title.c_str());
-  std::snprintf(import_composer_buf_.data(), import_composer_buf_.size(), "%s",
-                import_draft_.meta.composer_source.c_str());
-  import_bpm_buf_ = static_cast<float>(std::clamp(import_draft_.meta.target_bpm, 36.0, 220.0));
-  import_bar_chords_.clear();
-  import_bar_chords_.reserve(import_draft_.measures.size());
-  for (const auto& m : import_draft_.measures) {
-    import_bar_chords_.push_back(m.harmony.empty() ? std::string{}
-                                                   : m.harmony.front().chord_symbol);
-  }
-  import_modal_open_ = true;
+  import_modal_.open_edit(score);
 }
 
 void LessonView::set_import_error(std::string message) {
-  import_error_ = std::move(message);
-  curriculum_open_ = true;
-  curriculum_tab_ = 1;
+  import_modal_.set_error(std::move(message));
+  curriculum_modal_.open_my_books();
 }
 
-void LessonView::draw_import_modal(LessonViewActions& actions) {
-  if (!begin_modal_sheet("##imp_dim_bg", "##import_preview_modal", import_modal_open_, 680.0f,
-                         560.0f, 0.62f, 0.38f)) {
-    return;
-  }
-
-  const auto& c = colors();
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  {
-    {
-      ScopedFont tf(TypeStyle::Title);
-      ImGui::TextUnformatted(import_is_editing_ ? "Edit My Books Score" : "Import MusicXML Score");
-    }
-    ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
-    status_pill(core::format_key_name(import_draft_.meta.key), StatusTone::Accent);
-    ImGui::SameLine(0.0f, 6.0f * scale);
-    status_pill(std::format("{}/{}", import_draft_.meta.time_signature.numerator,
-                            import_draft_.meta.time_signature.denominator),
-                StatusTone::Neutral);
-    ImGui::SameLine(0.0f, 6.0f * scale);
-    status_pill(std::format("{} bars", import_draft_.measures.size()), StatusTone::Neutral);
-    ImGui::SameLine(0.0f, 6.0f * scale);
-    status_pill(std::format("{} phrases", import_draft_.phrases.size()), StatusTone::Neutral);
-
-    hairline_separator(10.0f);
-
-    if (ImGui::BeginChild("##imp_body_scroll", ImVec2(0.0f, -46.0f * scale))) {
-      section_kicker("METADATA");
-      ImGui::Spacing();
-      ImGui::SetNextItemWidth(-1.0f);
-      ImGui::InputText("Title##imp_title", import_title_buf_.data(), import_title_buf_.size());
-      ImGui::SetNextItemWidth(-1.0f);
-      ImGui::InputText("Composer / Source##imp_comp", import_composer_buf_.data(),
-                       import_composer_buf_.size());
-      ImGui::SetNextItemWidth(220.0f * scale);
-      ImGui::SliderFloat("Target BPM##imp_bpm", &import_bpm_buf_, 36.0f, 220.0f, "%.0f BPM");
-
-      if (!import_warnings_.empty()) {
-        ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
-        begin_card("##imp_warn_card", ImVec2(0.0f, 0.0f), 10.0f, 10.0f, true, false);
-        section_kicker("IMPORT NOTES");
-        for (const auto& w : import_warnings_) {
-          ScopedFont sf(TypeStyle::Subheadline);
-          ImGui::TextColored(c.warning_text, "%s", w.c_str());
-        }
-        end_card();
-      }
-
-      ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
-      if (pill_button(import_harmony_expanded_ ? "Hide Bar Harmony Editor##imp_h_tog"
-                                               : "Edit Bar Harmony (Chord Skeleton)##imp_h_tog",
-                      import_harmony_expanded_ ? ButtonTone::SoftAccent : ButtonTone::Secondary,
-                      IconId::Sliders, 28.0f)) {
-        import_harmony_expanded_ = !import_harmony_expanded_;
-      }
-
-      if (import_harmony_expanded_) {
-        ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
-        if (ImGui::BeginChild("##imp_harmony_bars", ImVec2(0.0f, 180.0f * scale),
-                              ImGuiChildFlags_Borders)) {
-          for (std::size_t bi = 0; bi < import_bar_chords_.size(); ++bi) {
-            std::array<char, 32> buf{};
-            std::snprintf(buf.data(), buf.size(), "%s", import_bar_chords_[bi].c_str());
-            const std::string lbl = std::format("Bar {}##imp_hc_{}", bi + 1U, bi);
-            ImGui::SetNextItemWidth(140.0f * scale);
-            if (ImGui::InputText(lbl.c_str(), buf.data(), buf.size())) {
-              import_bar_chords_[bi] = buf.data();
-            }
-          }
-        }
-        ImGui::EndChild();
-      }
-
-      if (!import_error_.empty()) {
-        ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
-        ScopedFont sf(TypeStyle::Subheadline);
-        ImGui::TextColored(c.danger_text, "%s", import_error_.c_str());
-      }
-    }
-    ImGui::EndChild();
-
-    hairline_separator(6.0f);
-    if (pill_button("Cancel##imp_cancel", ButtonTone::Secondary, IconId::None, 32.0f, 96.0f)) {
-      import_modal_open_ = false;
-      import_error_.clear();
-    }
-    ImGui::SameLine(0.0f, 10.0f * scale);
-    if (pill_button("Save & Open##imp_save", ButtonTone::Primary, IconId::Check, 32.0f, 130.0f,
-                    true)) {
-      const std::string new_title = import_title_buf_.data();
-      if (new_title.empty()) {
-        import_error_ = "Title cannot be empty.";
-      } else {
-        bool harmony_ok = true;
-        for (std::size_t bi = 0;
-             bi < import_draft_.measures.size() && bi < import_bar_chords_.size(); ++bi) {
-          const std::string& sym = import_bar_chords_[bi];
-          if (sym.empty()) {
-            import_draft_.measures[bi].harmony.clear();
-            continue;
-          }
-          if (!core::parse_chord_symbol(sym).has_value()) {
-            import_error_ =
-                std::format("Bar {} chord '{}' is not valid (e.g. Gm, C7, Ab/C)", bi + 1U, sym);
-            harmony_ok = false;
-            break;
-          }
-          if (import_draft_.measures[bi].harmony.empty()) {
-            import_draft_.measures[bi].harmony.push_back(core::HarmonicAnnotation{
-                .start_tick = 0, .chord_symbol = sym, .roman_numeral = {}});
-          } else {
-            import_draft_.measures[bi].harmony.front().chord_symbol = sym;
-          }
-        }
-        if (harmony_ok) {
-          import_draft_.meta.title = new_title;
-          import_draft_.meta.composer_source = import_composer_buf_[0] != '\0'
-                                                   ? std::string(import_composer_buf_.data())
-                                                   : std::string("Imported Score");
-          import_draft_.meta.target_bpm =
-              std::clamp(static_cast<double>(import_bpm_buf_), 36.0, 220.0);
-          import_draft_.meta.is_imported = true;
-          import_draft_.meta.tier = 0U;
-          if (const auto valid = core::validate_lesson_score(import_draft_); !valid.has_value()) {
-            import_error_ = valid.error().front();
-          } else {
-            actions.save_imported_lesson = import_draft_;
-            import_error_.clear();
-            import_modal_open_ = false;
-            curriculum_open_ = false;
-          }
-        }
-      }
-    }
-  }
-  end_modal_sheet(import_modal_open_);
-}
-
-void LessonView::draw_curriculum_modal(const core::LessonLibrary& library,
-                                       const core::UserProfile& profile,
-                                       std::int64_t today_epoch_day, LessonViewActions& actions) {
-  if (!begin_modal_sheet("##curr_dim_bg", "##curriculum_browser_modal", curriculum_open_, 840.0f,
-                         620.0f)) {
-    return;
-  }
-
-  const auto& c = colors();
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  {
-    {
-      ScopedFont tf(TypeStyle::Title);
-      ImGui::AlignTextToFramePadding();
-      ImGui::TextUnformatted("Classical Curriculum");
-    }
-    ImGui::SameLine(0.0f, 16.0f * scale);
-    static constexpr std::array<std::string_view, 2> kTabs{"Tiers 1-6", "My Books"};
-    segmented_control("##curr_tab_seg", &curriculum_tab_, kTabs, 210.0f, 30.0f);
-
-    const float close_w = 84.0f * scale;
-    const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, avail_end - close_w));
-    if (pill_button("Done##curr_done", ButtonTone::Primary, IconId::Check, 30.0f, 76.0f, true)) {
-      curriculum_open_ = false;
-    }
-
-    hairline_separator(10.0f);
-
-    if (ImGui::BeginChild("##curr_scroll", ImVec2(0.0f, 0.0f))) {
-      auto draw_lesson_row = [&](const core::LessonScore* lesson) {
-        const auto prog_it = profile.lesson_progress.find(lesson->meta.id);
-        const core::LessonProgress prog =
-            (prog_it != profile.lesson_progress.end()) ? prog_it->second : core::LessonProgress{};
-        const auto eff_st = core::effective_mastery_status(prog, today_epoch_day);
-        const bool is_active = (lesson->meta.id == engine_.score().meta.id);
-
-        const std::string cid = std::format("##curr_row_{}", lesson->meta.id);
-        begin_card(cid.c_str(), ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, is_active);
-
-        if (is_active) {
-          status_pill("Active", StatusTone::Accent, IconId::Play);
-          ImGui::SameLine(0.0f, 8.0f * scale);
-        }
-        status_pill(mastery_status_label(eff_st), mastery_status_tone(eff_st), IconId::None, true);
-
-        const float open_w = 98.0f * scale;
-        const float row_right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-        if (ImGui::GetItemRectMax().x + 12.0f * scale + open_w <= row_right) {
-          ImGui::SameLine(
-              std::max(ImGui::GetCursorPosX() + 8.0f * scale,
-                       ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - open_w));
-        }
-        const std::string btn_id =
-            std::format("{}##open_{}", is_active ? "Current" : "Open", lesson->meta.id);
-        if (pill_button(btn_id.c_str(), is_active ? ButtonTone::SoftAccent : ButtonTone::Primary,
-                        IconId::ChevronRight, 28.0f, 88.0f, true)) {
-          actions.select_lesson_id = lesson->meta.id;
-          curriculum_open_ = false;
-        }
-        if (lesson->meta.is_imported) {
-          ImGui::SameLine(0.0f, 6.0f * scale);
-          const std::string edit_id = std::format("Edit##edit_{}", lesson->meta.id);
-          if (pill_button(edit_id.c_str(), ButtonTone::Secondary, IconId::Edit, 28.0f)) {
-            open_edit_imported_lesson(*lesson);
-          }
-          ImGui::SameLine(0.0f, 6.0f * scale);
-          const std::string del_id = std::format("##del_{}", lesson->meta.id);
-          if (icon_button(del_id.c_str(), IconId::Trash, "Delete Imported Score", false, 28.0f,
-                          ButtonTone::Destructive)) {
-            actions.delete_imported_lesson_id = lesson->meta.id;
-          }
-        }
-
-        {
-          ScopedFont hf(TypeStyle::Headline);
-          ImGui::TextWrapped("%s", lesson->meta.title.c_str());
-        }
-
-        const std::string meta_line = std::format(
-            "{}  \xC2\xB7  {}  \xC2\xB7  {}/{}  \xC2\xB7  {:.0f} BPM  \xC2\xB7  {} bars",
-            lesson->meta.composer_source, core::format_key_name(lesson->meta.key),
-            lesson->meta.time_signature.numerator, lesson->meta.time_signature.denominator,
-            lesson->meta.target_bpm, lesson->measures.size());
-        {
-          ScopedFont sf(TypeStyle::Subheadline);
-          ImGui::TextColored(c.text_secondary, "%s", meta_line.c_str());
-        }
-        if (prog.best_clean_bpm > 0.0) {
-          ScopedFont cf(TypeStyle::Caption);
-          ImGui::TextColored(c.success_text, "Best clean: %.0f BPM (%.0f%%)", prog.best_clean_bpm,
-                             prog.best_accuracy * 100.0);
-        }
-
-        end_card();
-        ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
-      };
-
-      if (curriculum_tab_ == 0) {
-        for (const auto& tier : library.tiers()) {
-          const auto tier_lessons = library.lessons_in_tier(tier.tier);
-          if (tier_lessons.empty()) {
-            continue;
-          }
-          section_kicker(tier.title.c_str());
-          {
-            ScopedFont cf(TypeStyle::Caption);
-            ImGui::TextColored(c.text_tertiary, "%s  \xC2\xB7  %s", tier.subtitle.c_str(),
-                               tier.focus.c_str());
-          }
-          ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
-          for (const auto* l : tier_lessons) {
-            draw_lesson_row(l);
-          }
-          ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
-        }
-      } else {
-        if (pill_button("Import Score (.musicxml / .mxl)##mb_import", ButtonTone::Primary,
-                        IconId::Plus, 34.0f, 0.0f, true)) {
-          actions.request_import_file_dialog = true;
-        }
-        ImGui::SameLine(0.0f, 12.0f * scale);
-        {
-          ScopedFont cf(TypeStyle::Subheadline);
-          ImGui::AlignTextToFramePadding();
-          ImGui::TextColored(c.text_secondary,
-                             "Or drag & drop a .musicxml / .mxl file onto the window");
-        }
-        if (!import_error_.empty() && !import_modal_open_) {
-          ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
-          begin_card("##mb_err_card", ImVec2(0.0f, 0.0f), 10.0f, 10.0f, true, false);
-          {
-            ScopedFont sf(TypeStyle::Subheadline);
-            ImGui::TextColored(c.danger_text, "Import Error: %s", import_error_.c_str());
-          }
-          ImGui::SameLine(0.0f, 10.0f * scale);
-          if (pill_button("Dismiss##mb_err_ok", ButtonTone::Secondary, IconId::None, 24.0f)) {
-            import_error_.clear();
-          }
-          end_card();
-        }
-        ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
-
-        const auto imported = library.imported_lessons();
-        if (imported.empty()) {
-          begin_card("##my_books_empty", ImVec2(0.0f, 0.0f), 18.0f, 12.0f, true, false);
-          {
-            ScopedFont bf(TypeStyle::Body);
-            ImGui::TextColored(c.text_secondary,
-                               "No custom MusicXML scores imported yet. Click Import Score above "
-                               "to add your own piano books.");
-          }
-          end_card();
-        } else {
-          for (const auto* l : imported) {
-            draw_lesson_row(l);
-          }
-        }
-      }
-    }
-    ImGui::EndChild();
-  }
-  end_modal_sheet(curriculum_open_);
-}
-
-LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
-                                   const core::LessonLibrary& library, core::UserProfile& profile,
-                                   std::int64_t today_epoch_day) {
-  LessonViewActions actions{};
-  const auto& c = colors();
+void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
+                                LessonViewActions& actions) {
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const auto& meta = engine_.score().meta;
-  const auto prog_it = profile.lesson_progress.find(meta.id);
-  const core::LessonProgress prog =
-      (prog_it != profile.lesson_progress.end()) ? prog_it->second : core::LessonProgress{};
-
-  // 1. Top Strip (Title + metadata pills + action strip with width-aware wrapping)
   const float top_right_edge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
   auto wrap_if_needed = [&](float needed_logical_w, float gap_logical = 8.0f) {
     const float prev_right = ImGui::GetItemRectMax().x;
@@ -612,9 +233,8 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     status_pill("Guided Revision", StatusTone::Warning, IconId::Repeat);
   }
 
-  // Action CTAs (wrap cleanly under elevated zoom or narrow panes)
   if (pill_button("Curriculum##lv_curr", ButtonTone::Secondary, IconId::Layers, 32.0f)) {
-    curriculum_open_ = true;
+    curriculum_modal_.open();
   }
   wrap_if_needed(88.0f, 8.0f);
   if (pill_button("Demo##lv_demo", ButtonTone::SoftAccent, IconId::VolumeOn, 32.0f, 0.0f, false,
@@ -688,10 +308,15 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     }
     ImGui::EndPopup();
   }
+}
 
-  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+void LessonView::draw_scaffold_bar(const core::LessonProgress& prog) {
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto& meta = engine_.score().meta;
+  const auto pb_st = engine_.playback_state();
+  const bool is_running =
+      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
 
-  // 2. Practice Scaffold Bar: Mode | Hand | Tempo Ladder | Phrases
   begin_card("##lv_scaffold", ImVec2(0.0f, 0.0f), 10.0f, 12.0f, true, true);
   {
     const float sc_right_edge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
@@ -737,7 +362,6 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
       status_pill(std::format("BPM {:.0f}", engine_.effective_bpm()), StatusTone::Accent);
     }
 
-    // Row 2 inside scaffold: Phrase chips (or combo for > 6 phrases) + Theory Lens toggle
     ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
     const auto& phrases = engine_.phrases();
     if (phrases.size() <= 6U) {
@@ -792,198 +416,261 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     }
   }
   end_card();
+}
 
-  // 3. Collapsible Theory & Pattern Lens (auto-hidden during active Steady-Pulse playback)
-  if (theory_expanded_ && !is_running) {
-    ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
-    begin_card("##lv_theory_card", ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, false);
-    {
-      ScopedFont bf(TypeStyle::Subheadline);
-      ImGui::TextWrapped("%s", meta.theory.summary.c_str());
-      ImGui::TextColored(c.accent, "Pattern: %s", meta.theory.pattern_tip.c_str());
-      ImGui::TextColored(c.text_secondary, "Technique: %s", meta.theory.technique_tip.c_str());
-      ImGui::TextColored(c.indigo, "Ballade Bridge: %s", meta.theory.ballade_link.c_str());
-    }
-    end_card();
+void LessonView::draw_theory_lens(bool is_running) {
+  if (!theory_expanded_ || is_running) {
+    return;
   }
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto& meta = engine_.score().meta;
 
-  // 4. Mastery Celebration Banner
-  if (just_mastered_banner_ ||
-      (prog.status == core::LessonMasteryStatus::Mastered && !prog.added_to_srs)) {
-    ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
-    begin_card("##lv_mastered_banner", ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, true);
-    status_pill("Piece Mastered!", StatusTone::Success, IconId::Check);
-    ImGui::SameLine(0.0f, 10.0f * scale);
-    {
-      ScopedFont bf(TypeStyle::Body);
-      ImGui::AlignTextToFramePadding();
-      ImGui::TextUnformatted("Scheduled for Stage 3 Guided Revision.");
-    }
-    if (!prog.added_to_srs) {
-      ImGui::SameLine(0.0f, 12.0f * scale);
-      if (pill_button("Add to Memory SRS (Stage 4A)##lv_add_srs", ButtonTone::Primary,
-                      IconId::Layers, 28.0f)) {
-        actions.add_to_srs_requested = true;
-        actions.add_to_srs_lesson_id = meta.id;
-      }
-    }
-    if (const auto next_id = library.next_lesson_id(meta.id); next_id.has_value()) {
-      ImGui::SameLine(0.0f, 8.0f * scale);
-      if (pill_button("Next Lesson##lv_next", ButtonTone::Success, IconId::ChevronRight, 28.0f)) {
-        actions.next_lesson_id = *next_id;
-        just_mastered_banner_ = false;
-      }
-    }
-    end_card();
-  }
-
-  // 5. Status telemetry strip
+  ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
+  begin_card("##lv_theory_card", ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, false);
   {
-    std::string status_msg = "Ready";
-    StatusTone st_tone = StatusTone::Neutral;
-    if (pb_st == core::LessonPlaybackState::CountIn) {
-      status_msg = std::format("Count-in: {}", engine_.count_in_beats_remaining());
-      st_tone = StatusTone::Warning;
-    } else if (pb_st == core::LessonPlaybackState::Playing) {
-      status_msg = std::format("Steady Pulse {:.0f} BPM", engine_.effective_bpm());
-      st_tone = StatusTone::Accent;
-    } else if (pb_st == core::LessonPlaybackState::Completed) {
-      status_msg = std::format("Completed · {:.0f}% accuracy", engine_.accuracy() * 100.0);
-      st_tone = StatusTone::Success;
-    } else if (engine_.config().practice_mode == core::LessonPracticeMode::ChordSkeleton) {
-      status_msg = "Chord Skeleton · play chord tones in any octave";
-    } else if (engine_.config().practice_mode == core::LessonPracticeMode::WaitForNote) {
-      status_msg = "Wait-for-Note · play highlighted notes";
-    }
-    status_pill(status_msg, st_tone, IconId::None, true);
+    ScopedFont bf(TypeStyle::Subheadline);
+    ImGui::TextWrapped("%s", meta.theory.summary.c_str());
+    ImGui::TextColored(c.accent, "Pattern: %s", meta.theory.pattern_tip.c_str());
+    ImGui::TextColored(c.text_secondary, "Technique: %s", meta.theory.technique_tip.c_str());
+    ImGui::TextColored(c.indigo, "Ballade Bridge: %s", meta.theory.ballade_link.c_str());
+  }
+  end_card();
+}
+
+void LessonView::draw_mastery_banner(const core::LessonLibrary& library,
+                                     const core::LessonProgress& prog, LessonViewActions& actions) {
+  if (!just_mastered_banner_ &&
+      !(prog.status == core::LessonMasteryStatus::Mastered && !prog.added_to_srs)) {
+    return;
+  }
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto& meta = engine_.score().meta;
+
+  ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
+  begin_card("##lv_mastered_banner", ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, true);
+  status_pill("Piece Mastered!", StatusTone::Success, IconId::Check);
+  ImGui::SameLine(0.0f, 10.0f * scale);
+  {
+    ScopedFont bf(TypeStyle::Body);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Scheduled for Stage 3 Guided Revision.");
+  }
+  if (!prog.added_to_srs) {
     ImGui::SameLine(0.0f, 12.0f * scale);
-    {
-      ScopedFont sub(TypeStyle::Subheadline);
-      ImGui::AlignTextToFramePadding();
-      ImGui::TextColored(c.text_secondary, "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  %.0f%%",
-                         std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
-                         engine_.targets().size(), engine_.hit_count(), engine_.accuracy() * 100.0);
+    if (pill_button("Add to Memory SRS (Stage 4A)##lv_add_srs", ButtonTone::Primary, IconId::Layers,
+                    28.0f)) {
+      actions.add_to_srs_requested = true;
+      actions.add_to_srs_lesson_id = meta.id;
     }
   }
+  if (const auto next_id = library.next_lesson_id(meta.id); next_id.has_value()) {
+    ImGui::SameLine(0.0f, 8.0f * scale);
+    if (pill_button("Next Lesson##lv_next", ButtonTone::Success, IconId::ChevronRight, 28.0f)) {
+      actions.next_lesson_id = *next_id;
+      just_mastered_banner_ = false;
+    }
+  }
+  end_card();
+}
 
-  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+void LessonView::draw_status_strip() const {
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto pb_st = engine_.playback_state();
 
-  // 6. 2-System Elevated Grand Staff Canvas
+  std::string status_msg = "Ready";
+  StatusTone st_tone = StatusTone::Neutral;
+  if (pb_st == core::LessonPlaybackState::CountIn) {
+    status_msg = std::format("Count-in: {}", engine_.count_in_beats_remaining());
+    st_tone = StatusTone::Warning;
+  } else if (pb_st == core::LessonPlaybackState::Playing) {
+    status_msg = std::format("Steady Pulse {:.0f} BPM", engine_.effective_bpm());
+    st_tone = StatusTone::Accent;
+  } else if (pb_st == core::LessonPlaybackState::Completed) {
+    status_msg = std::format("Completed · {:.0f}% accuracy", engine_.accuracy() * 100.0);
+    st_tone = StatusTone::Success;
+  } else if (engine_.config().practice_mode == core::LessonPracticeMode::ChordSkeleton) {
+    status_msg = "Chord Skeleton · play chord tones in any octave";
+  } else if (engine_.config().practice_mode == core::LessonPracticeMode::WaitForNote) {
+    status_msg = "Wait-for-Note · play highlighted notes";
+  }
+  status_pill(status_msg, st_tone, IconId::None, true);
+  ImGui::SameLine(0.0f, 12.0f * scale);
+  {
+    ScopedFont sub(TypeStyle::Subheadline);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(c.text_secondary, "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  %.0f%%",
+                       std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
+                       engine_.targets().size(), engine_.hit_count(), engine_.accuracy() * 100.0);
+  }
+}
+
+void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font) const {
   const auto& measures = engine_.display_measures();
-  if (!measures.empty()) {
-    const std::size_t slice_start = engine_.slice_start_bar();
-    const std::size_t slice_end = std::min(measures.size() - 1U, engine_.slice_end_bar());
-
-    std::size_t active_global_bar = slice_start;
-    if (engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse && is_running) {
-      active_global_bar = std::min(slice_end, slice_start + engine_.current_bar_in_slice());
-    } else if (engine_.active_target_index() < engine_.targets().size()) {
-      active_global_bar = engine_.targets()[engine_.active_target_index()].bar_index;
-    } else if (!engine_.targets().empty()) {
-      active_global_bar = engine_.targets().back().bar_index;
-    }
-
-    const std::size_t rel_bar =
-        (active_global_bar >= slice_start) ? (active_global_bar - slice_start) : 0U;
-    const std::size_t sys1_start = slice_start + (rel_bar / 4U) * 4U;
-    const std::size_t sys1_end = std::min(slice_end, sys1_start + 3U);
-
-    LessonFeedbackMap fb_map;
-    const auto& targets = engine_.targets();
-    for (std::size_t ti = 0; ti < targets.size(); ++ti) {
-      const auto& t = targets[ti];
-      LessonTargetVisualState vst{};
-      if (t.status == core::LessonTargetStatus::Hit) {
-        vst.feedback = NoteFeedback::Correct;
-      } else if (t.status == core::LessonTargetStatus::Missed) {
-        vst.feedback = NoteFeedback::Incorrect;
-        if (!t.played_midi.empty()) {
-          vst.played_label = core::format_midi_list(t.played_midi, meta.key, "+");
-        }
-      }
-      if (ti == engine_.active_target_index() &&
-          engine_.config().practice_mode != core::LessonPracticeMode::SteadyPulse) {
-        vst.is_active_cursor = true;
-      }
-      fb_map[{t.bar_index, t.tick_in_bar}] = std::move(vst);
-    }
-
-    const bool show_treble = (engine_.config().hand_mode == core::LessonHandMode::RightHand ||
-                              engine_.config().hand_mode == core::LessonHandMode::HandsTogether);
-    const bool show_bass = (engine_.config().hand_mode == core::LessonHandMode::LeftHand ||
-                            engine_.config().hand_mode == core::LessonHandMode::HandsTogether);
-    const StaffViewMode view_mode =
-        (show_treble && show_bass)
-            ? StaffViewMode::GrandStaff
-            : (show_treble ? StaffViewMode::TrebleOnly : StaffViewMode::BassOnly);
-
-    const float avail_w = std::max(340.0f, ImGui::GetContentRegionAvail().x);
-    const float avail_h = std::max(220.0f, ImGui::GetContentRegionAvail().y);
-    const bool has_sys2 = (sys1_end + 1U <= slice_end);
-    const float gap_spaces = (has_sys2 && avail_h < 500.0f * scale) ? 5.4f : 6.5f;
-
-    StaffRenderOptions probe_opts{};
-    probe_opts.view_mode = view_mode;
-    probe_opts.staff_space = 100.0f;
-    probe_opts.grand_staff_gap_spaces = gap_spaces;
-    probe_opts.show_harmony_labels = show_harmony_;
-    const float spaces_per_sys = compute_staff_canvas_height(probe_opts) / 100.0f;
-    const float sys2_chrome =
-        has_sys2 ? (8.0f * scale + ImGui::GetTextLineHeightWithSpacing() + 4.0f * scale) : 0.0f;
-    const float fit_space =
-        (avail_h - sys2_chrome - 4.0f * scale) / ((has_sys2 ? 2.0f : 1.0f) * spaces_per_sys);
-    const float staff_space = std::clamp(fit_space, 8.2f, 15.0f);
-
-    StaffRenderOptions opts1{};
-    opts1.key = meta.key;
-    opts1.time_signature = meta.time_signature;
-    opts1.view_mode = view_mode;
-    opts1.staff_space = staff_space;
-    opts1.grand_staff_gap_spaces = gap_spaces;
-    opts1.light_paper_theme = light_paper_theme_;
-    opts1.show_fingerings = show_fingerings_;
-    opts1.show_harmony_labels = show_harmony_;
-    opts1.show_final_barline = !has_sys2;
-    if (pb_st == core::LessonPlaybackState::Playing) {
-      double prior_beats = 0.0;
-      for (std::size_t b = slice_start; b < sys1_start; ++b) {
-        prior_beats += static_cast<double>(
-            measures[b].meter_change.value_or(meta.time_signature).pulse_count());
-      }
-      opts1.playhead_beat = static_cast<float>(engine_.playhead_global_beat() - prior_beats);
-    }
-
-    const std::span<const core::LessonMeasure> sys1_slice(measures.data() + sys1_start,
-                                                          sys1_end - sys1_start + 1U);
-    const auto sm1 = build_lesson_staff_measures(sys1_slice, sys1_start, meta.time_signature,
-                                                 show_treble, show_bass, &fb_map);
-    const float h1 = compute_staff_canvas_height(opts1);
-    const ImVec2 o1 = ImGui::GetCursorScreenPos();
-    ImGui::InvisibleButton("##lv_sys1", ImVec2(avail_w, h1));
-    render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o1, avail_w, sm1, opts1);
-
-    if (has_sys2) {
-      ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
-      section_kicker("UPCOMING");
-      const std::size_t sys2_start = sys1_end + 1U;
-      const std::size_t sys2_end = std::min(slice_end, sys2_start + 3U);
-      const std::span<const core::LessonMeasure> sys2_slice(measures.data() + sys2_start,
-                                                            sys2_end - sys2_start + 1U);
-      const auto sm2 = build_lesson_staff_measures(sys2_slice, sys2_start, meta.time_signature,
-                                                   show_treble, show_bass, nullptr);
-      StaffRenderOptions opts2 = opts1;
-      opts2.playhead_beat.reset();
-      opts2.dim_preview = true;
-      opts2.show_final_barline = (sys2_end == slice_end);
-      const float h2 = compute_staff_canvas_height(opts2);
-      const ImVec2 o2 = ImGui::GetCursorScreenPos();
-      ImGui::InvisibleButton("##lv_sys2", ImVec2(avail_w, h2));
-      render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o2, avail_w, sm2, opts2);
-    }
+  if (measures.empty()) {
+    return;
   }
 
-  draw_curriculum_modal(library, profile, today_epoch_day, actions);
-  draw_import_modal(actions);
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto& meta = engine_.score().meta;
+  const auto pb_st = engine_.playback_state();
+  const bool is_running =
+      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
+
+  const std::size_t slice_start = engine_.slice_start_bar();
+  const std::size_t slice_end = std::min(measures.size() - 1U, engine_.slice_end_bar());
+
+  std::size_t active_global_bar = slice_start;
+  if (engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse && is_running) {
+    active_global_bar = std::min(slice_end, slice_start + engine_.current_bar_in_slice());
+  } else if (engine_.active_target_index() < engine_.targets().size()) {
+    active_global_bar = engine_.targets()[engine_.active_target_index()].bar_index;
+  } else if (!engine_.targets().empty()) {
+    active_global_bar = engine_.targets().back().bar_index;
+  }
+
+  const std::size_t rel_bar =
+      (active_global_bar >= slice_start) ? (active_global_bar - slice_start) : 0U;
+  const std::size_t sys1_start = slice_start + (rel_bar / 4U) * 4U;
+  const std::size_t sys1_end = std::min(slice_end, sys1_start + 3U);
+
+  LessonFeedbackMap fb_map;
+  const auto& targets = engine_.targets();
+  for (std::size_t ti = 0; ti < targets.size(); ++ti) {
+    const auto& t = targets[ti];
+    LessonTargetVisualState vst{};
+    if (t.status == core::LessonTargetStatus::Hit) {
+      vst.feedback = NoteFeedback::Correct;
+    } else if (t.status == core::LessonTargetStatus::Missed) {
+      vst.feedback = NoteFeedback::Incorrect;
+      if (!t.played_midi.empty()) {
+        vst.played_label = core::format_midi_list(t.played_midi, meta.key, "+");
+      }
+    }
+    if (ti == engine_.active_target_index() &&
+        engine_.config().practice_mode != core::LessonPracticeMode::SteadyPulse) {
+      vst.is_active_cursor = true;
+    }
+    fb_map[{t.bar_index, t.tick_in_bar}] = std::move(vst);
+  }
+
+  const bool show_treble = (engine_.config().hand_mode == core::LessonHandMode::RightHand ||
+                            engine_.config().hand_mode == core::LessonHandMode::HandsTogether);
+  const bool show_bass = (engine_.config().hand_mode == core::LessonHandMode::LeftHand ||
+                          engine_.config().hand_mode == core::LessonHandMode::HandsTogether);
+  const StaffViewMode view_mode =
+      (show_treble && show_bass)
+          ? StaffViewMode::GrandStaff
+          : (show_treble ? StaffViewMode::TrebleOnly : StaffViewMode::BassOnly);
+
+  const float avail_w = std::max(340.0f, ImGui::GetContentRegionAvail().x);
+  const float avail_h = std::max(220.0f, ImGui::GetContentRegionAvail().y);
+  const bool has_sys2 = (sys1_end + 1U <= slice_end);
+  const float gap_spaces = (has_sys2 && avail_h < 500.0f * scale) ? 5.4f : 6.5f;
+
+  StaffRenderOptions probe_opts{};
+  probe_opts.view_mode = view_mode;
+  probe_opts.staff_space = 100.0f;
+  probe_opts.grand_staff_gap_spaces = gap_spaces;
+  probe_opts.show_harmony_labels = show_harmony_;
+  const float spaces_per_sys = compute_staff_canvas_height(probe_opts) / 100.0f;
+  const float sys2_chrome =
+      has_sys2 ? (8.0f * scale + ImGui::GetTextLineHeightWithSpacing() + 4.0f * scale) : 0.0f;
+  const float fit_space =
+      (avail_h - sys2_chrome - 4.0f * scale) / ((has_sys2 ? 2.0f : 1.0f) * spaces_per_sys);
+  const float staff_space = std::clamp(fit_space, 8.2f, 15.0f);
+
+  StaffRenderOptions opts1{};
+  opts1.key = meta.key;
+  opts1.time_signature = meta.time_signature;
+  opts1.view_mode = view_mode;
+  opts1.staff_space = staff_space;
+  opts1.grand_staff_gap_spaces = gap_spaces;
+  opts1.light_paper_theme = light_paper_theme_;
+  opts1.show_fingerings = show_fingerings_;
+  opts1.show_harmony_labels = show_harmony_;
+  opts1.show_final_barline = !has_sys2;
+  if (pb_st == core::LessonPlaybackState::Playing) {
+    double prior_beats = 0.0;
+    for (std::size_t b = slice_start; b < sys1_start; ++b) {
+      prior_beats +=
+          static_cast<double>(measures[b].meter_change.value_or(meta.time_signature).pulse_count());
+    }
+    opts1.playhead_beat = static_cast<float>(engine_.playhead_global_beat() - prior_beats);
+  }
+
+  const std::span<const core::LessonMeasure> sys1_slice(measures.data() + sys1_start,
+                                                        sys1_end - sys1_start + 1U);
+  const auto sm1 = build_lesson_staff_measures(sys1_slice, sys1_start, meta.time_signature,
+                                               show_treble, show_bass, &fb_map);
+  const float h1 = compute_staff_canvas_height(opts1);
+  const ImVec2 o1 = ImGui::GetCursorScreenPos();
+  ImGui::InvisibleButton("##lv_sys1", ImVec2(avail_w, h1));
+  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o1, avail_w, sm1, opts1);
+
+  if (has_sys2) {
+    ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
+    section_kicker("UPCOMING");
+    const std::size_t sys2_start = sys1_end + 1U;
+    const std::size_t sys2_end = std::min(slice_end, sys2_start + 3U);
+    const std::span<const core::LessonMeasure> sys2_slice(measures.data() + sys2_start,
+                                                          sys2_end - sys2_start + 1U);
+    const auto sm2 = build_lesson_staff_measures(sys2_slice, sys2_start, meta.time_signature,
+                                                 show_treble, show_bass, nullptr);
+    StaffRenderOptions opts2 = opts1;
+    opts2.playhead_beat.reset();
+    opts2.dim_preview = true;
+    opts2.show_final_barline = (sys2_end == slice_end);
+    const float h2 = compute_staff_canvas_height(opts2);
+    const ImVec2 o2 = ImGui::GetCursorScreenPos();
+    ImGui::InvisibleButton("##lv_sys2", ImVec2(avail_w, h2));
+    render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o2, avail_w, sm2, opts2);
+  }
+}
+
+LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
+                                   const core::LessonLibrary& library, core::UserProfile& profile,
+                                   std::int64_t today_epoch_day) {
+  LessonViewActions actions{};
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto& meta = engine_.score().meta;
+  const auto prog_it = profile.lesson_progress.find(meta.id);
+  const core::LessonProgress prog =
+      (prog_it != profile.lesson_progress.end()) ? prog_it->second : core::LessonProgress{};
+  const auto pb_st = engine_.playback_state();
+  const bool is_running =
+      (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing);
+
+  draw_top_strip(profile, today_epoch_day, actions);
+  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+  draw_scaffold_bar(prog);
+  draw_theory_lens(is_running);
+  draw_mastery_banner(library, prog, actions);
+  draw_status_strip();
+  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+  draw_staff_systems(smufl_font, ui_font);
+
+  const auto cm_act =
+      curriculum_modal_.draw(library, profile, meta.id, today_epoch_day,
+                             import_modal_.mutable_error(), import_modal_.is_open());
+  if (cm_act.select_lesson_id.has_value()) {
+    actions.select_lesson_id = cm_act.select_lesson_id;
+  }
+  if (cm_act.edit_imported_lesson.has_value()) {
+    import_modal_.open_edit(*cm_act.edit_imported_lesson);
+  }
+  if (cm_act.delete_imported_lesson_id.has_value()) {
+    actions.delete_imported_lesson_id = cm_act.delete_imported_lesson_id;
+  }
+  if (cm_act.request_import_file_dialog) {
+    actions.request_import_file_dialog = true;
+  }
+
+  if (const auto saved_score = import_modal_.draw(); saved_score.has_value()) {
+    actions.save_imported_lesson = *saved_score;
+    curriculum_modal_.close();
+  }
   return actions;
 }
 
