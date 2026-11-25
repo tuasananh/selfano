@@ -62,6 +62,8 @@ public:
   void request_open_theory_popover_index(std::size_t index) noexcept {
     pending_cli_popover_idx_ = index;
   }
+  void simulate_completed_run_for_smoke(bool clean, core::UserProfile& profile,
+                                        std::int64_t today_epoch_day);
   void apply_preferences(bool metronome_enabled, bool light_paper, bool show_fingerings,
                          bool show_harmony);
   void set_revision_context(bool is_revision, std::string lesson_id = {});
@@ -124,6 +126,7 @@ private:
                       LessonViewActions& actions);
   void draw_scaffold_bar(const core::LessonProgress& prog, LessonViewActions& actions);
   void draw_guided_stepper(const core::LessonProgress& prog, LessonViewActions& actions);
+  void draw_post_run_coach(const core::LessonProgress& prog, LessonViewActions& actions);
   void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
                            LessonViewActions& actions);
   void draw_status_strip() const;
@@ -147,6 +150,8 @@ private:
   float popover_anchor_x_{0.0f};
   float popover_anchor_y_{0.0f};
   std::optional<std::size_t> pending_cli_popover_idx_{};
+  std::optional<core::LessonRunSummary> last_run_summary_{};
+  bool show_post_run_coach_{false};
 };
 
 } // namespace selfano::ui

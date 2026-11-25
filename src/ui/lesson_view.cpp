@@ -80,7 +80,10 @@ void LessonView::load_lesson(const core::LessonScore& score, bool brief_already_
   const bool switched_lesson = (score.meta.id != engine_.score().meta.id);
   if (switched_lesson) {
     next_cfg.phrase_index.reset();
+    next_cfg.custom_bar_range.reset();
     just_mastered_banner_ = false;
+    show_post_run_coach_ = false;
+    last_run_summary_.reset();
     active_harmony_explanation_.reset();
     const bool has_brief = !score.meta.is_imported && !score.meta.theory.concept_title.empty();
     active_tab_ =
@@ -122,12 +125,15 @@ std::size_t LessonView::expected_chord_cardinality() const noexcept {
 void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t today_epoch_day,
                                         bool& out_chime, bool& out_just_mastered) {
   out_chime = true;
+  const auto summary = engine_.build_run_summary();
+  last_run_summary_ = summary;
+  show_post_run_coach_ = true;
+
   const auto& id = engine_.score().meta.id;
   if (id.empty()) {
     return;
   }
   auto& prog = profile.lesson_progress[id];
-  const auto summary = engine_.build_run_summary();
   const auto upd =
       core::apply_run_to_progress(prog, summary, engine_.score().meta.target_bpm, today_epoch_day);
 
@@ -138,6 +144,69 @@ void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t
   if (upd.just_mastered) {
     just_mastered_banner_ = true;
     out_just_mastered = true;
+  }
+}
+
+void LessonView::simulate_completed_run_for_smoke(bool clean, core::UserProfile& profile,
+                                                  std::int64_t today_epoch_day) {
+  active_tab_ = LessonViewTab::Practice;
+  engine_.set_loop_phrase(false);
+  engine_.set_practice_mode(core::LessonPracticeMode::SteadyPulse);
+  (void)engine_.start();
+
+  // Advance past CountIn even at slow 60% tempos (up to ~18s)
+  for (int i = 0; i < 60 && engine_.playback_state() == core::LessonPlaybackState::CountIn; ++i) {
+    (void)engine_.update(300.0);
+  }
+  if (engine_.playback_state() != core::LessonPlaybackState::Playing) {
+    return;
+  }
+
+  const auto& measures = engine_.score().measures;
+  const std::size_t partial_bar =
+      std::min<std::size_t>(1U, measures.empty() ? 0U : (measures.size() - 1U));
+  const std::size_t bad_bar_a =
+      std::min<std::size_t>(2U, measures.empty() ? 0U : (measures.size() - 1U));
+  const std::size_t bad_bar_b =
+      std::min<std::size_t>(3U, measures.empty() ? 0U : (measures.size() - 1U));
+  const double ms_per_beat = 60000.0 / std::max(30.0, engine_.effective_bpm());
+
+  const auto& targets = engine_.targets();
+  for (std::size_t ti = 0; ti < targets.size(); ++ti) {
+    const auto& t = targets[ti];
+    const int beat_ticks = std::max(1, engine_.score().meta.time_signature.beat_ticks());
+    const double target_ms =
+        (static_cast<double>(t.global_tick) / static_cast<double>(beat_ticks)) * ms_per_beat;
+    const double cur_ms = (engine_.elapsed_ticks() / static_cast<double>(beat_ticks)) * ms_per_beat;
+    double wait_ms = target_ms - cur_ms;
+    while (wait_ms > 20.0 && engine_.playback_state() == core::LessonPlaybackState::Playing) {
+      const double step = std::min(50.0, wait_ms);
+      (void)engine_.update(step);
+      wait_ms -= step;
+    }
+    if (engine_.playback_state() != core::LessonPlaybackState::Playing) {
+      break;
+    }
+    if (clean) {
+      (void)engine_.submit_played_notes(t.expected_midi);
+    } else if (t.bar_index == partial_bar && t.expected_midi.size() >= 2U) {
+      std::vector<core::MidiPitch> sub(t.expected_midi.begin(), t.expected_midi.end() - 1);
+      (void)engine_.submit_played_notes(sub);
+    } else if (t.bar_index == bad_bar_a || t.bar_index == bad_bar_b) {
+      // Leave unplayed so beat window grades as missed seam trouble spot
+    } else {
+      (void)engine_.submit_played_notes(t.expected_midi);
+    }
+  }
+
+  for (int i = 0; i < 400 && engine_.playback_state() == core::LessonPlaybackState::Playing; ++i) {
+    const auto tk = engine_.update(50.0);
+    if (tk.phrase_completed) {
+      bool dummy_chime = false;
+      bool dummy_m = false;
+      finalize_completed_run(profile, today_epoch_day, dummy_chime, dummy_m);
+      break;
+    }
   }
 }
 
@@ -176,6 +245,7 @@ void LessonView::toggle_play_pause(bool& out_click, bool& out_accent, bool* out_
   const auto st = engine_.playback_state();
   if (st == core::LessonPlaybackState::Stopped || st == core::LessonPlaybackState::Completed ||
       st == core::LessonPlaybackState::DemoPlaying) {
+    show_post_run_coach_ = false;
     const auto tick = engine_.start();
     if (metronome_enabled_ && tick.metronome_click) {
       out_click = true;
@@ -205,6 +275,7 @@ void LessonView::toggle_demo(double now_ms,
   }
   active_tab_ = LessonViewTab::Practice;
   active_harmony_explanation_.reset();
+  show_post_run_coach_ = false;
   const auto tick = engine_.start_demo();
   append_playback_notes(now_ms, tick.playback_notes, out_streamed_playback);
 }
@@ -545,7 +616,8 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog, LessonViewA
       if (!phrases.empty()) {
         sc_wrap(92.0f, 6.0f);
       }
-      const bool full_sel = !engine_.config().phrase_index.has_value();
+      const bool full_sel = !engine_.config().phrase_index.has_value() &&
+                            !engine_.config().custom_bar_range.has_value();
       if (pill_button("Full Piece##lv_ph_full",
                       full_sel ? ButtonTone::Primary : ButtonTone::Secondary, IconId::None,
                       26.0f)) {
@@ -553,18 +625,22 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog, LessonViewA
         actions.stop_all_playback = true;
       }
     } else {
-      const std::string cur_ph_label = engine_.config().phrase_index.has_value()
-                                           ? phrases[*engine_.config().phrase_index].label
-                                           : std::string("Full Piece (All Bars)");
+      const std::string cur_ph_label = engine_.config().custom_bar_range.has_value()
+                                           ? std::string("Custom Bar Loop")
+                                           : (engine_.config().phrase_index.has_value()
+                                                  ? phrases[*engine_.config().phrase_index].label
+                                                  : std::string("Full Piece (All Bars)"));
       ImGui::SetNextItemWidth(std::min(240.0f * scale, ImGui::GetContentRegionAvail().x * 0.55f));
       if (ImGui::BeginCombo("##lv_phrase_combo", cur_ph_label.c_str())) {
         if (ImGui::Selectable("Full Piece (All Bars)",
-                              !engine_.config().phrase_index.has_value())) {
+                              !engine_.config().phrase_index.has_value() &&
+                                  !engine_.config().custom_bar_range.has_value())) {
           engine_.set_phrase_index(std::nullopt);
           actions.stop_all_playback = true;
         }
         for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
-          const bool sel = (engine_.config().phrase_index == pi);
+          const bool sel = (engine_.config().phrase_index == pi &&
+                            !engine_.config().custom_bar_range.has_value());
           const bool cleared = is_phrase_cleared(engine_.score(), prog, pi);
           const std::string item_lbl =
               cleared ? std::format("[ok] {}", phrases[pi].label) : phrases[pi].label;
@@ -574,6 +650,66 @@ void LessonView::draw_scaffold_bar(const core::LessonProgress& prog, LessonViewA
           }
         }
         ImGui::EndCombo();
+      }
+    }
+
+    const auto& all_measures = engine_.score().measures;
+    if (!all_measures.empty()) {
+      auto fmt_bar = [&](std::size_t idx) -> std::string {
+        const auto bn = all_measures[std::min(idx, all_measures.size() - 1U)].bar_number;
+        return (bn == 0U) ? std::string("Pkp") : std::to_string(bn);
+      };
+      const std::size_t max_bar = all_measures.size() - 1U;
+      if (!engine_.config().custom_bar_range.has_value()) {
+        sc_wrap(106.0f, 8.0f);
+        if (pill_button("Loop Bars##lv_cbar_open", ButtonTone::Secondary, IconId::Repeat, 26.0f)) {
+          const std::size_t s0 = engine_.slice_start_bar();
+          const std::size_t s1 = std::min(max_bar, s0 + 1U);
+          engine_.set_custom_bar_range(std::pair{s0, s1});
+          engine_.set_loop_phrase(true);
+          actions.stop_all_playback = true;
+        }
+      } else {
+        const auto [b0, b1] = *engine_.config().custom_bar_range;
+        sc_wrap(330.0f, 8.0f);
+        status_pill(std::format("Bars {}-{}", fmt_bar(b0), fmt_bar(b1)), StatusTone::Accent,
+                    IconId::Repeat);
+        ImGui::SameLine(0.0f, 4.0f * scale);
+        if (pill_button("-##lv_bs_dec", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
+            b0 > 0U) {
+          engine_.set_custom_bar_range(std::pair{b0 - 1U, b1});
+          actions.stop_all_playback = true;
+        }
+        ImGui::SameLine(0.0f, 2.0f * scale);
+        if (pill_button("+##lv_bs_inc", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
+            b0 < b1) {
+          engine_.set_custom_bar_range(std::pair{b0 + 1U, b1});
+          actions.stop_all_playback = true;
+        }
+        ImGui::SameLine(0.0f, 4.0f * scale);
+        if (pill_button("-##lv_be_dec", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
+            b1 > b0) {
+          engine_.set_custom_bar_range(std::pair{b0, b1 - 1U});
+          actions.stop_all_playback = true;
+        }
+        ImGui::SameLine(0.0f, 2.0f * scale);
+        if (pill_button("+##lv_be_inc", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
+            b1 < max_bar) {
+          engine_.set_custom_bar_range(std::pair{b0, b1 + 1U});
+          actions.stop_all_playback = true;
+        }
+        ImGui::SameLine(0.0f, 6.0f * scale);
+        const bool loop_on = engine_.config().loop_phrase;
+        if (pill_button(loop_on ? "Loop On##lv_cbar_lp" : "Loop Off##lv_cbar_lp",
+                        loop_on ? ButtonTone::SoftAccent : ButtonTone::Secondary, IconId::None,
+                        24.0f)) {
+          engine_.set_loop_phrase(!loop_on);
+        }
+        ImGui::SameLine(0.0f, 4.0f * scale);
+        if (pill_button("Clear##lv_cbar_clr", ButtonTone::Ghost, IconId::None, 24.0f)) {
+          engine_.set_phrase_index(std::nullopt);
+          actions.stop_all_playback = true;
+        }
       }
     }
   }
@@ -655,6 +791,104 @@ void LessonView::draw_guided_stepper(const core::LessonProgress& prog, LessonVie
   end_card();
 }
 
+void LessonView::draw_post_run_coach(const core::LessonProgress& prog, LessonViewActions& actions) {
+  if (!show_post_run_coach_ || !last_run_summary_.has_value()) {
+    return;
+  }
+  const auto& c = colors();
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto& sum = *last_run_summary_;
+
+  ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
+  begin_card("##lv_post_run_coach", ImVec2(0.0f, 0.0f), 10.0f, 10.0f, true, true);
+  {
+    const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+    auto pc_wrap = [&](float needed_logical_w, float gap_logical = 8.0f) {
+      const float prev_right = ImGui::GetItemRectMax().x;
+      if (prev_right + gap_logical * scale + needed_logical_w * scale <= row_right) {
+        ImGui::SameLine(0.0f, gap_logical * scale);
+      }
+    };
+
+    if (sum.accuracy >= 0.90) {
+      status_pill(std::format("Clean Run · {:.0f}%", sum.accuracy * 100.0), StatusTone::Success,
+                  IconId::Check);
+      const auto next_step = core::suggest_next_practice_step(engine_.score(), prog);
+      pc_wrap(240.0f, 10.0f);
+      {
+        ScopedFont sf(TypeStyle::Subheadline);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(c.text_secondary, "%s", next_step.rationale.c_str());
+      }
+      pc_wrap(190.0f, 10.0f);
+      const std::string cta = std::format("Try {} ->##lv_coach_next", next_step.label);
+      if (pill_button(cta.c_str(), ButtonTone::Primary, IconId::ChevronRight, 26.0f, 0.0f, true)) {
+        show_post_run_coach_ = false;
+        if (next_step.open_learn_brief) {
+          actions.stop_all_playback = true;
+          set_active_tab(LessonViewTab::Learn);
+        } else {
+          engine_.configure(next_step.target_config);
+          actions.stop_all_playback = true;
+        }
+      }
+    } else {
+      status_pill(std::format("Coach · {:.0f}%", sum.accuracy * 100.0), StatusTone::Warning,
+                  IconId::Sparkles);
+      const auto spot = core::find_trouble_spot(sum);
+      if (spot.has_value()) {
+        auto fmt_bar_num = [](std::uint32_t bn) -> std::string {
+          return (bn == 0U) ? std::string("Pickup") : std::to_string(bn);
+        };
+        const std::string range_lbl =
+            (spot->start_bar_number == spot->end_bar_number)
+                ? std::format("Bar {}", fmt_bar_num(spot->start_bar_number))
+                : std::format("Bars {}-{}", fmt_bar_num(spot->start_bar_number),
+                              fmt_bar_num(spot->end_bar_number));
+        std::string err_lbl;
+        if (spot->misses > 0U && spot->partial_hits > 0U) {
+          err_lbl = std::format("{} miss, {} partial", spot->misses, spot->partial_hits);
+        } else if (spot->misses > 0U) {
+          err_lbl = std::format("{} {}", spot->misses, spot->misses == 1U ? "miss" : "misses");
+        } else {
+          err_lbl = std::format("{} partial", spot->partial_hits);
+        }
+        pc_wrap(210.0f, 10.0f);
+        {
+          ScopedFont sf(TypeStyle::Subheadline);
+          ImGui::AlignTextToFramePadding();
+          ImGui::TextColored(c.text_primary, "Focus spot: %s (%s)", range_lbl.c_str(),
+                             err_lbl.c_str());
+        }
+        pc_wrap(210.0f, 10.0f);
+        const std::string drill_btn =
+            std::format("Drill {} at 60% (Loop)##lv_coach_drill", range_lbl);
+        if (pill_button(drill_btn.c_str(), ButtonTone::Primary, IconId::Repeat, 26.0f, 0.0f,
+                        true)) {
+          engine_.set_practice_mode(core::LessonPracticeMode::SteadyPulse);
+          engine_.set_custom_bar_range(std::pair{spot->start_bar_index, spot->end_bar_index});
+          engine_.set_tempo_step(core::TempoLadderStep::Slow60);
+          engine_.set_loop_phrase(true);
+          show_post_run_coach_ = false;
+          actions.stop_all_playback = true;
+        }
+      } else {
+        pc_wrap(200.0f, 10.0f);
+        ScopedFont sf(TypeStyle::Subheadline);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(c.text_secondary, "%s",
+                           "Try slowing to 60% or isolating one hand first.");
+      }
+    }
+
+    pc_wrap(80.0f, 8.0f);
+    if (pill_button("Dismiss##lv_coach_dis", ButtonTone::Ghost, IconId::None, 26.0f)) {
+      show_post_run_coach_ = false;
+    }
+  }
+  end_card();
+}
+
 void LessonView::draw_mastery_banner(const core::LessonLibrary& library,
                                      const core::LessonProgress& prog, LessonViewActions& actions) {
   if (!just_mastered_banner_ &&
@@ -720,9 +954,18 @@ void LessonView::draw_status_strip() const {
   {
     ScopedFont sub(TypeStyle::Subheadline);
     ImGui::AlignTextToFramePadding();
-    ImGui::TextColored(c.text_secondary, "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  %.0f%%",
-                       std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
-                       engine_.targets().size(), engine_.hit_count(), engine_.accuracy() * 100.0);
+    if (engine_.partial_hit_count() > 0U) {
+      ImGui::TextColored(
+          c.text_secondary,
+          "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  Partial: %u  \xC2\xB7  %.0f%%",
+          std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
+          engine_.targets().size(), engine_.hit_count(), engine_.partial_hit_count(),
+          engine_.accuracy() * 100.0);
+    } else {
+      ImGui::TextColored(c.text_secondary, "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  %.0f%%",
+                         std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
+                         engine_.targets().size(), engine_.hit_count(), engine_.accuracy() * 100.0);
+    }
   }
 }
 
@@ -766,6 +1009,13 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     LessonTargetVisualState vst{};
     if (t.status == core::LessonTargetStatus::Hit) {
       vst.feedback = NoteFeedback::Correct;
+    } else if (t.status == core::LessonTargetStatus::PartialHit) {
+      vst.feedback = NoteFeedback::Partial;
+      if (t.missed_midi.size() <= 2U && !t.missed_midi.empty()) {
+        vst.played_label = "Missed " + core::format_midi_list(t.missed_midi, meta.key, ", ");
+      } else if (!t.missed_midi.empty()) {
+        vst.played_label = std::format("Missed {} notes", t.missed_midi.size());
+      }
     } else if (t.status == core::LessonTargetStatus::Missed) {
       vst.feedback = NoteFeedback::Incorrect;
       if (!t.played_midi.empty()) {
@@ -992,7 +1242,11 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     }
   } else {
     draw_scaffold_bar(prog, actions);
-    draw_guided_stepper(prog, actions);
+    if (show_post_run_coach_ && last_run_summary_.has_value()) {
+      draw_post_run_coach(prog, actions);
+    } else {
+      draw_guided_stepper(prog, actions);
+    }
     draw_mastery_banner(library, prog, actions);
     draw_status_strip();
     ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));

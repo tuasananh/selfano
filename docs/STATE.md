@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-25
-- **Active Phase:** **Ready for Phase 14** (Phases 0–13 Complete; Phases 14–16 Planned in `docs/phases/`)
-- **Last Completed Phase:** Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment
+- **Active Phase:** **Ready for Phase 15** (Phases 0–14 Complete; Phases 15–16 Planned in `docs/phases/`)
+- **Last Completed Phase:** Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach
 
 ---
 
@@ -227,6 +227,19 @@
   - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 13 C++ files.
   - Headless `--profile` persistence round-trip (`skeleton_clean`, `phrase_rh_mask`, `phrase_lh_mask`, `phrase_both_mask`) and Light & Dark screenshots (`t4_01` Guided Stepper + Phrase A checkmark, `t3_01` `SteadyPulse` `RH` `Accomp On`, `t5_01` `DemoPlaying` playhead + lit Virtual Piano keys) verified zero clipping or overlap.
 
+### Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_engine.hpp/.cpp`, `lesson_progress.cpp` (`LessonConfig::custom_bar_range`, `set_custom_bar_range` with clamping and phrase-reset behavior, `LessonTargetStatus::PartialHit` & `LessonTarget::missed_midi` grading `>= 50%` chord tones with zero wrong pitches in `SteadyPulse` as `0.5` accuracy credit while keeping `WaitForNote` strict, `BarDiagnostic`, `TroubleSpot`, `LessonRunSummary::bar_diagnostics`, and pure `find_trouble_spot` preferring contiguous 2-bar seam windows)
+  - Catch2 Suite (`tests/lesson_engine_tests.cpp`): added unit tests covering custom bar-range clamping/looping/phrase-clear, `PartialHit` vs. strict `WaitForNote` grading, and `find_trouble_spot` 1-bar & 2-bar seam detection
+  - UI & App Wiring (`src/ui/`, `src/app/`): `staff_primitives.hpp/.cpp` & `staff_renderer.hpp/.cpp` (`NoteFeedback::Partial` Light/Dark amber palette, stem/notehead amber tinting, collision-free vertical-lane staggered `draw_feedback_badge` pills with `measure_feedback_badge_size`), `lesson_view.hpp/.cpp` (`Bars A-B` micro-range `-`/`+`/`Loop`/`Clear` selector, `Partial` status metric, Post-Run Coach Strip celebrating clean `>= 90%` runs or pinpointing trouble spots with one-click `Drill Bars X-Y at 60% (Loop)`), `cli_options.hpp/.cpp` & `app_controller.cpp` (`--bar-range`, `--simulate-coach`)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic -Werror`.
+  - `ctest --preset native-debug --output-on-failure` passed **85/85** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 14 C++ files.
+  - Headless Light & Dark screenshots inspected (`t4_01 --bar-range 4-5` loop selector & Bars 5–6 rendering, `t1_01 --simulate-coach clean` Clean Run coach strip, `t5_02 --bar-range 0-3 --simulate-coach imperfect` Focus-spot Coach strip + Bar 2 staggered amber `PartialHit` `"Missed ..."` pills + Bars 3–4 misses) with zero overlap or clipping.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -243,13 +256,11 @@
 
 ## Next Concrete Action
 
-- **Start Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach** (`docs/phases/phase-14-trouble-spot-looping-and-coach.md`):
+- **Start Phase 15 — Expressive Classical Notation & Two-Voice Polyphony** (`docs/phases/phase-15-expressive-notation-and-polyphony.md`):
   - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
   - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
   - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[x] Complete`)
-  - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)
-  - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[ ] Planned`)
-  - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[ ] Planned`)
+  - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[x] Complete`)
   - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[ ] Planned`)
   - **Phase 16:** Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) (`[ ] Planned`)
 

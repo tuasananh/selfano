@@ -26,9 +26,12 @@ struct ThemePalette {
   ImU32 ink;
   ImU32 harmony_chord;
   ImU32 correct;
+  ImU32 partial;
   ImU32 incorrect;
   ImU32 badge_bg;
   ImU32 badge_border;
+  ImU32 partial_badge_bg;
+  ImU32 partial_badge_border;
   ImU32 annotation;
   ImU32 cursor_fill;
   ImU32 cursor_accent;
@@ -55,8 +58,10 @@ void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size
 void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
                      ImU32 color, float thickness);
 
+[[nodiscard]] ImVec2 measure_feedback_badge_size(ImFont* ui_font, const std::string& text);
+
 void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
-                         const std::string& text, const ThemePalette& pal);
+                         const std::string& text, const ThemePalette& pal, bool is_partial = false);
 
 void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
                            float x, int step, core::Clef clef, float bottom_y, float space,

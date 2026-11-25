@@ -21,6 +21,14 @@ namespace {
 
 using detail::ThemePalette;
 
+struct PendingFeedbackBadge {
+  float center_x{0.0f};
+  float base_y{0.0f};
+  bool below{true};
+  bool is_partial{false};
+  std::string text;
+};
+
 struct ClefSlot {
   std::size_t chord_idx{0};
   int start_tick{0};
@@ -78,6 +86,7 @@ struct ClefSlot {
       std::vector<core::ChordNoteLayoutInput> inputs;
       inputs.reserve(slot.notes.size());
       bool any_incorrect = false;
+      bool any_partial = false;
       bool all_correct = true;
       for (std::size_t i = 0; i < slot.notes.size(); ++i) {
         const StaffNote* sn = slot.notes[i];
@@ -90,12 +99,17 @@ struct ClefSlot {
         if (sn->feedback == NoteFeedback::Incorrect) {
           any_incorrect = true;
         }
+        if (sn->feedback == NoteFeedback::Partial) {
+          any_partial = true;
+        }
         if (sn->feedback != NoteFeedback::Correct) {
           all_correct = false;
         }
       }
       slot.layout = core::layout_chord(inputs, clef, detail::notehead_width_spaces(slot.duration));
-      slot.stem_color = any_incorrect ? pal.incorrect : (all_correct ? pal.correct : pal.ink);
+      slot.stem_color = any_incorrect
+                            ? pal.incorrect
+                            : (any_partial ? pal.partial : (all_correct ? pal.correct : pal.ink));
     } else {
       slot.is_rest = true;
       slot.rest_dur = *rest_opt;
@@ -115,7 +129,8 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
                          float m_x0, float pad_left, float usable_w, float measure_beats,
                          float bottom_y, float space, core::MeasureAccidentalState& acc_state,
                          const StaffRenderOptions& options, const ThemePalette& pal,
-                         std::vector<core::TieEndpointRef>& out_ties) {
+                         std::vector<core::TieEndpointRef>& out_ties,
+                         std::vector<PendingFeedbackBadge>& out_badges) {
   auto slots =
       prepare_clef_slots(measure, clef, m_x0, pad_left, usable_w, measure_beats, acc_state, pal);
   if (slots.empty()) {
@@ -169,6 +184,7 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
   for (const auto& bg : beam_groups) {
     ImU32 beam_col = pal.ink;
     bool all_ok = true;
+    bool any_partial = false;
     bool any_bad = false;
     for (std::size_t k = 0; k < bg.event_indices.size(); ++k) {
       const std::size_t slot_idx = bg.event_indices[k];
@@ -177,12 +193,17 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       if (slots[slot_idx].stem_color == pal.incorrect) {
         any_bad = true;
       }
+      if (slots[slot_idx].stem_color == pal.partial) {
+        any_partial = true;
+      }
       if (slots[slot_idx].stem_color != pal.correct) {
         all_ok = false;
       }
     }
     if (any_bad) {
       beam_col = pal.incorrect;
+    } else if (any_partial) {
+      beam_col = pal.partial;
     } else if (all_ok) {
       beam_col = pal.correct;
     }
@@ -283,6 +304,8 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
       ImU32 note_color = pal.ink;
       if (src->feedback == NoteFeedback::Correct) {
         note_color = pal.correct;
+      } else if (src->feedback == NoteFeedback::Partial) {
+        note_color = pal.partial;
       } else if (src->feedback == NoteFeedback::Incorrect) {
         note_color = pal.incorrect;
       }
@@ -327,16 +350,24 @@ void render_clef_measure(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_f
         });
       }
 
-      if (src->feedback == NoteFeedback::Incorrect && !src->played_label.empty()) {
+      if ((src->feedback == NoteFeedback::Incorrect || src->feedback == NoteFeedback::Partial) &&
+          !src->played_label.empty()) {
+        const bool is_partial = (src->feedback == NoteFeedback::Partial);
         const std::string badge =
-            std::format("{} \xE2\x86\x92 {}", core::format_note(src->note), src->played_label);
+            is_partial ? src->played_label
+                       : std::format("{} \xE2\x86\x92 {}", core::format_note(src->note),
+                                     src->played_label);
         const float top_y = bottom_y - detail::kStaffHeightSpaces * space;
-        const float badge_y = (nh.step <= core::staff_middle_step(clef))
-                                  ? std::max(bottom_y + 1.85f * space, ny + 1.85f * space)
-                                  : std::min(top_y - 1.85f * space, ny - 1.85f * space);
-        detail::draw_feedback_badge(draw_list, ui_font,
-                                    ImVec2(slot.chord_x + nh_w_spaces * 0.5f * space, badge_y),
-                                    badge, pal);
+        const bool below = (nh.step <= core::staff_middle_step(clef));
+        const float base_y = below ? std::max(bottom_y + 1.45f * space, ny + 1.55f * space)
+                                   : std::min(top_y - 1.45f * space, ny - 1.55f * space);
+        out_badges.push_back(PendingFeedbackBadge{
+            .center_x = slot.chord_x + nh_w_spaces * 0.5f * space,
+            .base_y = base_y,
+            .below = below,
+            .is_partial = is_partial,
+            .text = badge,
+        });
       }
     }
 
@@ -578,6 +609,7 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
       header_meter.value_or(core::TimeSignature{.numerator = 4, .denominator = 4});
   std::vector<core::TieEndpointRef> treble_ties;
   std::vector<core::TieEndpointRef> bass_ties;
+  std::vector<PendingFeedbackBadge> pending_badges;
 
   for (std::size_t m = 0; m < measures.size(); ++m) {
     acc_treble.reset_measure();
@@ -716,12 +748,13 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
     if (show_treble) {
       render_clef_measure(draw_list, smufl_font, ui_font, smufl_font_size, m, measure, active_meter,
                           core::Clef::Treble, inner_m_x0, pad_left, usable_w, measure_beats,
-                          treble_bottom_y, s, acc_treble, options, pal, treble_ties);
+                          treble_bottom_y, s, acc_treble, options, pal, treble_ties,
+                          pending_badges);
     }
     if (show_bass) {
       render_clef_measure(draw_list, smufl_font, ui_font, smufl_font_size, m, measure, active_meter,
                           core::Clef::Bass, inner_m_x0, pad_left, usable_w, measure_beats,
-                          bass_bottom_y, s, acc_bass, options, pal, bass_ties);
+                          bass_bottom_y, s, acc_bass, options, pal, bass_ties, pending_badges);
     }
 
     // 5d. Barline at measure end
@@ -753,6 +786,49 @@ void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, Im
   if (show_bass && !bass_ties.empty()) {
     for (const auto& span : core::resolve_tie_spans(bass_ties)) {
       detail::draw_tie_curve(draw_list, span, core::Clef::Bass, bass_bottom_y, s, pal.ink);
+    }
+  }
+
+  // 5f. Collision-free feedback badges (stagger vertically across lanes if horizontal bounds
+  // collide)
+  if (!pending_badges.empty()) {
+    std::stable_sort(pending_badges.begin(), pending_badges.end(),
+                     [](const PendingFeedbackBadge& a, const PendingFeedbackBadge& b) {
+                       return a.center_x < b.center_x;
+                     });
+    std::vector<ImVec4> placed;
+    placed.reserve(pending_badges.size());
+    for (const auto& b : pending_badges) {
+      const ImVec2 sz = detail::measure_feedback_badge_size(ui_font, b.text);
+      if (sz.x <= 0.0f || sz.y <= 0.0f) {
+        continue;
+      }
+      const float half_w = sz.x * 0.5f;
+      const float half_h = sz.y * 0.5f;
+      const float min_cx = system_left_x + 4.0f + half_w;
+      const float max_cx = std::max(min_cx, system_right_x - 4.0f - half_w);
+      const float cx = std::clamp(b.center_x, min_cx, max_cx);
+      const float step_y = sz.y + 3.0f;
+
+      int chosen_lane = 3;
+      for (int lane = 0; lane <= 3; ++lane) {
+        const float cy = b.base_y + (b.below ? 1.0f : -1.0f) * static_cast<float>(lane) * step_y;
+        const float x0 = cx - half_w - 3.0f;
+        const float y0 = cy - half_h - 2.0f;
+        const float x1 = cx + half_w + 3.0f;
+        const float y1 = cy + half_h + 2.0f;
+        const bool collides = std::any_of(placed.begin(), placed.end(), [&](const ImVec4& r) {
+          return x0 < r.z && x1 > r.x && y0 < r.w && y1 > r.y;
+        });
+        if (!collides) {
+          chosen_lane = lane;
+          break;
+        }
+      }
+      const float cy =
+          b.base_y + (b.below ? 1.0f : -1.0f) * static_cast<float>(chosen_lane) * step_y;
+      placed.emplace_back(cx - half_w, cy - half_h, cx + half_w, cy + half_h);
+      detail::draw_feedback_badge(draw_list, ui_font, ImVec2(cx, cy), b.text, pal, b.is_partial);
     }
   }
 

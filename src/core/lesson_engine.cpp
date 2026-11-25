@@ -416,11 +416,29 @@ void build_slice_targets(const LessonScore& score, std::span<const LessonMeasure
 
 } // namespace
 
+void LessonEngine::clamp_custom_bar_range() noexcept {
+  if (!config_.custom_bar_range.has_value()) {
+    return;
+  }
+  if (score_.measures.empty()) {
+    config_.custom_bar_range.reset();
+    return;
+  }
+  const std::size_t max_idx = score_.measures.size() - 1U;
+  const std::size_t a = std::min(config_.custom_bar_range->first, config_.custom_bar_range->second);
+  const std::size_t b = std::max(config_.custom_bar_range->first, config_.custom_bar_range->second);
+  config_.custom_bar_range = {std::min(a, max_idx), std::min(b, max_idx)};
+}
+
 void LessonEngine::load_score(LessonScore score, LessonConfig cfg) {
   score_ = std::move(score);
   config_ = cfg;
   phrases_ = effective_phrases(score_);
   if (config_.phrase_index.has_value() && *config_.phrase_index >= phrases_.size()) {
+    config_.phrase_index.reset();
+  }
+  clamp_custom_bar_range();
+  if (config_.custom_bar_range.has_value()) {
     config_.phrase_index.reset();
   }
   rebuild_slice_and_targets();
@@ -430,6 +448,10 @@ void LessonEngine::load_score(LessonScore score, LessonConfig cfg) {
 void LessonEngine::configure(LessonConfig cfg) {
   config_ = cfg;
   if (config_.phrase_index.has_value() && *config_.phrase_index >= phrases_.size()) {
+    config_.phrase_index.reset();
+  }
+  clamp_custom_bar_range();
+  if (config_.custom_bar_range.has_value()) {
     config_.phrase_index.reset();
   }
   rebuild_slice_and_targets();
@@ -463,11 +485,23 @@ void LessonEngine::set_phrase_index(std::optional<std::size_t> phrase_index) {
   if (phrase_index.has_value() && *phrase_index >= phrases_.size()) {
     phrase_index.reset();
   }
-  if (config_.phrase_index != phrase_index) {
+  const bool had_custom = config_.custom_bar_range.has_value();
+  config_.custom_bar_range.reset();
+  if (config_.phrase_index != phrase_index || had_custom) {
     config_.phrase_index = phrase_index;
     rebuild_slice_and_targets();
     reset_transport_state();
   }
+}
+
+void LessonEngine::set_custom_bar_range(std::optional<std::pair<std::size_t, std::size_t>> range) {
+  config_.custom_bar_range = range;
+  clamp_custom_bar_range();
+  if (config_.custom_bar_range.has_value()) {
+    config_.phrase_index.reset();
+  }
+  rebuild_slice_and_targets();
+  reset_transport_state();
 }
 
 void LessonEngine::set_loop_phrase(bool loop) {
@@ -512,12 +546,14 @@ void LessonEngine::reset_transport_state() {
   play_beat_accum_ticks_ = 0.0;
   current_pulse_in_bar_ = 0;
   hits_ = 0;
+  partial_hits_ = 0;
   misses_ = 0;
   scheduled_playback_notes_.clear();
   next_playback_note_idx_ = 0;
   for (auto& t : targets_) {
     t.status = LessonTargetStatus::Pending;
     t.played_midi.clear();
+    t.missed_midi.clear();
   }
 }
 
@@ -536,7 +572,11 @@ void LessonEngine::rebuild_slice_and_targets() {
     return;
   }
 
-  if (config_.phrase_index.has_value() && *config_.phrase_index < phrases_.size()) {
+  if (config_.custom_bar_range.has_value()) {
+    clamp_custom_bar_range();
+    slice_start_bar_ = config_.custom_bar_range->first;
+    slice_end_bar_ = config_.custom_bar_range->second;
+  } else if (config_.phrase_index.has_value() && *config_.phrase_index < phrases_.size()) {
     slice_start_bar_ = phrases_[*config_.phrase_index].start_bar;
     slice_end_bar_ = std::min(score_.measures.size() - 1U, phrases_[*config_.phrase_index].end_bar);
   } else {
@@ -952,6 +992,7 @@ LessonTickResult LessonEngine::update(double dt_ms) {
       for (auto& t : targets_) {
         t.status = LessonTargetStatus::Pending;
         t.played_midi.clear();
+        t.missed_midi.clear();
       }
     } else {
       elapsed_ticks_ = static_cast<double>(total_slice_ticks_);
@@ -1016,6 +1057,7 @@ LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> 
     if (matches_target(tgt)) {
       tgt.status = LessonTargetStatus::Hit;
       tgt.played_midi = normalized;
+      tgt.missed_midi.clear();
       ++hits_;
       while (active_target_index_ < targets_.size() &&
              targets_[active_target_index_].status != LessonTargetStatus::Pending) {
@@ -1023,14 +1065,41 @@ LessonSubmitResult LessonEngine::submit_played_notes(std::span<const MidiPitch> 
       }
       res.matched = true;
     } else {
-      tgt.status = LessonTargetStatus::Missed;
-      tgt.played_midi = normalized;
-      ++misses_;
-      while (active_target_index_ < targets_.size() &&
-             targets_[active_target_index_].status != LessonTargetStatus::Pending) {
-        ++active_target_index_;
+      bool all_expected = !tgt.pitch_class_match && tgt.expected_midi.size() >= 2U;
+      if (all_expected) {
+        for (const MidiPitch pm : normalized) {
+          if (std::ranges::find(tgt.expected_midi, pm) == tgt.expected_midi.end()) {
+            all_expected = false;
+            break;
+          }
+        }
       }
-      res.wrong_note = true;
+      if (all_expected && normalized.size() * 2U >= tgt.expected_midi.size()) {
+        tgt.status = LessonTargetStatus::PartialHit;
+        tgt.played_midi = normalized;
+        tgt.missed_midi.clear();
+        for (const MidiPitch em : tgt.expected_midi) {
+          if (std::ranges::find(normalized, em) == normalized.end()) {
+            tgt.missed_midi.push_back(em);
+          }
+        }
+        ++partial_hits_;
+        while (active_target_index_ < targets_.size() &&
+               targets_[active_target_index_].status != LessonTargetStatus::Pending) {
+          ++active_target_index_;
+        }
+        res.partial_match = true;
+      } else {
+        tgt.status = LessonTargetStatus::Missed;
+        tgt.played_midi = normalized;
+        tgt.missed_midi.clear();
+        ++misses_;
+        while (active_target_index_ < targets_.size() &&
+               targets_[active_target_index_].status != LessonTargetStatus::Pending) {
+          ++active_target_index_;
+        }
+        res.wrong_note = true;
+      }
     }
     return res;
   }
@@ -1185,6 +1254,29 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
 }
 
 LessonRunSummary LessonEngine::build_run_summary() const {
+  std::vector<BarDiagnostic> diagnostics;
+  if (!score_.measures.empty() && slice_end_bar_ < score_.measures.size() &&
+      slice_start_bar_ <= slice_end_bar_) {
+    diagnostics.reserve(slice_end_bar_ - slice_start_bar_ + 1U);
+    for (std::size_t b = slice_start_bar_; b <= slice_end_bar_; ++b) {
+      BarDiagnostic diag{};
+      diag.bar_index = b;
+      diag.bar_number = score_.measures[b].bar_number;
+      for (const auto& t : targets_) {
+        if (t.bar_index != b) {
+          continue;
+        }
+        if (t.status == LessonTargetStatus::Hit) {
+          ++diag.hits;
+        } else if (t.status == LessonTargetStatus::PartialHit) {
+          ++diag.partial_hits;
+        } else if (t.status == LessonTargetStatus::Missed) {
+          ++diag.misses;
+        }
+      }
+      diagnostics.push_back(diag);
+    }
+  }
   return LessonRunSummary{
       .lesson_id = score_.meta.id,
       .practice_mode = config_.practice_mode,
@@ -1195,6 +1287,8 @@ LessonRunSummary LessonEngine::build_run_summary() const {
       .hits = hits_,
       .misses = misses_,
       .phrase_index = config_.phrase_index,
+      .partial_hits = partial_hits_,
+      .bar_diagnostics = std::move(diagnostics),
   };
 }
 
@@ -1266,11 +1360,12 @@ bool LessonEngine::is_mid_bar() const noexcept {
 }
 
 double LessonEngine::accuracy() const noexcept {
-  const std::uint32_t total = hits_ + misses_;
+  const std::uint32_t total = hits_ + partial_hits_ + misses_;
   if (total == 0U) {
     return 0.0;
   }
-  return static_cast<double>(hits_) / static_cast<double>(total);
+  return (static_cast<double>(hits_) + 0.5 * static_cast<double>(partial_hits_)) /
+         static_cast<double>(total);
 }
 
 } // namespace selfano::core

@@ -46,9 +46,12 @@ ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
         .ink = IM_COL32(29, 29, 31, 255),
         .harmony_chord = IM_COL32(29, 29, 31, 245),
         .correct = IM_COL32(24, 148, 66, 255),
+        .partial = IM_COL32(204, 118, 0, 255),
         .incorrect = IM_COL32(224, 46, 36, 255),
         .badge_bg = IM_COL32(255, 236, 235, 248),
         .badge_border = IM_COL32(255, 59, 48, 120),
+        .partial_badge_bg = IM_COL32(255, 244, 224, 248),
+        .partial_badge_border = IM_COL32(255, 149, 0, 140),
         .annotation = IM_COL32(88, 86, 214, 235),
         .cursor_fill = IM_COL32(0, 122, 255, 24),
         .cursor_accent = IM_COL32(0, 122, 255, 190),
@@ -64,9 +67,12 @@ ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
         .ink = IM_COL32(245, 245, 247, 255),
         .harmony_chord = IM_COL32(245, 245, 247, 245),
         .correct = IM_COL32(48, 209, 88, 255),
+        .partial = IM_COL32(255, 159, 10, 255),
         .incorrect = IM_COL32(255, 69, 58, 255),
         .badge_bg = IM_COL32(66, 24, 26, 244),
         .badge_border = IM_COL32(255, 69, 58, 145),
+        .partial_badge_bg = IM_COL32(64, 44, 18, 244),
+        .partial_badge_border = IM_COL32(255, 159, 10, 160),
         .annotation = IM_COL32(142, 164, 255, 235),
         .cursor_fill = IM_COL32(10, 132, 255, 34),
         .cursor_accent = IM_COL32(10, 132, 255, 210),
@@ -193,25 +199,39 @@ void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, 
   }
 }
 
+ImVec2 measure_feedback_badge_size(ImFont* ui_font, const std::string& text) {
+  ImFont* badge_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
+  if (badge_font == nullptr || text.empty()) {
+    return ImVec2(0.0f, 0.0f);
+  }
+  const float text_size_px = draw_font_size(10.5f);
+  const ImVec2 txt_sz = badge_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
+  const float pad_x = 6.0f;
+  const float pad_y = 2.0f;
+  return ImVec2(txt_sz.x + pad_x * 2.0f, txt_sz.y + pad_y * 2.0f);
+}
+
 void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
-                         const std::string& text, const ThemePalette& pal) {
+                         const std::string& text, const ThemePalette& pal, bool is_partial) {
   ImFont* badge_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
   if (badge_font == nullptr || text.empty()) {
     return;
   }
-  const float text_size_px = draw_font_size(11.5f);
+  const float text_size_px = draw_font_size(10.5f);
   const ImVec2 txt_sz = badge_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
-  const float pad_x = 8.0f;
-  const float pad_y = 3.0f;
+  const float pad_x = 6.0f;
+  const float pad_y = 2.0f;
   const ImVec2 box_min(std::round(center_anchor.x - txt_sz.x * 0.5f - pad_x),
                        std::round(center_anchor.y - txt_sz.y * 0.5f - pad_y));
   const ImVec2 box_max(box_min.x + txt_sz.x + pad_x * 2.0f, box_min.y + txt_sz.y + pad_y * 2.0f);
   const float pill_r = (box_max.y - box_min.y) * 0.5f;
 
-  draw_list->AddRectFilled(box_min, box_max, pal.badge_bg, pill_r);
-  draw_list->AddRect(box_min, box_max, pal.badge_border, pill_r, 0, 1.0f);
+  draw_list->AddRectFilled(box_min, box_max, is_partial ? pal.partial_badge_bg : pal.badge_bg,
+                           pill_r);
+  draw_list->AddRect(box_min, box_max, is_partial ? pal.partial_badge_border : pal.badge_border,
+                     pill_r, 0, 1.0f);
   draw_list->AddText(badge_font, text_size_px, ImVec2(box_min.x + pad_x, box_min.y + pad_y),
-                     pal.incorrect, text.c_str());
+                     is_partial ? pal.partial : pal.incorrect, text.c_str());
 }
 
 void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,

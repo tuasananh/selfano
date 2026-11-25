@@ -22,6 +22,7 @@ enum class NoteFeedback : std::uint8_t {
   Neutral = 0,
   Correct = 1,
   Incorrect = 2,
+  Partial = 3,
 };
 
 enum class NoteDuration : std::uint8_t {

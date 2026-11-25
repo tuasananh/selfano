@@ -53,6 +53,7 @@ enum class LessonTargetStatus : std::uint8_t {
   Pending = 0,
   Hit = 1,
   Missed = 2,
+  PartialHit = 3,
 };
 
 struct LessonProgress {
@@ -97,6 +98,7 @@ struct LessonTarget {
   bool pitch_class_match{false};
   LessonTargetStatus status{LessonTargetStatus::Pending};
   std::vector<MidiPitch> played_midi;
+  std::vector<MidiPitch> missed_midi{};
 
   bool operator==(const LessonTarget&) const = default;
 };
@@ -107,6 +109,7 @@ struct LessonConfig {
   TempoLadderStep tempo_step{TempoLadderStep::Slow60};
   double custom_bpm{72.0};
   std::optional<std::size_t> phrase_index{};
+  std::optional<std::pair<std::size_t, std::size_t>> custom_bar_range{};
   bool loop_phrase{false};
   bool play_other_hand_accomp{true};
 
@@ -123,9 +126,31 @@ struct LessonTickResult {
 
 struct LessonSubmitResult {
   bool matched{false};
+  bool partial_match{false};
   bool wrong_note{false};
   bool phrase_completed{false};
   bool run_completed{false};
+};
+
+struct BarDiagnostic {
+  std::size_t bar_index{0};
+  std::uint32_t bar_number{1};
+  std::uint32_t hits{0};
+  std::uint32_t partial_hits{0};
+  std::uint32_t misses{0};
+
+  bool operator==(const BarDiagnostic&) const = default;
+};
+
+struct TroubleSpot {
+  std::size_t start_bar_index{0};
+  std::size_t end_bar_index{0};
+  std::uint32_t start_bar_number{1};
+  std::uint32_t end_bar_number{1};
+  std::uint32_t misses{0};
+  std::uint32_t partial_hits{0};
+
+  bool operator==(const TroubleSpot&) const = default;
 };
 
 struct LessonRunSummary {
@@ -138,6 +163,8 @@ struct LessonRunSummary {
   std::uint32_t hits{0};
   std::uint32_t misses{0};
   std::optional<std::size_t> phrase_index{};
+  std::uint32_t partial_hits{0};
+  std::vector<BarDiagnostic> bar_diagnostics{};
 };
 
 struct GuidedPracticeStep {
@@ -187,6 +214,8 @@ plan_stage3_session(const std::map<std::string, LessonProgress>& progress_map,
 [[nodiscard]] GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
                                                             const LessonProgress& prog);
 
+[[nodiscard]] std::optional<TroubleSpot> find_trouble_spot(const LessonRunSummary& summary);
+
 class LessonEngine {
 public:
   LessonEngine() = default;
@@ -197,6 +226,7 @@ public:
   void set_hand_mode(LessonHandMode hand);
   void set_tempo_step(TempoLadderStep step, double custom_bpm = 0.0);
   void set_phrase_index(std::optional<std::size_t> phrase_index);
+  void set_custom_bar_range(std::optional<std::pair<std::size_t, std::size_t>> range);
   void set_loop_phrase(bool loop);
   void set_play_other_hand_accomp(bool enabled) noexcept;
 
@@ -226,7 +256,8 @@ public:
   [[nodiscard]] std::size_t slice_start_bar() const noexcept { return slice_start_bar_; }
   [[nodiscard]] std::size_t slice_end_bar() const noexcept { return slice_end_bar_; }
   [[nodiscard]] bool is_full_piece_selected() const noexcept {
-    return !config_.phrase_index.has_value() || phrases_.size() <= 1U;
+    return !config_.custom_bar_range.has_value() &&
+           (!config_.phrase_index.has_value() || phrases_.size() <= 1U);
   }
 
   [[nodiscard]] double effective_bpm() const noexcept;
@@ -238,6 +269,7 @@ public:
   [[nodiscard]] bool is_mid_bar() const noexcept;
 
   [[nodiscard]] std::uint32_t hit_count() const noexcept { return hits_; }
+  [[nodiscard]] std::uint32_t partial_hit_count() const noexcept { return partial_hits_; }
   [[nodiscard]] std::uint32_t miss_count() const noexcept { return misses_; }
   [[nodiscard]] double accuracy() const noexcept;
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return completed_runs_; }
@@ -253,6 +285,7 @@ private:
 
   void rebuild_slice_and_targets();
   void reset_transport_state();
+  void clamp_custom_bar_range() noexcept;
   [[nodiscard]] std::vector<ScheduledTickNote> build_slice_tick_notes(bool include_treble,
                                                                       bool include_bass,
                                                                       std::uint8_t treble_vel,
@@ -287,6 +320,7 @@ private:
   int current_pulse_in_bar_{0};
 
   std::uint32_t hits_{0};
+  std::uint32_t partial_hits_{0};
   std::uint32_t misses_{0};
   std::uint32_t completed_runs_{0};
 };

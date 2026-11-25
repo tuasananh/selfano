@@ -42,6 +42,8 @@ struct CliOptions {
   std::optional<core::LessonPracticeMode> lesson_mode_override;
   std::optional<core::LessonHandMode> lesson_hand_override;
   bool start_lesson_demo{false};
+  std::optional<std::pair<std::size_t, std::size_t>> bar_range_override;
+  std::optional<bool> simulate_coach_clean;
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

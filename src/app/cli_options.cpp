@@ -147,6 +147,23 @@ CliOptions parse_cli(int argc, char* argv[]) {
       }
     } else if (arg == "--start-demo") {
       opts.start_lesson_demo = true;
+    } else if (arg == "--bar-range" && i + 1 < argc) {
+      const std::string_view spec = argv[++i];
+      const std::size_t dash = spec.find('-');
+      if (dash != std::string_view::npos) {
+        const auto a = parse_strict_int(spec.substr(0, dash));
+        const auto b = parse_strict_int(spec.substr(dash + 1));
+        if (a.has_value() && b.has_value() && *a >= 0 && *b >= 0) {
+          opts.bar_range_override = {static_cast<std::size_t>(*a), static_cast<std::size_t>(*b)};
+        }
+      }
+    } else if (arg == "--simulate-coach" && i + 1 < argc) {
+      const std::string_view mode = argv[++i];
+      if (mode == "clean") {
+        opts.simulate_coach_clean = true;
+      } else if (mode == "imperfect") {
+        opts.simulate_coach_clean = false;
+      }
     }
   }
   return opts;

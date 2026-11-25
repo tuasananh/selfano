@@ -1,6 +1,6 @@
 # Phase 14: Custom Trouble-Spot Bar Looping & Post-Run Coach
 
-**Status:** `[ ] Planned` (Depends on Phase 13)  
+**Status:** `[x] Complete` (Depends on Phase 13)  
 **Goal:** Enable pianists to isolate any arbitrary 1–2 bar transition (including seams *across* phrase boundaries), soften harsh all-or-nothing polyphonic grading in `SteadyPulse`, and surface an actionable **Post-Run Coach Strip** that pinpoints trouble-spot bars and launches targeted slow loops in one click.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `verification-and-review`

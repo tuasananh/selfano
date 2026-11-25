@@ -300,4 +300,63 @@ GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
   return step;
 }
 
+std::optional<TroubleSpot> find_trouble_spot(const LessonRunSummary& summary) {
+  const auto& diags = summary.bar_diagnostics;
+  if (diags.empty()) {
+    return std::nullopt;
+  }
+
+  auto error_weight = [](const BarDiagnostic& d) noexcept {
+    return d.misses * 2U + d.partial_hits;
+  };
+
+  std::optional<TroubleSpot> best;
+  std::uint32_t best_weight = 0U;
+  std::size_t best_span = 0U;
+
+  // Consider single bars
+  for (std::size_t i = 0; i < diags.size(); ++i) {
+    const std::uint32_t w = error_weight(diags[i]);
+    if (w > 0U && w > best_weight) {
+      best_weight = w;
+      best_span = 1U;
+      best = TroubleSpot{
+          .start_bar_index = diags[i].bar_index,
+          .end_bar_index = diags[i].bar_index,
+          .start_bar_number = diags[i].bar_number,
+          .end_bar_number = diags[i].bar_number,
+          .misses = diags[i].misses,
+          .partial_hits = diags[i].partial_hits,
+      };
+    }
+  }
+
+  // Prefer contiguous 2-bar seam when both adjacent bars have errors
+  for (std::size_t i = 0; i + 1U < diags.size(); ++i) {
+    if (diags[i + 1U].bar_index != diags[i].bar_index + 1U) {
+      continue;
+    }
+    const std::uint32_t w0 = error_weight(diags[i]);
+    const std::uint32_t w1 = error_weight(diags[i + 1U]);
+    if (w0 == 0U || w1 == 0U) {
+      continue;
+    }
+    const std::uint32_t w = w0 + w1;
+    if (w > best_weight || (w == best_weight && best_span < 2U)) {
+      best_weight = w;
+      best_span = 2U;
+      best = TroubleSpot{
+          .start_bar_index = diags[i].bar_index,
+          .end_bar_index = diags[i + 1U].bar_index,
+          .start_bar_number = diags[i].bar_number,
+          .end_bar_number = diags[i + 1U].bar_number,
+          .misses = diags[i].misses + diags[i + 1U].misses,
+          .partial_hits = diags[i].partial_hits + diags[i + 1U].partial_hits,
+      };
+    }
+  }
+
+  return best;
+}
+
 } // namespace selfano::core

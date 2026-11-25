@@ -582,6 +582,15 @@ bool AppController::init(const CliOptions& cli_opts) {
   if (cli_.start_lesson_demo) {
     lesson_view_.start_demo_for_smoke(prev_now_ms_, pending_playback_, 550.0);
   }
+  if (cli_.bar_range_override.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.mutable_engine().set_custom_bar_range(cli_.bar_range_override);
+    lesson_view_.mutable_engine().set_loop_phrase(true);
+  }
+  if (cli_.simulate_coach_clean.has_value()) {
+    lesson_view_.simulate_completed_run_for_smoke(*cli_.simulate_coach_clean, profile_,
+                                                  boot_epoch_day);
+  }
 
   if (cli_.initial_mode == AppMode::Autopilot) {
     start_autopilot_session(prev_now_ms_);

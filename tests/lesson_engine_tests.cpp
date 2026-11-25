@@ -688,3 +688,144 @@ TEST_CASE("LessonProgress records per-phrase masks and suggest_next_practice_ste
   step = suggest_next_practice_step(s, prog);
   REQUIRE(step.milestone_index == 4);
 }
+
+TEST_CASE("LessonEngine supports custom_bar_range across phrase seams with safe clamping",
+          "[lesson_engine]") {
+  LessonScore four_bar = make_sample_lesson();
+  // Expand to 4 bars: Phrase A (0-1), Phrase B (2-3)
+  LessonMeasure m3 = four_bar.measures[0];
+  m3.bar_number = 3;
+  m3.treble_events[0].notes[0].tie_stop = false;
+  m3.treble_events[1].notes[0].tie_start = false;
+  LessonMeasure m4 = four_bar.measures[1];
+  m4.bar_number = 4;
+  m4.treble_events[0].notes[0].tie_stop = false;
+  four_bar.measures[1].treble_events[0].notes[0].tie_stop = true;
+  four_bar.measures.push_back(m3);
+  four_bar.measures.push_back(m4);
+  four_bar.phrases = {
+      LessonPhrase{.label = "Phrase A", .start_bar = 0, .end_bar = 1},
+      LessonPhrase{.label = "Phrase B", .start_bar = 2, .end_bar = 3},
+  };
+
+  LessonEngine engine;
+  engine.load_score(four_bar);
+
+  // Set seam across Phrase A -> Phrase B (bars 1..2, reversed args {2, 1} + out-of-range test)
+  engine.set_custom_bar_range(std::pair{2U, 1U});
+  REQUIRE(engine.slice_start_bar() == 1U);
+  REQUIRE(engine.slice_end_bar() == 2U);
+  REQUIRE_FALSE(engine.is_full_piece_selected());
+  REQUIRE_FALSE(engine.config().phrase_index.has_value());
+  for (const auto& t : engine.targets()) {
+    REQUIRE(t.bar_index >= 1U);
+    REQUIRE(t.bar_index <= 2U);
+  }
+  REQUIRE_FALSE(engine.build_demo_playback().empty());
+
+  // Clamp out-of-range upper bound safely
+  engine.set_custom_bar_range(std::pair{3U, 99U});
+  REQUIRE(engine.slice_start_bar() == 3U);
+  REQUIRE(engine.slice_end_bar() == 3U);
+
+  // Selecting preset phrase or Full Piece clears custom_bar_range
+  engine.set_phrase_index(0U);
+  REQUIRE_FALSE(engine.config().custom_bar_range.has_value());
+  REQUIRE(engine.slice_start_bar() == 0U);
+  REQUIRE(engine.slice_end_bar() == 1U);
+}
+
+TEST_CASE("LessonEngine SteadyPulse grades PartialHit chords while WaitForNote stays strict",
+          "[lesson_engine]") {
+  LessonScore s = make_sample_lesson();
+  s.measures.resize(1);
+  s.phrases = {LessonPhrase{.label = "Phrase A", .start_bar = 0, .end_bar = 0}};
+  s.measures[0].treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes =
+           {
+               ln(NoteLetter::C, Accidental::Natural, 4, 1),
+               ln(NoteLetter::E, Accidental::Natural, 4, 2),
+               ln(NoteLetter::G, Accidental::Natural, 4, 3),
+               ln(NoteLetter::B, Accidental::Flat, 4, 5),
+           }},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = false},
+       .is_rest = false,
+       .voice = 0,
+       .notes =
+           {
+               ln(NoteLetter::F, Accidental::Natural, 4, 1),
+               ln(NoteLetter::A, Accidental::Natural, 4, 3),
+               ln(NoteLetter::C, Accidental::Natural, 5, 5),
+           }},
+  };
+  s.measures[0].bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole, .dotted = false},
+       .is_rest = true,
+       .voice = 0,
+       .notes = {}},
+  };
+
+  LessonEngine engine;
+  engine.load_score(s, LessonConfig{.practice_mode = LessonPracticeMode::SteadyPulse,
+                                    .hand_mode = LessonHandMode::RightHand,
+                                    .tempo_step = TempoLadderStep::Target100});
+  (void)engine.start();
+  for (int i = 0; i < 4; ++i) {
+    (void)engine.update(600.0);
+  }
+  REQUIRE(engine.playback_state() == LessonPlaybackState::Playing);
+
+  // Hit 3 of 4 notes of C7 (omit Bb4=70), 0 wrong notes -> PartialHit!
+  const auto p1 = engine.submit_played_notes(std::array<MidiPitch, 3>{60, 64, 67});
+  REQUIRE(p1.partial_match);
+  REQUIRE_FALSE(p1.matched);
+  REQUIRE_FALSE(p1.wrong_note);
+  REQUIRE(engine.partial_hit_count() == 1U);
+  REQUIRE(engine.targets()[0].status == LessonTargetStatus::PartialHit);
+  REQUIRE(engine.targets()[0].missed_midi == std::vector<MidiPitch>{70});
+  REQUIRE_THAT(engine.accuracy(), WithinAbs(0.5, 1e-6));
+
+  // Advance to beat 3 (tick 960 -> F4, A4, C5) and play wrong note -> Missed!
+  (void)engine.update(1200.0);
+  const auto bad = engine.submit_played_notes(std::array<MidiPitch, 3>{65, 68, 72}); // Ab4 wrong
+  REQUIRE(bad.wrong_note);
+  REQUIRE_FALSE(bad.partial_match);
+  REQUIRE(engine.targets()[1].status == LessonTargetStatus::Missed);
+
+  // WaitForNote stays strict: 3 of 4 notes triggers wrong_note, never PartialHit
+  engine.set_practice_mode(LessonPracticeMode::WaitForNote);
+  const auto strict_res = engine.submit_played_notes(std::array<MidiPitch, 3>{60, 64, 67});
+  REQUIRE(strict_res.wrong_note);
+  REQUIRE_FALSE(strict_res.partial_match);
+}
+
+TEST_CASE("find_trouble_spot detects 1-bar and 2-bar seam hotspots accurately", "[lesson_engine]") {
+  LessonRunSummary clean{};
+  clean.bar_diagnostics = {
+      {.bar_index = 0, .bar_number = 1, .hits = 4, .partial_hits = 0, .misses = 0},
+      {.bar_index = 1, .bar_number = 2, .hits = 4, .partial_hits = 0, .misses = 0},
+  };
+  REQUIRE_FALSE(find_trouble_spot(clean).has_value());
+
+  LessonRunSummary seam{};
+  seam.bar_diagnostics = {
+      {.bar_index = 2, .bar_number = 3, .hits = 4, .partial_hits = 0, .misses = 0},
+      {.bar_index = 3, .bar_number = 4, .hits = 1, .partial_hits = 1, .misses = 2},
+      {.bar_index = 4, .bar_number = 5, .hits = 1, .partial_hits = 0, .misses = 2},
+      {.bar_index = 5, .bar_number = 6, .hits = 3, .partial_hits = 1, .misses = 0},
+  };
+  const auto spot = find_trouble_spot(seam);
+  REQUIRE(spot.has_value());
+  REQUIRE(spot->start_bar_index == 3U);
+  REQUIRE(spot->end_bar_index == 4U);
+  REQUIRE(spot->start_bar_number == 4U);
+  REQUIRE(spot->end_bar_number == 5U);
+  REQUIRE(spot->misses == 4U);
+  REQUIRE(spot->partial_hits == 1U);
+}
