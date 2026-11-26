@@ -1,6 +1,6 @@
 # Phase 18: Interactive Practice Strip, Visible Lesson Progress & Above-the-Fold Score Fit
 
-**Status:** `[ ] Planned` (Depends on Phase 17)  
+**Status:** `[x] Complete` (Depends on Phase 17)  
 **Goal:** Make the current lesson exercise mode, passage, hand, tempo, and 4-milestone roadmap immediately legible above the score; surface one-click **Restart** and **Exit active bar loop** controls without hiding them in a popover; upgrade `Practice settings` with real progress details and custom BPM stepping; and tighten vertical chrome so System 1's full Grand Staff fits above the fold at `1360×860`.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `verification-and-review`

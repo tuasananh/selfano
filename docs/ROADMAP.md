@@ -38,7 +38,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 15** | Expressive Classical Notation & Two-Voice Polyphony | [phase-15-expressive-notation-and-polyphony.md](./phases/phase-15-expressive-notation-and-polyphony.md) | `[x] Complete` |
 | **Phase 16** | Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) | [phase-16-pianistic-musicality-coaching.md](./phases/phase-16-pianistic-musicality-coaching.md) | `[x] Complete` |
 | **Phase 17** | Lesson Navigation Bar, Prev/Next Stepping & Curriculum Access | [phase-17-lesson-navigation-and-curriculum-access.md](./phases/phase-17-lesson-navigation-and-curriculum-access.md) | `[x] Complete` |
-| **Phase 18** | Interactive Practice Strip, Lesson Progress & Above-the-Fold Fit | [phase-18-practice-bar-progress-and-viewport.md](./phases/phase-18-practice-bar-progress-and-viewport.md) | `[ ] Planned` |
+| **Phase 18** | Interactive Practice Strip, Lesson Progress & Above-the-Fold Fit | [phase-18-practice-bar-progress-and-viewport.md](./phases/phase-18-practice-bar-progress-and-viewport.md) | `[x] Complete` |
 | **Phase 19** | Non-Blocking Post-Run Coach & Upgraded Curriculum Browser | [phase-19-post-run-coach-and-curriculum-browser.md](./phases/phase-19-post-run-coach-and-curriculum-browser.md) | `[ ] Planned` |
 | **Phase 20** | Apple HIG Learn Brief, System Measure Numbers & Input Polish | [phase-20-lesson-brief-and-score-ergonomics.md](./phases/phase-20-lesson-brief-and-score-ergonomics.md) | `[ ] Planned` |
 

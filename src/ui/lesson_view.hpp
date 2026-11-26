@@ -134,7 +134,8 @@ private:
                       core::UserProfile& profile, std::int64_t today_epoch_day,
                       LessonViewActions& actions, bool& out_open_settings);
   void draw_practice_settings(const core::LessonProgress& prog, LessonViewActions& actions);
-  void draw_practice_prompt(LessonViewActions& actions);
+  void draw_practice_prompt(const core::LessonProgress& prog, LessonViewActions& actions,
+                            bool& out_open_settings);
   [[nodiscard]] std::string passage_label() const;
   void draw_result(const core::LessonLibrary& library, const core::LessonProgress& progress,
                    LessonViewActions& actions);
