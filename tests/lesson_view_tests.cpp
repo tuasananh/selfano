@@ -35,6 +35,13 @@ TEST_CASE("Lessons prepare the exercise from progress and only score practice in
     REQUIRE_FALSE(view.engine().targets().empty());
     chord.notes = view.engine().targets().front().expected_midi;
     CHECK(view.on_played_chord(chord, profile, 1, chime, mastered));
+    std::vector<midi::ScheduledMidiNote> demo;
+    bool stopped = false;
+    view.toggle_demo(0, demo, stopped);
+    CHECK_FALSE(view.on_played_chord(chord, profile, 1, chime, mastered));
+    CHECK(view.engine().active_target_index() == 0);
+    view.toggle_demo(1, demo, stopped);
+    CHECK(stopped);
     view.mutable_engine().set_tempo_step(core::TempoLadderStep::Custom, 57);
     auto config = view.engine().config();
     view.set_active_tab(ui::LessonViewTab::Learn);

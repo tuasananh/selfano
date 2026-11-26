@@ -78,6 +78,17 @@ namespace {
   return false;
 }
 
+std::string format_bar_number(std::uint32_t number) {
+  return number == 0 ? "Pickup" : std::to_string(number);
+}
+
+std::string format_bar_range(std::uint32_t first, std::uint32_t last) {
+  if (first == last) {
+    return first == 0 ? "Pickup" : std::format("Bar {}", first);
+  }
+  return std::format("Bars {}–{}", format_bar_number(first), format_bar_number(last));
+}
+
 void append_playback_notes(double now_ms, std::span<const core::LessonPlaybackNote> notes,
                            std::vector<midi::ScheduledMidiNote>& out) {
   for (const auto& n : notes) {
@@ -364,7 +375,8 @@ void LessonView::simulate_completed_run_for_smoke(SmokeCoachSimMode mode,
 bool LessonView::on_played_chord(const midi::PlayedChord& chord, core::UserProfile& profile,
                                  std::int64_t today_epoch_day, bool& out_chime,
                                  bool& out_just_mastered) {
-  if (active_tab_ != LessonViewTab::Practice || chord.notes.empty()) {
+  if (active_tab_ != LessonViewTab::Practice ||
+      engine_.playback_state() == core::LessonPlaybackState::DemoPlaying || chord.notes.empty()) {
     return false;
   }
   const auto res = engine_.submit_played_notes(chord.notes, chord.velocities, chord.from_hardware);
@@ -448,6 +460,7 @@ void LessonView::start_demo_for_smoke(double now_ms,
 }
 
 void LessonView::reset_phrase() noexcept {
+  show_post_run_coach_ = false;
   engine_.stop();
 }
 
@@ -499,6 +512,9 @@ VirtualPianoHighlights
 LessonView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) const {
   VirtualPianoHighlights hi{};
   hi.held = held_notes;
+  if (active_tab_ == LessonViewTab::Learn) {
+    return hi;
+  }
 
   if (engine_.playback_state() == core::LessonPlaybackState::DemoPlaying) {
     for (const auto m : engine_.active_demo_midi_notes()) {
@@ -544,397 +560,287 @@ void LessonView::set_import_error(std::string message) {
 
 void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
                                 LessonViewActions& actions) {
-  const float scale = ImGui::GetStyle().FontScaleDpi;
   const auto& meta = engine_.score().meta;
-  const float top_right_edge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-  auto wrap_if_needed = [&](float needed_logical_w, float gap_logical = 8.0f) {
-    const float prev_right = ImGui::GetItemRectMax().x;
-    const float hint_pad = show_piano_key_hints() ? (32.0f * scale) : 0.0f;
-    if (prev_right + gap_logical * scale + needed_logical_w * scale + hint_pad <= top_right_edge) {
-      ImGui::SameLine(0.0f, gap_logical * scale);
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const bool practice = active_tab_ == LessonViewTab::Practice;
+  bool open_menu = false;
+  bool open_settings = false;
+  if (ImGui::BeginTable("##lesson_navigation", practice ? 2 : 1,
+                        ImGuiTableFlags_SizingStretchProp)) {
+    ImGui::TableSetupColumn("Title", ImGuiTableColumnFlags_WidthStretch);
+    if (practice) {
+      ImGui::TableSetupColumn("Settings", ImGuiTableColumnFlags_WidthFixed, 150.0f * scale);
     }
-  };
-
-  {
-    ScopedFont tf(TypeStyle::Title);
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(meta.title.empty() ? "Guided Lessons" : meta.title.c_str());
-  }
-  if (meta.tier > 0U) {
-    wrap_if_needed(64.0f, 10.0f);
-    status_pill(std::format("Tier {}", meta.tier), StatusTone::Accent);
-  }
-  wrap_if_needed(88.0f, 6.0f);
-  status_pill(core::format_key_name(meta.key), StatusTone::Neutral);
-  wrap_if_needed(48.0f, 6.0f);
-  status_pill(std::format("{}/{}", meta.time_signature.numerator, meta.time_signature.denominator),
-              StatusTone::Neutral);
-  if (is_revision_mode_) {
-    wrap_if_needed(126.0f, 6.0f);
-    status_pill("Guided Revision", StatusTone::Warning, IconId::Repeat);
-  }
-
-  if (pill_button("Curriculum##lv_curr", ButtonTone::Secondary, IconId::Layers, 32.0f)) {
-    curriculum_modal_.open();
-  }
-  wrap_if_needed(176.0f, 8.0f);
-  {
-    static constexpr std::array<std::string_view, 2> kLessonTabs{"Learn", "Practice"};
-    int tab_idx = static_cast<int>(active_tab_);
-    if (segmented_control("##lv_tab_seg", &tab_idx, kLessonTabs, 168.0f, 32.0f)) {
-      const auto next_tab = static_cast<LessonViewTab>(tab_idx);
-      if (next_tab == LessonViewTab::Practice) {
-        start_practicing(profile, actions);
-      } else {
-        actions.stop_all_playback = true;
-        set_active_tab(next_tab);
+    ImGui::TableNextColumn();
+    open_menu = icon_button("##lesson_menu", IconId::ChevronDown, "Lesson menu");
+    ImGui::SameLine();
+    {
+      ScopedFont title(TypeStyle::Title);
+      ImGui::AlignTextToFramePadding();
+      ImGui::TextWrapped("%s", meta.title.empty() ? "Guided lessons" : meta.title.c_str());
+      open_menu |= ImGui::IsItemClicked();
+      if (ImGui::IsItemHovered()) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
       }
     }
+    if (practice) {
+      ImGui::TableNextColumn();
+      open_settings = pill_button("Practice settings", ButtonTone::Secondary, IconId::Sliders);
+    }
+    ImGui::EndTable();
   }
-  if (active_tab_ == LessonViewTab::Practice) {
-    const auto pb_st = engine_.playback_state();
-    const bool demo_playing = (pb_st == core::LessonPlaybackState::DemoPlaying);
-    wrap_if_needed(demo_playing ? 116.0f : 88.0f, 8.0f);
-    if (pill_button(demo_playing ? "Stop Demo##lv_demo" : "Demo##lv_demo",
-                    demo_playing ? ButtonTone::Warning : ButtonTone::SoftAccent,
-                    demo_playing ? IconId::Stop : IconId::VolumeOn, 32.0f, 0.0f, false, "E7")) {
-      actions.trigger_demo_playback = true;
-    }
-    wrap_if_needed(92.0f, 8.0f);
-
-    const bool is_running = (pb_st == core::LessonPlaybackState::CountIn ||
-                             pb_st == core::LessonPlaybackState::Playing);
-    if (pill_button(is_running ? "Pause##lv_play" : "Pulse##lv_play",
-                    is_running ? ButtonTone::Warning : ButtonTone::Primary,
-                    is_running ? IconId::Pause : IconId::Play, 32.0f, 0.0f, false, "F7")) {
-      bool stopped = false;
-      toggle_play_pause(actions.metronome_click, actions.metronome_accent, &stopped);
-      if (stopped) {
-        actions.stop_all_playback = true;
-      }
-    }
-    wrap_if_needed(38.0f, 8.0f);
-    if (icon_button("##lv_reset", IconId::Refresh, "Reset Phrase", false, 32.0f,
-                    ButtonTone::Secondary, "G7")) {
-      reset_phrase();
+  if (open_menu) {
+    ImGui::OpenPopup("##lesson_menu_pop");
+  }
+  if (ImGui::BeginPopup("##lesson_menu_pop")) {
+    ImGui::TextDisabled("Tier %u · %s · %d/%d", meta.tier, core::format_key_name(meta.key).c_str(),
+                        meta.time_signature.numerator, meta.time_signature.denominator);
+    if (!meta.is_imported && practice && ImGui::MenuItem("Lesson brief")) {
+      set_active_tab(LessonViewTab::Learn);
       actions.stop_all_playback = true;
     }
-  }
-  wrap_if_needed(96.0f, 8.0f);
-  if (pill_button("Options##lv_opts", ButtonTone::Secondary, IconId::Sliders, 32.0f)) {
-    ImGui::OpenPopup("##lesson_options_pop");
+    if (ImGui::MenuItem("Change lesson")) {
+      curriculum_modal_.open();
+    }
+    ImGui::EndPopup();
   }
 
-  if (ImGui::BeginPopup("##lesson_options_pop")) {
-    section_kicker("DISPLAY & PRACTICE");
-    ImGui::Spacing();
-    if (settings_toggle_row("Show Fingerings (1-5)", "##lv_opt_fing",
-                            &profile.preferences.lesson_show_fingerings)) {
-      show_fingerings_ = profile.preferences.lesson_show_fingerings;
-      actions.profile_dirty = true;
+  if (open_settings) {
+    ImGui::OpenPopup("##lesson_settings_pop");
+  }
+  const auto viewport = ImGui::GetMainViewport()->WorkSize;
+  const float width = std::min(350.0f * scale, viewport.x - 16.0f * scale);
+  ImGui::SetNextWindowSizeConstraints({width, 0.0f}, {width, viewport.y * 0.83f});
+  if (ImGui::BeginPopup("##lesson_settings_pop")) {
+    auto& progress = profile.lesson_progress[meta.id];
+    draw_practice_settings(progress, actions);
+    if (ImGui::CollapsingHeader("Display and preferences")) {
+      if (settings_toggle_row("Finger numbers", "##fing",
+                              &profile.preferences.lesson_show_fingerings)) {
+        show_fingerings_ = profile.preferences.lesson_show_fingerings;
+        actions.profile_dirty = true;
+      }
+      if (settings_toggle_row("Chord and Roman numeral labels", "##harm",
+                              &profile.preferences.lesson_show_harmony)) {
+        show_harmony_ = profile.preferences.lesson_show_harmony;
+        actions.profile_dirty = true;
+      }
+      if (settings_toggle_row("Light staff paper", "##paper",
+                              &profile.preferences.light_paper_staff)) {
+        light_paper_theme_ = profile.preferences.light_paper_staff;
+        actions.profile_dirty = true;
+      }
+      if (settings_toggle_row("Use lesson key as weekly key", "##sync",
+                              &profile.preferences.sync_weekly_key_to_lesson)) {
+        actions.weekly_key_sync_requested = profile.preferences.sync_weekly_key_to_lesson;
+        actions.profile_dirty = true;
+      }
     }
-    if (settings_toggle_row("Show Chord & Roman Labels", "##lv_opt_harm",
-                            &profile.preferences.lesson_show_harmony)) {
-      show_harmony_ = profile.preferences.lesson_show_harmony;
-      actions.profile_dirty = true;
-    }
-    if (settings_toggle_row("Sync Weekly Key to Lesson", "##lv_opt_sync",
-                            &profile.preferences.sync_weekly_key_to_lesson)) {
-      actions.profile_dirty = true;
-      actions.weekly_key_sync_requested = profile.preferences.sync_weekly_key_to_lesson;
-    }
-    bool loop = engine_.config().loop_phrase;
-    if (settings_toggle_row("Loop Active Phrase", "##lv_opt_loop", &loop)) {
-      engine_.set_loop_phrase(loop);
-    }
-    if (settings_toggle_row("Metronome Click", "##lv_opt_met", &metronome_enabled_, nullptr,
-                            "F#7")) {
+    if (settings_toggle_row("Metronome", "##met", &metronome_enabled_, nullptr, "F#7")) {
       profile.preferences.metronome_enabled = metronome_enabled_;
       actions.profile_dirty = true;
     }
-    if (settings_toggle_row("Light Paper Staff", "##lv_opt_paper",
-                            &profile.preferences.light_paper_staff)) {
-      light_paper_theme_ = profile.preferences.light_paper_staff;
-      actions.profile_dirty = true;
-    }
-    hairline_separator(6.0f);
-    if (pill_button("Mark Mastered Manually##lv_mark_m", ButtonTone::SoftAccent, IconId::Check,
-                    28.0f)) {
-      auto& mp = profile.lesson_progress[meta.id];
-      mp.status = core::LessonMasteryStatus::Mastered;
-      mp.ladder_100_clean = true;
-      if (mp.review_due_epoch_day == 0) {
-        core::rate_guided_revision(mp, core::SrsRating::Good, today_epoch_day);
+    if (ImGui::CollapsingHeader("Lesson progress")) {
+      if (pill_button("Mark lesson as mastered", ButtonTone::Secondary, IconId::Check)) {
+        progress.status = core::LessonMasteryStatus::Mastered;
+        progress.ladder_100_clean = true;
+        if (progress.review_due_epoch_day == 0) {
+          core::rate_guided_revision(progress, core::SrsRating::Good, today_epoch_day);
+        }
+        reset_phrase();
+        just_mastered_banner_ = true;
+        actions.stop_all_playback = true;
+        actions.profile_dirty = true;
+        ImGui::CloseCurrentPopup();
       }
-      just_mastered_banner_ = true;
-      actions.profile_dirty = true;
-      ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
   }
 }
 
-void LessonView::draw_scaffold_bar(const core::LessonProgress& prog, LessonViewActions& actions) {
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  const auto& meta = engine_.score().meta;
-
-  begin_card("##lv_scaffold", ImVec2(0.0f, 0.0f), 10.0f, 12.0f, true, true);
-  {
-    const float sc_right_edge = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-    auto sc_wrap = [&](float needed_logical_w, float gap_logical = 8.0f) {
-      const float prev_right = ImGui::GetItemRectMax().x;
-      if (prev_right + gap_logical * scale + needed_logical_w * scale <= sc_right_edge) {
-        ImGui::SameLine(0.0f, gap_logical * scale);
-      }
-    };
-
-    static constexpr std::array<std::string_view, 3> kModes{"Skeleton", "Wait", "Pulse"};
-    int mode_idx = static_cast<int>(engine_.config().practice_mode);
-    if (segmented_control("##lv_mode_seg", &mode_idx, kModes, 218.0f, 28.0f)) {
-      engine_.set_practice_mode(static_cast<core::LessonPracticeMode>(mode_idx));
-      actions.stop_all_playback = true;
+void LessonView::draw_practice_settings(const core::LessonProgress& progress,
+                                        LessonViewActions& actions) {
+  const auto& cfg = engine_.config();
+  const auto& measures = engine_.score().measures;
+  const auto bar_label = [&](std::size_t i) { return format_bar_number(measures[i].bar_number); };
+  const auto previous = cfg;
+  section_kicker("PRACTICE MODE");
+  static constexpr std::array<std::string_view, 3> modes{"Chord shapes", "Wait for notes",
+                                                         "Steady beat"};
+  int mode = static_cast<int>(cfg.practice_mode);
+  if (segmented_control("##mode", &mode, modes)) {
+    engine_.set_practice_mode(static_cast<core::LessonPracticeMode>(mode));
+  }
+  static constexpr std::array<std::string_view, 3> hands{"Right hand", "Left hand", "Both hands"};
+  int hand = static_cast<int>(cfg.hand_mode);
+  if (segmented_control("##hands", &hand, hands)) {
+    engine_.set_hand_mode(static_cast<core::LessonHandMode>(hand));
+  }
+  if (cfg.practice_mode == core::LessonPracticeMode::SteadyPulse &&
+      cfg.hand_mode != core::LessonHandMode::HandsTogether) {
+    bool accompany = cfg.play_other_hand_accomp;
+    if (settings_toggle_row("Play the other hand", "##accomp", &accompany)) {
+      engine_.set_play_other_hand_accomp(accompany);
+      actions.stop_all_playback = !accompany;
     }
-
-    sc_wrap(144.0f, 8.0f);
-    static constexpr std::array<std::string_view, 3> kHands{"RH", "LH", "Both"};
-    int hand_idx = static_cast<int>(engine_.config().hand_mode);
-    if (segmented_control("##lv_hand_seg", &hand_idx, kHands, 144.0f, 28.0f)) {
-      engine_.set_hand_mode(static_cast<core::LessonHandMode>(hand_idx));
-      actions.stop_all_playback = true;
-    }
-
-    if (engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse &&
-        engine_.config().hand_mode != core::LessonHandMode::HandsTogether) {
-      sc_wrap(116.0f, 8.0f);
-      const bool accomp_on = engine_.config().play_other_hand_accomp;
-      if (pill_button(accomp_on ? "Accomp On##lv_acc" : "Accomp Off##lv_acc",
-                      accomp_on ? ButtonTone::SoftAccent : ButtonTone::Secondary,
-                      accomp_on ? IconId::VolumeOn : IconId::VolumeOff, 28.0f, 108.0f, true)) {
-        engine_.set_play_other_hand_accomp(!accomp_on);
-        if (accomp_on) {
-          actions.stop_all_playback = true;
-        }
-      }
-      if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Auto-play the other hand softly along with Steady Pulse");
-      }
-    }
-
-    const auto ladder_btn = [&](const char* label, core::TempoLadderStep step, bool cleared,
-                                float est_w) {
-      sc_wrap(est_w, 6.0f);
-      const double bpm = core::compute_ladder_bpm(meta.target_bpm, step);
-      const bool selected = (engine_.config().tempo_step == step);
-      const std::string full =
-          std::format("{} {:.0f}##lv_lad_{}", label, bpm, static_cast<int>(step));
-      if (pill_button(full.c_str(),
-                      selected ? ButtonTone::Primary
-                               : (cleared ? ButtonTone::SoftAccent : ButtonTone::Secondary),
-                      cleared ? IconId::Check : IconId::None, 28.0f)) {
+  }
+  const auto tempo = std::format("{:.0f} BPM", engine_.effective_bpm());
+  if (ImGui::BeginCombo("Tempo", tempo.c_str())) {
+    for (auto step : {core::TempoLadderStep::Slow60, core::TempoLadderStep::Medium80,
+                      core::TempoLadderStep::Target100}) {
+      const auto bpm = core::compute_ladder_bpm(engine_.score().meta.target_bpm, step);
+      const auto label = std::format("{}% · {:.0f} BPM",
+                                     step == core::TempoLadderStep::Slow60     ? 60
+                                     : step == core::TempoLadderStep::Medium80 ? 80
+                                                                               : 100,
+                                     bpm);
+      if (ImGui::Selectable(label.c_str(), cfg.tempo_step == step)) {
         engine_.set_tempo_step(step);
       }
-    };
-    ladder_btn("60%", core::TempoLadderStep::Slow60, prog.ladder_60_clean, 82.0f);
-    ladder_btn("80%", core::TempoLadderStep::Medium80, prog.ladder_80_clean, 82.0f);
-    ladder_btn("100%", core::TempoLadderStep::Target100, prog.ladder_100_clean, 92.0f);
-    if (engine_.config().tempo_step == core::TempoLadderStep::Custom) {
-      sc_wrap(88.0f, 6.0f);
-      status_pill(std::format("BPM {:.0f}", engine_.effective_bpm()), StatusTone::Accent);
     }
+    ImGui::EndCombo();
+  }
 
-    ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+  if (ImGui::BeginCombo("Passage", passage_label().c_str())) {
+    if (ImGui::Selectable("Full piece", !cfg.phrase_index && !cfg.custom_bar_range)) {
+      engine_.set_phrase_index(std::nullopt);
+    }
     const auto& phrases = engine_.phrases();
-    if (phrases.size() <= 6U) {
-      for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
-        if (pi > 0U) {
-          sc_wrap(94.0f, 6.0f);
-        }
-        const bool sel = (engine_.config().phrase_index == pi);
-        const bool cleared = is_phrase_cleared(engine_.score(), prog, pi);
-        const std::string short_lbl = std::format(
-            "Phrase {}##lv_ph_{}", static_cast<char>('A' + static_cast<int>(pi % 26U)), pi);
-        if (pill_button(short_lbl.c_str(),
-                        sel ? ButtonTone::Primary
-                            : (cleared ? ButtonTone::SoftAccent : ButtonTone::Secondary),
-                        cleared ? IconId::Check : IconId::None, 26.0f)) {
-          engine_.set_phrase_index(pi);
-          actions.stop_all_playback = true;
-        }
+    for (std::size_t i = 0; i < phrases.size(); ++i) {
+      const auto label =
+          std::format("{}{}##{}", phrases[i].label,
+                      is_phrase_cleared(engine_.score(), progress, i) ? " (complete)" : "", i);
+      if (ImGui::Selectable(label.c_str(), cfg.phrase_index == i)) {
+        engine_.set_phrase_index(i);
       }
-      if (!phrases.empty()) {
-        sc_wrap(92.0f, 6.0f);
-      }
-      const bool full_sel = !engine_.config().phrase_index.has_value() &&
-                            !engine_.config().custom_bar_range.has_value();
-      if (pill_button("Full Piece##lv_ph_full",
-                      full_sel ? ButtonTone::Primary : ButtonTone::Secondary, IconId::None,
-                      26.0f)) {
-        engine_.set_phrase_index(std::nullopt);
-        actions.stop_all_playback = true;
-      }
-    } else {
-      const std::string cur_ph_label = engine_.config().custom_bar_range.has_value()
-                                           ? std::string("Custom Bar Loop")
-                                           : (engine_.config().phrase_index.has_value()
-                                                  ? phrases[*engine_.config().phrase_index].label
-                                                  : std::string("Full Piece (All Bars)"));
-      ImGui::SetNextItemWidth(std::min(240.0f * scale, ImGui::GetContentRegionAvail().x * 0.55f));
-      if (ImGui::BeginCombo("##lv_phrase_combo", cur_ph_label.c_str())) {
-        if (ImGui::Selectable("Full Piece (All Bars)",
-                              !engine_.config().phrase_index.has_value() &&
-                                  !engine_.config().custom_bar_range.has_value())) {
-          engine_.set_phrase_index(std::nullopt);
-          actions.stop_all_playback = true;
-        }
-        for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
-          const bool sel = (engine_.config().phrase_index == pi &&
-                            !engine_.config().custom_bar_range.has_value());
-          const bool cleared = is_phrase_cleared(engine_.score(), prog, pi);
-          const std::string item_lbl =
-              cleared ? std::format("[ok] {}", phrases[pi].label) : phrases[pi].label;
-          if (ImGui::Selectable(item_lbl.c_str(), sel)) {
-            engine_.set_phrase_index(pi);
-            actions.stop_all_playback = true;
+    }
+    if (!measures.empty() && ImGui::Selectable("Custom bars", cfg.custom_bar_range.has_value())) {
+      const auto start = engine_.slice_start_bar();
+      engine_.set_custom_bar_range(std::pair{start, std::min(start + 1, measures.size() - 1)});
+      engine_.set_loop_phrase(true);
+    }
+    ImGui::EndCombo();
+  }
+  if (cfg.custom_bar_range) {
+    for (bool first : {true, false}) {
+      const auto [start, end] = *cfg.custom_bar_range;
+      if (ImGui::BeginCombo(first ? "First bar" : "Last bar",
+                            bar_label(first ? start : end).c_str())) {
+        for (std::size_t i = first ? 0 : start; i <= (first ? end : measures.size() - 1); ++i) {
+          ImGui::PushID(static_cast<int>(i));
+          if (ImGui::Selectable(bar_label(i).c_str(), i == (first ? start : end))) {
+            engine_.set_custom_bar_range(first ? std::pair{i, end} : std::pair{start, i});
           }
+          ImGui::PopID();
         }
         ImGui::EndCombo();
       }
     }
-
-    const auto& all_measures = engine_.score().measures;
-    if (!all_measures.empty()) {
-      auto fmt_bar = [&](std::size_t idx) -> std::string {
-        const auto bn = all_measures[std::min(idx, all_measures.size() - 1U)].bar_number;
-        return (bn == 0U) ? std::string("Pkp") : std::to_string(bn);
-      };
-      const std::size_t max_bar = all_measures.size() - 1U;
-      if (!engine_.config().custom_bar_range.has_value()) {
-        sc_wrap(106.0f, 8.0f);
-        if (pill_button("Loop Bars##lv_cbar_open", ButtonTone::Secondary, IconId::Repeat, 26.0f)) {
-          const std::size_t s0 = engine_.slice_start_bar();
-          const std::size_t s1 = std::min(max_bar, s0 + 1U);
-          engine_.set_custom_bar_range(std::pair{s0, s1});
-          engine_.set_loop_phrase(true);
-          actions.stop_all_playback = true;
-        }
-      } else {
-        const auto [b0, b1] = *engine_.config().custom_bar_range;
-        sc_wrap(330.0f, 8.0f);
-        status_pill(std::format("Bars {}-{}", fmt_bar(b0), fmt_bar(b1)), StatusTone::Accent,
-                    IconId::Repeat);
-        ImGui::SameLine(0.0f, 4.0f * scale);
-        if (pill_button("-##lv_bs_dec", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
-            b0 > 0U) {
-          engine_.set_custom_bar_range(std::pair{b0 - 1U, b1});
-          actions.stop_all_playback = true;
-        }
-        ImGui::SameLine(0.0f, 2.0f * scale);
-        if (pill_button("+##lv_bs_inc", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
-            b0 < b1) {
-          engine_.set_custom_bar_range(std::pair{b0 + 1U, b1});
-          actions.stop_all_playback = true;
-        }
-        ImGui::SameLine(0.0f, 4.0f * scale);
-        if (pill_button("-##lv_be_dec", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
-            b1 > b0) {
-          engine_.set_custom_bar_range(std::pair{b0, b1 - 1U});
-          actions.stop_all_playback = true;
-        }
-        ImGui::SameLine(0.0f, 2.0f * scale);
-        if (pill_button("+##lv_be_inc", ButtonTone::Secondary, IconId::None, 24.0f, 24.0f) &&
-            b1 < max_bar) {
-          engine_.set_custom_bar_range(std::pair{b0, b1 + 1U});
-          actions.stop_all_playback = true;
-        }
-        ImGui::SameLine(0.0f, 6.0f * scale);
-        const bool loop_on = engine_.config().loop_phrase;
-        if (pill_button(loop_on ? "Loop On##lv_cbar_lp" : "Loop Off##lv_cbar_lp",
-                        loop_on ? ButtonTone::SoftAccent : ButtonTone::Secondary, IconId::None,
-                        24.0f)) {
-          engine_.set_loop_phrase(!loop_on);
-        }
-        ImGui::SameLine(0.0f, 4.0f * scale);
-        if (pill_button("Clear##lv_cbar_clr", ButtonTone::Ghost, IconId::None, 24.0f)) {
-          engine_.set_phrase_index(std::nullopt);
-          actions.stop_all_playback = true;
-        }
-      }
-    }
   }
-  end_card();
+  bool loop = cfg.loop_phrase;
+  if (settings_toggle_row("Loop this passage", "##loop", &loop)) {
+    engine_.set_loop_phrase(loop);
+  }
+  if (previous.practice_mode != cfg.practice_mode || previous.hand_mode != cfg.hand_mode ||
+      previous.phrase_index != cfg.phrase_index ||
+      previous.custom_bar_range != cfg.custom_bar_range) {
+    actions.stop_all_playback = true;
+  }
+  if (previous != cfg) {
+    show_post_run_coach_ = false;
+  }
+  if (pill_button("Restart passage", ButtonTone::Secondary, IconId::Refresh, 28.0f, 0.0f, false,
+                  "G7")) {
+    reset_phrase();
+    actions.stop_all_playback = true;
+    ImGui::CloseCurrentPopup();
+  }
+  if (pill_button("Use recommended exercise", ButtonTone::SoftAccent, IconId::Play, 28.0f)) {
+    const auto step = core::suggest_next_practice_step(engine_.score(), progress);
+    if (step.open_learn_brief) {
+      set_active_tab(LessonViewTab::Learn);
+    } else {
+      engine_.configure(step.target_config);
+    }
+    show_post_run_coach_ = false;
+    actions.stop_all_playback = true;
+    ImGui::CloseCurrentPopup();
+  }
 }
 
-void LessonView::draw_guided_stepper(const core::LessonProgress& prog, LessonViewActions& actions) {
-  const auto& c = colors();
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  const auto step = core::suggest_next_practice_step(engine_.score(), prog);
-  const auto& phrases = engine_.phrases();
-  std::size_t done_phrases = 0;
-  for (std::size_t pi = 0; pi < phrases.size(); ++pi) {
-    if (is_phrase_cleared(engine_.score(), prog, pi)) {
-      ++done_phrases;
+std::string LessonView::passage_label() const {
+  const auto& cfg = engine_.config();
+  if (cfg.custom_bar_range) {
+    const auto& measures = engine_.score().measures;
+    const auto [start, end] = *cfg.custom_bar_range;
+    return format_bar_range(measures[start].bar_number, measures[end].bar_number);
+  }
+  return cfg.phrase_index ? engine_.phrases()[*cfg.phrase_index].label : "Full piece";
+}
+
+void LessonView::draw_practice_prompt(LessonViewActions& actions) {
+  using State = core::LessonPlaybackState;
+  using Mode = core::LessonPracticeMode;
+  const auto& cfg = engine_.config();
+  const auto state = engine_.playback_state();
+  const bool timed = cfg.practice_mode == Mode::SteadyPulse;
+  const bool demo = state == State::DemoPlaying;
+  const bool running = state == State::CountIn || state == State::Playing;
+  const char* hand = cfg.hand_mode == core::LessonHandMode::LeftHand    ? "Left hand"
+                     : cfg.hand_mode == core::LessonHandMode::RightHand ? "Right hand"
+                                                                        : "Both hands";
+  std::string context =
+      std::format("{}{} · {}", is_revision_mode_ ? "Review · " : "", passage_label(), hand);
+  if (timed || demo) {
+    context += std::format(" · {:.0f} BPM", engine_.effective_bpm());
+  }
+  if (cfg.loop_phrase) {
+    context += " · Loop on";
+  }
+  begin_card("##practice_prompt", {}, 12.0f, 12.0f, true);
+  {
+    ScopedFont sub(TypeStyle::Subheadline);
+    ImGui::TextWrapped("%s", context.c_str());
+  }
+  {
+    ScopedFont prompt(TypeStyle::Headline);
+    std::string instruction;
+    if (demo) {
+      instruction = "Listen and follow the notes on the staff.";
+    } else if (state == State::CountIn) {
+      instruction = std::format("Get ready · {} beats to go", engine_.count_in_beats_remaining());
+    } else if (state == State::Paused) {
+      instruction = "Paused. Resume when you’re ready.";
+    } else if (timed) {
+      instruction = running ? "Follow the beat through the passage."
+                            : "Start the count-in, then play with the beat.";
+    } else if (engine_.targets().empty()) {
+      instruction = "This passage has no notes for the selected hand.";
+    } else if (engine_.active_target_index() < engine_.targets().size() &&
+               engine_.targets()[engine_.active_target_index()].pitch_class_match) {
+      instruction = "Play the highlighted chord in any octave.";
+    } else {
+      instruction = "Play the highlighted notes at your own pace.";
+    }
+    ImGui::TextWrapped("%s", instruction.c_str());
+  }
+  if (timed && !demo) {
+    const char* label = running ? "Pause" : state == State::Paused ? "Resume" : "Start count-in";
+    if (pill_button(label, ButtonTone::Primary, running ? IconId::Pause : IconId::Play, 30.0f, 0.0f,
+                    false, "F7")) {
+      bool stopped = false;
+      toggle_play_pause(actions.metronome_click, actions.metronome_accent, &stopped);
+      actions.stop_all_playback |= stopped;
+    }
+    if (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x >
+        180.0f * ImGui::GetStyle().FontScaleDpi) {
+      ImGui::SameLine();
     }
   }
-  const int cleared_ladder = static_cast<int>(prog.ladder_60_clean) +
-                             static_cast<int>(prog.ladder_80_clean) +
-                             static_cast<int>(prog.ladder_100_clean);
-
-  ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
-  begin_card("##lv_guided_stepper", ImVec2(0.0f, 0.0f), 10.0f, 10.0f, true, true);
-  {
-    const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-    auto gs_wrap = [&](float needed_logical_w, float gap_logical = 6.0f) {
-      const float prev_right = ImGui::GetItemRectMax().x;
-      if (prev_right + gap_logical * scale + needed_logical_w * scale <= row_right) {
-        ImGui::SameLine(0.0f, gap_logical * scale);
-      }
-    };
-
-    const bool all_phrases = (!phrases.empty() && done_phrases >= phrases.size());
-    auto milestone_tone = [&](bool done, int idx) noexcept {
-      if (done) {
-        return StatusTone::Success;
-      }
-      return (step.milestone_index == idx) ? StatusTone::Accent : StatusTone::Neutral;
-    };
-
-    status_pill("Brief", milestone_tone(prog.brief_read, 0),
-                prog.brief_read ? IconId::Check : IconId::None, !prog.brief_read);
-    gs_wrap(88.0f);
-    status_pill("Skeleton", milestone_tone(prog.skeleton_clean, 1),
-                prog.skeleton_clean ? IconId::Check : IconId::None, !prog.skeleton_clean);
-    gs_wrap(106.0f);
-    status_pill(std::format("Phrases {}/{}", done_phrases, phrases.size()),
-                milestone_tone(all_phrases, 2), all_phrases ? IconId::Check : IconId::None,
-                !all_phrases);
-    gs_wrap(96.0f);
-    status_pill(std::format("Ladder {}/3", cleared_ladder),
-                milestone_tone(prog.ladder_100_clean, 3),
-                prog.ladder_100_clean ? IconId::Check : IconId::None, !prog.ladder_100_clean);
-
-    gs_wrap(250.0f, 14.0f);
-    {
-      ScopedFont sf(TypeStyle::Subheadline);
-      ImGui::AlignTextToFramePadding();
-      ImGui::TextColored(c.accent, "%s", step.label.c_str());
-    }
-    if (ImGui::IsItemHovered()) {
-      ImGui::SetTooltip("%s", step.rationale.c_str());
-    }
-    gs_wrap(112.0f, 8.0f);
-    if (pill_button("Next Step##lv_guided_next", ButtonTone::Primary, IconId::ChevronRight, 26.0f,
-                    108.0f, true)) {
-      if (step.open_learn_brief) {
-        actions.stop_all_playback = true;
-        set_active_tab(LessonViewTab::Learn);
-      } else {
-        engine_.configure(step.target_config);
-        actions.stop_all_playback = true;
-      }
-    }
-    if (ImGui::IsItemHovered()) {
-      ImGui::SetTooltip("%s", step.rationale.c_str());
-    }
+  if (pill_button(demo ? "Stop demo" : "Listen to demo",
+                  demo ? ButtonTone::Primary : ButtonTone::Secondary,
+                  demo ? IconId::Stop : IconId::Headphones, 30.0f, 0.0f, false, "E7")) {
+    actions.trigger_demo_playback = true;
   }
   end_card();
 }
@@ -1104,50 +1010,6 @@ void LessonView::draw_mastery_banner(const core::LessonLibrary& library,
     }
   }
   end_card();
-}
-
-void LessonView::draw_status_strip() const {
-  const auto& c = colors();
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  const auto pb_st = engine_.playback_state();
-
-  std::string status_msg = "Ready";
-  StatusTone st_tone = StatusTone::Neutral;
-  if (pb_st == core::LessonPlaybackState::CountIn) {
-    status_msg = std::format("Count-in: {}", engine_.count_in_beats_remaining());
-    st_tone = StatusTone::Warning;
-  } else if (pb_st == core::LessonPlaybackState::DemoPlaying) {
-    status_msg = std::format("Demo Playing · {:.0f} BPM", engine_.effective_bpm());
-    st_tone = StatusTone::Accent;
-  } else if (pb_st == core::LessonPlaybackState::Playing) {
-    status_msg = std::format("Steady Pulse {:.0f} BPM", engine_.effective_bpm());
-    st_tone = StatusTone::Accent;
-  } else if (pb_st == core::LessonPlaybackState::Completed) {
-    status_msg = std::format("Completed · {:.0f}% accuracy", engine_.accuracy() * 100.0);
-    st_tone = StatusTone::Success;
-  } else if (engine_.config().practice_mode == core::LessonPracticeMode::ChordSkeleton) {
-    status_msg = "Chord Skeleton · play chord tones in any octave";
-  } else if (engine_.config().practice_mode == core::LessonPracticeMode::WaitForNote) {
-    status_msg = "Wait-for-Note · play highlighted notes";
-  }
-  status_pill(status_msg, st_tone, IconId::None, true);
-  ImGui::SameLine(0.0f, 12.0f * scale);
-  {
-    ScopedFont sub(TypeStyle::Subheadline);
-    ImGui::AlignTextToFramePadding();
-    if (engine_.partial_hit_count() > 0U) {
-      ImGui::TextColored(
-          c.text_secondary,
-          "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  Partial: %u  \xC2\xB7  %.0f%%",
-          std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
-          engine_.targets().size(), engine_.hit_count(), engine_.partial_hit_count(),
-          engine_.accuracy() * 100.0);
-    } else {
-      ImGui::TextColored(c.text_secondary, "Target %zu/%zu  \xC2\xB7  Hits: %u  \xC2\xB7  %.0f%%",
-                         std::min(engine_.active_target_index() + 1U, engine_.targets().size()),
-                         engine_.targets().size(), engine_.hit_count(), engine_.accuracy() * 100.0);
-    }
-  }
 }
 
 void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
@@ -1406,14 +1268,12 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
       start_practicing(profile, actions);
     }
   } else {
-    draw_scaffold_bar(prog, actions);
     if (show_post_run_coach_ && last_run_summary_.has_value()) {
       draw_post_run_coach(prog, actions);
     } else {
-      draw_guided_stepper(prog, actions);
+      draw_practice_prompt(actions);
     }
     draw_mastery_banner(library, prog, actions);
-    draw_status_strip();
     ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
 
     std::vector<StaffHarmonicHitbox> hitboxes;

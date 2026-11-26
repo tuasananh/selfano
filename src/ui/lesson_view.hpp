@@ -132,12 +132,12 @@ private:
                               bool& out_chime, bool& out_just_mastered);
   void draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
                       LessonViewActions& actions);
-  void draw_scaffold_bar(const core::LessonProgress& prog, LessonViewActions& actions);
-  void draw_guided_stepper(const core::LessonProgress& prog, LessonViewActions& actions);
+  void draw_practice_settings(const core::LessonProgress& prog, LessonViewActions& actions);
+  void draw_practice_prompt(LessonViewActions& actions);
+  [[nodiscard]] std::string passage_label() const;
   void draw_post_run_coach(const core::LessonProgress& prog, LessonViewActions& actions);
   void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
                            LessonViewActions& actions);
-  void draw_status_strip() const;
   void draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
                           std::vector<StaffHarmonicHitbox>& out_hitboxes) const;
   void draw_harmony_popover(LessonViewActions& actions);
