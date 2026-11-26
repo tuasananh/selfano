@@ -1,0 +1,18 @@
+name: Set up Linux build dependencies
+description: Install the build and desktop dependencies in the GCC container
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          ccache cmake ninja-build pkg-config \
+          libasound2-dev libpipewire-0.3-dev libpulse-dev \
+          libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev \
+          libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+          libwayland-dev wayland-protocols \
+          libegl-dev libgl-dev libgbm-dev libdrm-dev \
+          libdbus-1-dev libudev-dev libibus-1.0-dev
