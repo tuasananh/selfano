@@ -805,6 +805,17 @@ void LessonView::draw_practice_prompt(LessonViewActions& actions) {
     context += " · Loop on";
   }
   begin_card("##practice_prompt", {}, 12.0f, 12.0f, true);
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const float buttons_width =
+      (timed && !demo ? 290.0f : 140.0f) + (show_piano_key_hints() ? 65.0f : 0.0f);
+  const bool inline_actions =
+      ImGui::GetContentRegionAvail().x >= (buttons_width + 300.0f) * scale &&
+      ImGui::BeginTable("##prompt_layout", 2);
+  if (inline_actions) {
+    ImGui::TableSetupColumn("Instruction", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("Playback", ImGuiTableColumnFlags_WidthFixed, buttons_width * scale);
+    ImGui::TableNextColumn();
+  }
   {
     ScopedFont sub(TypeStyle::Subheadline);
     ImGui::TextWrapped("%s", context.c_str());
@@ -815,7 +826,8 @@ void LessonView::draw_practice_prompt(LessonViewActions& actions) {
     if (demo) {
       instruction = "Listen and follow the notes on the staff.";
     } else if (state == State::CountIn) {
-      instruction = std::format("Get ready · {} beats to go", engine_.count_in_beats_remaining());
+      const int beats = engine_.count_in_beats_remaining();
+      instruction = std::format("Get ready · {} {} to go", beats, beats == 1 ? "beat" : "beats");
     } else if (state == State::Paused) {
       instruction = "Paused. Resume when you’re ready.";
     } else if (timed) {
@@ -831,6 +843,9 @@ void LessonView::draw_practice_prompt(LessonViewActions& actions) {
     }
     ImGui::TextWrapped("%s", instruction.c_str());
   }
+  if (inline_actions) {
+    ImGui::TableNextColumn();
+  }
   if (timed && !demo) {
     const char* label = running ? "Pause" : state == State::Paused ? "Resume" : "Start count-in";
     if (pill_button(label, ButtonTone::Primary, running ? IconId::Pause : IconId::Play, 30.0f, 0.0f,
@@ -839,8 +854,8 @@ void LessonView::draw_practice_prompt(LessonViewActions& actions) {
       toggle_play_pause(actions.metronome_click, actions.metronome_accent, &stopped);
       actions.stop_all_playback |= stopped;
     }
-    if (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x >
-        180.0f * ImGui::GetStyle().FontScaleDpi) {
+    if (inline_actions || ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x >
+                              180.0f * ImGui::GetStyle().FontScaleDpi) {
       ImGui::SameLine();
     }
   }
@@ -848,6 +863,9 @@ void LessonView::draw_practice_prompt(LessonViewActions& actions) {
                   demo ? ButtonTone::Primary : ButtonTone::Secondary,
                   demo ? IconId::Stop : IconId::Headphones, 30.0f, 0.0f, false, "E7")) {
     actions.trigger_demo_playback = true;
+  }
+  if (inline_actions) {
+    ImGui::EndTable();
   }
   end_card();
 }
