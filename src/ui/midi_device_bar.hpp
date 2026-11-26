@@ -33,11 +33,10 @@ struct MidiDeviceBarActions {
 [[nodiscard]] bool draw_midi_status_pill(const midi::MidiEngine& midi_engine,
                                          const MidiDeviceBarState& state, double now_ms);
 
-// Draws the grouped Apple-style Audio & MIDI Settings popover sheet (call inside BeginPopup).
-[[nodiscard]] MidiDeviceBarActions draw_midi_audio_popover(midi::MidiEngine& midi_engine,
-                                                           midi::AudioSynth& synth,
-                                                           midi::PolyphonicChordGrouper& grouper,
-                                                           MidiDeviceBarState& state,
-                                                           int qwerty_base_octave, double now_ms);
+// Draws the Audio & MIDI settings when open, anchored to the caller's last item.
+[[nodiscard]] MidiDeviceBarActions
+draw_midi_audio_popover(const char* popup_id, midi::MidiEngine& midi_engine,
+                        midi::AudioSynth& synth, midi::PolyphonicChordGrouper& grouper,
+                        MidiDeviceBarState& state, int qwerty_base_octave, double now_ms);
 
 } // namespace selfano::ui

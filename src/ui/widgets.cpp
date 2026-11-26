@@ -205,6 +205,10 @@ bool pill_button(const char* id_and_label, ButtonTone tone, IconId icon, float h
     bg_hover = ImVec4(c.danger.x, c.danger.y, c.danger.z, is_dark_theme() ? 0.30f : 0.22f);
     fg = c.danger_text;
     break;
+  case ButtonTone::DestructiveGhost:
+    bg_hover = c.danger_soft;
+    fg = c.danger_text;
+    break;
   case ButtonTone::Warning:
     bg_idle = c.warning_soft;
     bg_hover = ImVec4(c.warning.x, c.warning.y, c.warning.z, is_dark_theme() ? 0.30f : 0.22f);
