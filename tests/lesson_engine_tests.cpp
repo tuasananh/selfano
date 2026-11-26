@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
@@ -1225,4 +1226,186 @@ TEST_CASE("summarize_lesson_progress tracks brief, skeleton, phrases, ladder, an
     CHECK(s.phrases_total == 2U);
     CHECK(s.milestone_index == 2U);
   }
+}
+
+TEST_CASE("LessonEngine micro-increment tempo ramp steps up, caps, and steps down on slips",
+          "[lesson_engine][phase21]") {
+  LessonScore score = make_sample_lesson(); // target_bpm = 100.0, 2 bars
+  LessonEngine engine;
+
+  auto advance_past_count_in = [&]() {
+    while (engine.playback_state() == LessonPlaybackState::CountIn) {
+      (void)engine.update(100.0);
+    }
+  };
+
+  auto play_loop_pass = [&](bool play_all_clean, bool skip_all) -> LessonTickResult {
+    const double ms_per_beat = 60000.0 / engine.effective_bpm();
+    const double ms_per_tick = ms_per_beat / static_cast<double>(kTicksPerQuarter);
+    const std::size_t n_targets = engine.targets().size();
+    std::vector<bool> played(n_targets, false);
+    LessonTickResult last_tick{};
+
+    for (int step = 0; step < 400; ++step) {
+      const double cur_tick = engine.elapsed_ticks();
+      if (!skip_all) {
+        for (std::size_t i = 0; i < n_targets; ++i) {
+          if (played[i]) {
+            continue;
+          }
+          const auto& tgt = engine.targets()[i];
+          if (cur_tick + 20.0 >= static_cast<double>(tgt.global_tick)) {
+            played[i] = true;
+            if (play_all_clean || i < 2U) {
+              (void)engine.submit_played_notes(tgt.expected_midi);
+            } else {
+              const std::array<MidiPitch, 1> wrong{21};
+              (void)engine.submit_played_notes(wrong);
+            }
+          }
+        }
+      }
+      last_tick = engine.update(ms_per_tick * 120.0);
+      if (last_tick.phrase_completed) {
+        break;
+      }
+    }
+    return last_tick;
+  };
+
+  SECTION("Auto-ramp OFF leaves BPM unchanged on clean and slip loops") {
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::SteadyPulse;
+    cfg.hand_mode = LessonHandMode::HandsTogether;
+    cfg.tempo_step = TempoLadderStep::Slow60; // 60 BPM
+    cfg.loop_phrase = true;
+    cfg.auto_tempo_ramp = false;
+    engine.load_score(score, cfg);
+    REQUIRE(engine.effective_bpm() == Catch::Approx(60.0));
+
+    (void)engine.start();
+    advance_past_count_in();
+    const auto t1 = play_loop_pass(true, false);
+    REQUIRE(t1.phrase_completed);
+    CHECK(t1.tempo_ramped_delta == Catch::Approx(0.0));
+    const auto t2 = play_loop_pass(true, false);
+    REQUIRE(t2.phrase_completed);
+    CHECK(t2.tempo_ramped_delta == Catch::Approx(0.0));
+    CHECK(engine.effective_bpm() == Catch::Approx(60.0));
+    CHECK(engine.consecutive_clean_loops() == 0);
+  }
+
+  SECTION("Auto-ramp steps +4 BPM after 2 clean loops, caps at target, and steps down on slips") {
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::SteadyPulse;
+    cfg.hand_mode = LessonHandMode::HandsTogether;
+    cfg.tempo_step = TempoLadderStep::Slow60; // 60 BPM
+    cfg.loop_phrase = true;
+    cfg.auto_tempo_ramp = true;
+    cfg.ramp_step_bpm = 12.0; // Should clamp to [2.0, 8.0] -> 8.0
+    engine.load_score(score, cfg);
+    CHECK(engine.config().ramp_step_bpm == Catch::Approx(8.0));
+
+    engine.set_ramp_step_bpm(4.0);
+    CHECK(engine.config().ramp_step_bpm == Catch::Approx(4.0));
+    REQUIRE(engine.effective_bpm() == Catch::Approx(60.0));
+
+    (void)engine.start();
+    advance_past_count_in();
+
+    // 1st clean loop: banks streak = 1, no ramp yet
+    const auto l1 = play_loop_pass(true, false);
+    REQUIRE(l1.phrase_completed);
+    CHECK(l1.loop_accuracy >= 0.95);
+    CHECK(l1.tempo_ramped_delta == Catch::Approx(0.0));
+    CHECK(engine.consecutive_clean_loops() == 1);
+    CHECK(engine.effective_bpm() == Catch::Approx(60.0));
+
+    // 2nd clean loop: ramps +4 BPM -> 64 BPM, streak resets to 0
+    const auto l2 = play_loop_pass(true, false);
+    REQUIRE(l2.phrase_completed);
+    CHECK(l2.tempo_ramped_delta == Catch::Approx(4.0));
+    CHECK(engine.consecutive_clean_loops() == 0);
+    CHECK(engine.config().tempo_step == TempoLadderStep::Custom);
+    CHECK(engine.effective_bpm() == Catch::Approx(64.0));
+
+    // Slip loop (< 80% accuracy / >= 2 misses): steps down -4 BPM -> 60 BPM
+    const auto l3 = play_loop_pass(false, true);
+    REQUIRE(l3.phrase_completed);
+    CHECK(l3.loop_accuracy < 0.80);
+    CHECK(l3.tempo_ramped_delta == Catch::Approx(-4.0));
+    CHECK(engine.consecutive_clean_loops() == 0);
+    CHECK(engine.effective_bpm() == Catch::Approx(60.0));
+
+    // Floor check: at 50% of 100 BPM (= 50 BPM), another slip stays at 50 BPM
+    engine.set_tempo_step(TempoLadderStep::Custom, 52.0);
+    const auto l4 = play_loop_pass(false, true);
+    REQUIRE(l4.phrase_completed);
+    CHECK(l4.tempo_ramped_delta == Catch::Approx(-2.0));
+    CHECK(engine.effective_bpm() == Catch::Approx(50.0));
+    const auto l5 = play_loop_pass(false, true);
+    REQUIRE(l5.phrase_completed);
+    CHECK(l5.tempo_ramped_delta == Catch::Approx(0.0));
+    CHECK(engine.effective_bpm() == Catch::Approx(50.0));
+
+    // Cap check: near target_bpm = 100.0, 98 + 4 caps at 100.0 (+2.0)
+    engine.set_tempo_step(TempoLadderStep::Custom, 98.0);
+    const auto c1 = play_loop_pass(true, false);
+    REQUIRE(c1.phrase_completed);
+    CHECK(engine.consecutive_clean_loops() == 1);
+    const auto c2 = play_loop_pass(true, false);
+    REQUIRE(c2.phrase_completed);
+    CHECK(c2.tempo_ramped_delta == Catch::Approx(2.0));
+    CHECK(engine.effective_bpm() == Catch::Approx(100.0));
+  }
+}
+
+TEST_CASE("Trouble-Spot Micro-SRS queue deduplicates, schedules, and graduates",
+          "[lesson_engine][phase21]") {
+  std::vector<TroubleSpotCard> queue;
+  const std::int64_t day0 = 20700;
+
+  enqueue_or_update_trouble_spot(queue, "t3_04", 2, 3, 112.0, 67.0, day0);
+  REQUIRE(queue.size() == 1U);
+  CHECK(queue[0].lesson_id == "t3_04");
+  CHECK(queue[0].start_bar_index == 2U);
+  CHECK(queue[0].end_bar_index == 3U);
+  CHECK(queue[0].due_epoch_day == day0 + 1);
+
+  // Overlapping window merges instead of duplicating
+  enqueue_or_update_trouble_spot(queue, "t3_04", 3, 4, 112.0, 65.0, day0);
+  REQUIRE(queue.size() == 1U);
+  CHECK(queue[0].start_bar_index == 2U);
+  CHECK(queue[0].end_bar_index == 4U);
+  CHECK(queue[0].current_clean_bpm == Catch::Approx(67.0));
+
+  // Non-overlapping window on same lesson stays separate
+  enqueue_or_update_trouble_spot(queue, "t3_04", 8, 9, 112.0, 67.0, day0);
+  REQUIRE(queue.size() == 2U);
+
+  // Due check: not due on day0, due on day0 + 1
+  CHECK(due_trouble_spot_indices(queue, day0).empty());
+  const auto due = due_trouble_spot_indices(queue, day0 + 1);
+  REQUIRE(due.size() == 2U);
+
+  // Clean review below target_bpm advances SM-2 interval without graduating
+  const auto r1 = complete_trouble_spot_review(queue, "t3_04", 2, 4, 0.94, 80.0, day0 + 1);
+  CHECK(r1.found);
+  CHECK_FALSE(r1.graduated);
+  CHECK(r1.next_interval_days >= 1);
+  CHECK(queue[0].current_clean_bpm == Catch::Approx(80.0));
+  CHECK(queue[0].due_epoch_day > day0 + 1);
+
+  // Clean review at >= 100% target_bpm graduates (removes) the card
+  const auto r2 = complete_trouble_spot_review(queue, "t3_04", 2, 4, 0.96, 112.0, day0 + 5);
+  CHECK(r2.found);
+  CHECK(r2.graduated);
+  REQUIRE(queue.size() == 1U);
+  CHECK(queue[0].start_bar_index == 8U);
+
+  // Queue cap enforcement (kMaxTroubleSpotQueueSize)
+  for (std::size_t i = 0; i < kMaxTroubleSpotQueueSize + 5U; ++i) {
+    enqueue_or_update_trouble_spot(queue, "t4_02", i * 2U, i * 2U + 1U, 76.0, 46.0, day0);
+  }
+  CHECK(queue.size() == kMaxTroubleSpotQueueSize);
 }

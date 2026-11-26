@@ -633,6 +633,16 @@ bool AppController::init(const CliOptions& cli_opts) {
     lesson_view_.mutable_engine().set_custom_bar_range(cli_.bar_range_override);
     lesson_view_.mutable_engine().set_loop_phrase(true);
   }
+  if (cli_.auto_ramp) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.mutable_engine().set_practice_mode(core::LessonPracticeMode::SteadyPulse);
+    lesson_view_.mutable_engine().set_loop_phrase(true);
+    lesson_view_.mutable_engine().set_auto_tempo_ramp(true);
+  }
+  if (cli_.seed_trouble_spot) {
+    core::enqueue_or_update_trouble_spot(profile_.trouble_spot_queue, "t3_04", 1, 2, 112.0, 67.0,
+                                         boot_epoch_day - 1);
+  }
   if (cli_.simulate_coach.has_value()) {
     ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
     if (*cli_.simulate_coach == SmokeCoachMode::Imperfect) {
@@ -892,14 +902,24 @@ void AppController::update_active_stage(double dt_ms, double now_ms, std::int64_
       bool accent = false;
       bool chime = false;
       bool just_mastered = false;
+      double tempo_ramp_delta = 0.0;
       std::vector<midi::ScheduledMidiNote> streamed_playback;
       lesson_view_.update(dt_ms, now_ms, profile_, today_epoch_day, click, accent, chime,
-                          just_mastered, streamed_playback);
+                          just_mastered, streamed_playback, &tempo_ramp_delta);
       if (click) {
         audio_synth_.play_metronome_click(accent);
       }
       if (!streamed_playback.empty()) {
         playback_scheduler_.schedule_batch(streamed_playback);
+      }
+      if (tempo_ramp_delta > 0.5) {
+        show_hud_toast(std::format("Tempo ramped +{:.0f} BPM ({:.0f} BPM)", tempo_ramp_delta,
+                                   lesson_view_.engine().effective_bpm()),
+                       now_ms);
+      } else if (tempo_ramp_delta < -0.5) {
+        show_hud_toast(std::format("Tempo eased {:.0f} BPM ({:.0f} BPM)", tempo_ramp_delta,
+                                   lesson_view_.engine().effective_bpm()),
+                       now_ms);
       }
       if (chime) {
         audio_synth_.play_confirmation_chime();
@@ -1002,6 +1022,12 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
     }
     if (lv_act.add_to_srs_requested) {
       promote_lesson_to_srs(lv_act.add_to_srs_lesson_id, today_epoch_day, now_ms);
+    }
+    if (lv_act.launch_trouble_spot_index.has_value()) {
+      launch_trouble_spot_drill(*lv_act.launch_trouble_spot_index, now_ms);
+    }
+    if (!lv_act.hud_toast.empty()) {
+      show_hud_toast(lv_act.hud_toast, now_ms);
     }
     if (lv_act.request_import_file_dialog) {
       request_musicxml_file_dialog();
@@ -1110,6 +1136,8 @@ void AppController::render_ui(double now_ms, std::int64_t today_epoch_day) {
           }
           if (home_actions.start_autopilot) {
             start_autopilot_session(now_ms);
+          } else if (home_actions.open_trouble_spot_index.has_value()) {
+            launch_trouble_spot_drill(*home_actions.open_trouble_spot_index, now_ms);
           } else if (home_actions.open_companion_tool) {
             cleanup_stage_transitions(now_ms);
             app_mode_ = AppMode::CompanionTool;

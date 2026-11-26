@@ -246,6 +246,22 @@ std::string to_json_string(const UserProfile& profile) {
   j["lesson_progress"] = std::move(lp_obj);
   j["imported_lesson_ids"] = profile.imported_lesson_ids;
 
+  json ts_arr = json::array();
+  for (const auto& ts : profile.trouble_spot_queue) {
+    ts_arr.push_back({
+        {"lesson_id", ts.lesson_id},
+        {"start_bar_index", ts.start_bar_index},
+        {"end_bar_index", ts.end_bar_index},
+        {"target_bpm", ts.target_bpm},
+        {"current_clean_bpm", ts.current_clean_bpm},
+        {"interval_days", ts.interval_days},
+        {"ease_factor", ts.ease_factor},
+        {"repetitions", ts.repetitions},
+        {"due_epoch_day", ts.due_epoch_day},
+    });
+  }
+  j["trouble_spot_queue"] = std::move(ts_arr);
+
   json rep_arr = json::array();
   for (const auto& phrase : profile.repertoire_phrases) {
     rep_arr.push_back({
@@ -449,6 +465,40 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
         return std::unexpected("Imported lesson ID must be a string");
       }
       p.imported_lesson_ids.push_back(item.get<std::string>());
+    }
+  }
+
+  if (root.contains("trouble_spot_queue")) {
+    const auto& arr = root.at("trouble_spot_queue");
+    if (!arr.is_array()) {
+      return std::unexpected("Field 'trouble_spot_queue' must be an array");
+    }
+    for (const auto& item : arr) {
+      if (!item.is_object()) {
+        return std::unexpected("Trouble-spot card entry must be an object");
+      }
+      TroubleSpotCard ts{};
+      std::uint64_t sb = ts.start_bar_index;
+      std::uint64_t eb = ts.end_bar_index;
+      if (!read_string_field(item, "lesson_id", ts.lesson_id, err) ||
+          !read_int_field(item, "start_bar_index", sb, err) ||
+          !read_int_field(item, "end_bar_index", eb, err) ||
+          !read_double_field(item, "target_bpm", ts.target_bpm, err) ||
+          !read_double_field(item, "current_clean_bpm", ts.current_clean_bpm, err) ||
+          !read_int_field(item, "interval_days", ts.interval_days, err) ||
+          !read_double_field(item, "ease_factor", ts.ease_factor, err) ||
+          !read_int_field(item, "repetitions", ts.repetitions, err) ||
+          !read_int_field(item, "due_epoch_day", ts.due_epoch_day, err)) {
+        return std::unexpected(err);
+      }
+      ts.start_bar_index = static_cast<std::size_t>(std::min(sb, eb));
+      ts.end_bar_index = static_cast<std::size_t>(std::max(sb, eb));
+      ts.target_bpm = std::clamp(ts.target_bpm, 40.0, 220.0);
+      ts.current_clean_bpm = std::clamp(ts.current_clean_bpm, 0.0, ts.target_bpm);
+      ts.ease_factor = std::clamp(ts.ease_factor, kMinEaseFactor, kMaxEaseFactor);
+      if (!ts.lesson_id.empty() && p.trouble_spot_queue.size() < kMaxTroubleSpotQueueSize) {
+        p.trouble_spot_queue.push_back(std::move(ts));
+      }
     }
   }
 

@@ -424,6 +424,62 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
 
   ImGui::Dummy(ImVec2(0.0f, 18.0f * scale));
 
+  // 3b. Due Trouble-Spot Micro-SRS Cue (when any trouble spot is due today)
+  const auto due_trouble_spots =
+      core::due_trouble_spot_indices(profile.trouble_spot_queue, today_epoch_day);
+  if (!due_trouble_spots.empty()) {
+    section_kicker("TROUBLE-SPOT MICRO-SRS");
+    ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+    begin_card("##home_trouble_spots", ImVec2(max_w, 0.0f), 14.0f, 12.0f, true, true);
+    const std::size_t show_ts = std::min<std::size_t>(3U, due_trouble_spots.size());
+    for (std::size_t i = 0; i < show_ts; ++i) {
+      if (i > 0U) {
+        hairline_separator(6.0f);
+      }
+      const std::size_t q_idx = due_trouble_spots[i];
+      const auto& card = profile.trouble_spot_queue[q_idx];
+      const core::LessonScore* ts_lesson =
+          (lesson_library != nullptr) ? lesson_library->find_lesson(card.lesson_id) : nullptr;
+      const std::string title = ts_lesson != nullptr ? ts_lesson->meta.title : card.lesson_id;
+      const std::string bar_range =
+          (card.start_bar_index == card.end_bar_index)
+              ? std::format("Bar {}", card.start_bar_index + 1U)
+              : std::format("Bars {}\xE2\x80\x93{}", card.start_bar_index + 1U,
+                            card.end_bar_index + 1U);
+      const double cur_bpm =
+          card.current_clean_bpm >= 40.0
+              ? card.current_clean_bpm
+              : core::compute_ladder_bpm(card.target_bpm, core::TempoLadderStep::Slow60);
+
+      ImGui::PushID(static_cast<int>(q_idx));
+      status_pill("Due", StatusTone::Warning);
+      ImGui::SameLine(0.0f, 8.0f * scale);
+      {
+        ScopedFont hf(TypeStyle::Headline);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("%s  \xC2\xB7  %s", title.c_str(), bar_range.c_str());
+      }
+      ImGui::SameLine(0.0f, 10.0f * scale);
+      {
+        ScopedFont sf(TypeStyle::Subheadline);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(c.text_secondary, "%.0f / %.0f BPM", cur_bpm, card.target_bpm);
+      }
+      const float row_end = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+      const float btn_w = 112.0f * scale;
+      if (ImGui::GetItemRectMax().x + 12.0f * scale + btn_w <= row_end) {
+        ImGui::SameLine(0.0f, std::max(8.0f * scale, row_end - ImGui::GetItemRectMax().x - btn_w));
+      }
+      if (pill_button("Drill Now##home_ts_drill", ButtonTone::SoftAccent, IconId::Repeat, 28.0f,
+                      104.0f, true)) {
+        actions.open_trouble_spot_index = q_idx;
+      }
+      ImGui::PopID();
+    }
+    end_card();
+    ImGui::Dummy(ImVec2(0.0f, 14.0f * scale));
+  }
+
   // 4. Quick Practice 2x3 Tactile Tile Grid
   section_kicker("PRACTICE STAGES");
   if (show_piano_key_hints()) {

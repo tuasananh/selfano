@@ -456,4 +456,115 @@ std::optional<TroubleSpot> find_trouble_spot(const LessonRunSummary& summary) {
   return best;
 }
 
+void enqueue_or_update_trouble_spot(std::vector<TroubleSpotCard>& queue, std::string_view lesson_id,
+                                    std::size_t start_bar_index, std::size_t end_bar_index,
+                                    double target_bpm, double current_clean_bpm,
+                                    std::int64_t today_epoch_day) {
+  if (lesson_id.empty()) {
+    return;
+  }
+  const std::size_t a = std::min(start_bar_index, end_bar_index);
+  const std::size_t b = std::max(start_bar_index, end_bar_index);
+  const double safe_target = std::clamp(target_bpm, 40.0, 220.0);
+  const double safe_clean = std::clamp(current_clean_bpm, 0.0, safe_target);
+
+  for (auto& card : queue) {
+    if (card.lesson_id != lesson_id) {
+      continue;
+    }
+    const bool overlaps = (a <= card.end_bar_index) && (card.start_bar_index <= b);
+    if (overlaps) {
+      card.start_bar_index = std::min(card.start_bar_index, a);
+      card.end_bar_index = std::max(card.end_bar_index, b);
+      card.target_bpm = safe_target;
+      card.current_clean_bpm = std::max(card.current_clean_bpm, safe_clean);
+      card.due_epoch_day = std::min(card.due_epoch_day, today_epoch_day + 1);
+      return;
+    }
+  }
+
+  if (queue.size() >= kMaxTroubleSpotQueueSize) {
+    auto evict_it =
+        std::ranges::max_element(queue, [](const TroubleSpotCard& x, const TroubleSpotCard& y) {
+          return x.due_epoch_day < y.due_epoch_day;
+        });
+    if (evict_it != queue.end()) {
+      queue.erase(evict_it);
+    }
+  }
+
+  queue.push_back(TroubleSpotCard{
+      .lesson_id = std::string(lesson_id),
+      .start_bar_index = a,
+      .end_bar_index = b,
+      .target_bpm = safe_target,
+      .current_clean_bpm = safe_clean,
+      .interval_days = 1,
+      .ease_factor = kDefaultEaseFactor,
+      .repetitions = 0,
+      .due_epoch_day = today_epoch_day + 1,
+  });
+}
+
+std::vector<std::size_t> due_trouble_spot_indices(std::span<const TroubleSpotCard> queue,
+                                                  std::int64_t today_epoch_day) {
+  std::vector<std::size_t> indices;
+  for (std::size_t i = 0; i < queue.size(); ++i) {
+    if (queue[i].due_epoch_day <= today_epoch_day) {
+      indices.push_back(i);
+    }
+  }
+  std::ranges::sort(indices, [&](std::size_t a, std::size_t b) {
+    if (queue[a].due_epoch_day != queue[b].due_epoch_day) {
+      return queue[a].due_epoch_day < queue[b].due_epoch_day;
+    }
+    return a < b;
+  });
+  return indices;
+}
+
+TroubleSpotReviewResult complete_trouble_spot_review(std::vector<TroubleSpotCard>& queue,
+                                                     std::string_view lesson_id,
+                                                     std::size_t start_bar_index,
+                                                     std::size_t end_bar_index, double accuracy,
+                                                     double bpm, std::int64_t today_epoch_day) {
+  TroubleSpotReviewResult out{};
+  const std::size_t a = std::min(start_bar_index, end_bar_index);
+  const std::size_t b = std::max(start_bar_index, end_bar_index);
+
+  auto it = std::ranges::find_if(queue, [&](const TroubleSpotCard& c) {
+    return c.lesson_id == lesson_id && a <= c.end_bar_index && c.start_bar_index <= b;
+  });
+  if (it == queue.end()) {
+    return out;
+  }
+
+  out.found = true;
+  if (accuracy >= 0.90) {
+    it->current_clean_bpm = std::max(it->current_clean_bpm, bpm);
+    if (bpm >= it->target_bpm - 0.5) {
+      out.graduated = true;
+      queue.erase(it);
+      return out;
+    }
+  }
+
+  const SrsRating rating = (accuracy >= 0.90)
+                               ? SrsRating::Good
+                               : (accuracy >= 0.75 ? SrsRating::Hard : SrsRating::Again);
+  SrsCard virtual_card{};
+  virtual_card.interval_days = it->interval_days;
+  virtual_card.ease_factor = it->ease_factor;
+  virtual_card.repetitions = it->repetitions;
+  virtual_card.due_epoch_day = it->due_epoch_day;
+
+  const SrsCard updated = review_card(virtual_card, rating, today_epoch_day);
+  it->interval_days = updated.interval_days;
+  it->ease_factor = updated.ease_factor;
+  it->repetitions = updated.repetitions;
+  it->due_epoch_day = updated.due_epoch_day;
+  out.next_interval_days = updated.interval_days;
+  return out;
+}
+
 } // namespace selfano::core

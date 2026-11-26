@@ -69,6 +69,7 @@ struct UserProfile {
   std::string active_lesson_id{"t1_01"};
   std::map<std::string, LessonProgress> lesson_progress{};
   std::vector<std::string> imported_lesson_ids{};
+  std::vector<TroubleSpotCard> trouble_spot_queue{};
   std::vector<RepertoirePhrase> repertoire_phrases{};
   std::vector<SrsCard> srs_cards{};
   std::vector<PracticeHistoryEntry> practice_history{};

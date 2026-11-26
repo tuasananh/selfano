@@ -504,6 +504,7 @@ void LessonEngine::clamp_custom_bar_range() noexcept {
 void LessonEngine::load_score(LessonScore score, LessonConfig cfg) {
   score_ = std::move(score);
   config_ = cfg;
+  config_.ramp_step_bpm = std::clamp(config_.ramp_step_bpm, 2.0, 8.0);
   phrases_ = effective_phrases(score_);
   if (config_.phrase_index.has_value() && *config_.phrase_index >= phrases_.size()) {
     config_.phrase_index.reset();
@@ -518,6 +519,7 @@ void LessonEngine::load_score(LessonScore score, LessonConfig cfg) {
 
 void LessonEngine::configure(LessonConfig cfg) {
   config_ = cfg;
+  config_.ramp_step_bpm = std::clamp(config_.ramp_step_bpm, 2.0, 8.0);
   if (config_.phrase_index.has_value() && *config_.phrase_index >= phrases_.size()) {
     config_.phrase_index.reset();
   }
@@ -550,6 +552,7 @@ void LessonEngine::set_tempo_step(TempoLadderStep step, double custom_bpm) {
   if (custom_bpm > 0.0) {
     config_.custom_bpm = custom_bpm;
   }
+  consecutive_clean_loops_ = 0;
 }
 
 void LessonEngine::set_phrase_index(std::optional<std::size_t> phrase_index) {
@@ -577,6 +580,20 @@ void LessonEngine::set_custom_bar_range(std::optional<std::pair<std::size_t, std
 
 void LessonEngine::set_loop_phrase(bool loop) {
   config_.loop_phrase = loop;
+  if (!loop) {
+    consecutive_clean_loops_ = 0;
+  }
+}
+
+void LessonEngine::set_auto_tempo_ramp(bool enabled) noexcept {
+  if (config_.auto_tempo_ramp != enabled) {
+    config_.auto_tempo_ramp = enabled;
+    consecutive_clean_loops_ = 0;
+  }
+}
+
+void LessonEngine::set_ramp_step_bpm(double step_bpm) noexcept {
+  config_.ramp_step_bpm = std::clamp(step_bpm, 2.0, 8.0);
 }
 
 void LessonEngine::set_play_other_hand_accomp(bool enabled) noexcept {
@@ -619,6 +636,8 @@ void LessonEngine::reset_transport_state() {
   hits_ = 0;
   partial_hits_ = 0;
   misses_ = 0;
+  consecutive_clean_loops_ = 0;
+  last_loop_accuracy_ = 0.0;
   melody_vel_sum_ = 0;
   melody_vel_count_ = 0;
   accomp_vel_sum_ = 0;
@@ -1238,6 +1257,58 @@ LessonTickResult LessonEngine::update(double dt_ms) {
     }
     ++completed_runs_;
     out.phrase_completed = true;
+
+    std::uint32_t loop_hits = 0U;
+    std::uint32_t loop_partials = 0U;
+    std::uint32_t loop_misses = 0U;
+    for (const auto& t : targets_) {
+      if (t.status == LessonTargetStatus::Hit) {
+        ++loop_hits;
+      } else if (t.status == LessonTargetStatus::PartialHit) {
+        ++loop_partials;
+      } else if (t.status == LessonTargetStatus::Missed) {
+        ++loop_misses;
+      }
+    }
+    const std::uint32_t loop_total = loop_hits + loop_partials + loop_misses;
+    const double loop_acc =
+        (loop_total == 0U)
+            ? 0.0
+            : (static_cast<double>(loop_hits) + 0.5 * static_cast<double>(loop_partials)) /
+                  static_cast<double>(loop_total);
+    last_loop_accuracy_ = loop_acc;
+    out.loop_accuracy = loop_acc;
+
+    if (config_.practice_mode == LessonPracticeMode::SteadyPulse && config_.loop_phrase &&
+        config_.auto_tempo_ramp && loop_total > 0U) {
+      const double step = std::clamp(config_.ramp_step_bpm, 2.0, 8.0);
+      const double cur_bpm = effective_bpm();
+      const double target_cap = std::clamp(score_.meta.target_bpm, 40.0, 220.0);
+      const double floor_bpm = std::max(40.0, std::round(target_cap * 0.50));
+      if (loop_acc >= 0.95 && loop_misses == 0U) {
+        ++consecutive_clean_loops_;
+        if (consecutive_clean_loops_ >= 2) {
+          consecutive_clean_loops_ = 0;
+          const double next_bpm = std::min(target_cap, cur_bpm + step);
+          if (next_bpm > cur_bpm + 1e-6) {
+            config_.tempo_step = TempoLadderStep::Custom;
+            config_.custom_bpm = next_bpm;
+            out.tempo_ramped_delta = next_bpm - cur_bpm;
+          }
+        }
+      } else if (loop_acc < 0.80 || loop_misses >= 2U) {
+        consecutive_clean_loops_ = 0;
+        const double next_bpm = std::max(floor_bpm, cur_bpm - step);
+        if (next_bpm < cur_bpm - 1e-6) {
+          config_.tempo_step = TempoLadderStep::Custom;
+          config_.custom_bpm = next_bpm;
+          out.tempo_ramped_delta = next_bpm - cur_bpm;
+        }
+      } else {
+        consecutive_clean_loops_ = 0;
+      }
+    }
+
     if (config_.loop_phrase) {
       elapsed_ticks_ = std::max(0.0, elapsed_ticks_ - static_cast<double>(total_slice_ticks_));
       const int full_ticks = slice_bar_meters_.front().measure_ticks();
@@ -1480,6 +1551,19 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     if (active_target_index_ >= targets_.size()) {
       ++completed_runs_;
       res.phrase_completed = true;
+      std::uint32_t loop_hits = 0U;
+      std::uint32_t loop_misses = 0U;
+      for (const auto& t : targets_) {
+        if (t.status == LessonTargetStatus::Hit) {
+          ++loop_hits;
+        } else if (t.status == LessonTargetStatus::Missed) {
+          ++loop_misses;
+        }
+      }
+      const std::uint32_t loop_total = loop_hits + loop_misses;
+      last_loop_accuracy_ = (loop_total == 0U)
+                                ? 0.0
+                                : static_cast<double>(loop_hits) / static_cast<double>(loop_total);
       if (config_.loop_phrase) {
         active_target_index_ = 0;
         for (auto& t : targets_) {

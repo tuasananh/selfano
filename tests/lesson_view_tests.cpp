@@ -180,4 +180,21 @@ TEST_CASE("Lessons prepare the exercise from progress and only score practice in
     REQUIRE(view.last_loop_accuracy().has_value());
     CHECK(*view.last_loop_accuracy() >= 0.99);
   }
+  SECTION("launch_trouble_spot_drill configures ramp loop on trouble-spot bars") {
+    core::TroubleSpotCard card{};
+    card.lesson_id = score->meta.id;
+    card.start_bar_index = 1U;
+    card.end_bar_index = 2U;
+    card.target_bpm = score->meta.target_bpm;
+    card.current_clean_bpm = 54.0;
+    view.launch_trouble_spot_drill(*score, progress, card);
+    CHECK(view.active_tab() == ui::LessonViewTab::Practice);
+    CHECK(view.engine().config().practice_mode == core::LessonPracticeMode::SteadyPulse);
+    CHECK(view.engine().config().loop_phrase);
+    CHECK(view.engine().config().auto_tempo_ramp);
+    REQUIRE(view.engine().config().custom_bar_range.has_value());
+    CHECK(view.engine().config().custom_bar_range->first == 1U);
+    CHECK(view.engine().config().custom_bar_range->second == 2U);
+    CHECK(view.engine().effective_bpm() == 54.0);
+  }
 }

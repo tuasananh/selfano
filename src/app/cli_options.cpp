@@ -193,6 +193,10 @@ CliOptions parse_cli(int argc, char* argv[]) {
       opts.open_curriculum = true;
     } else if (arg == "--open-lesson-settings") {
       opts.open_lesson_settings = true;
+    } else if (arg == "--auto-ramp") {
+      opts.auto_ramp = true;
+    } else if (arg == "--seed-trouble-spot") {
+      opts.seed_trouble_spot = true;
     }
   }
   return opts;

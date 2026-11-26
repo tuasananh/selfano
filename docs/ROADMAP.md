@@ -41,7 +41,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 18** | Interactive Practice Strip, Lesson Progress & Above-the-Fold Fit | [phase-18-practice-bar-progress-and-viewport.md](./phases/phase-18-practice-bar-progress-and-viewport.md) | `[x] Complete` |
 | **Phase 19** | Non-Blocking Post-Run Coach & Upgraded Curriculum Browser | [phase-19-post-run-coach-and-curriculum-browser.md](./phases/phase-19-post-run-coach-and-curriculum-browser.md) | `[x] Complete` |
 | **Phase 20** | Apple HIG Learn Brief, System Measure Numbers & Input Polish | [phase-20-lesson-brief-and-score-ergonomics.md](./phases/phase-20-lesson-brief-and-score-ergonomics.md) | `[x] Complete` |
-| **Phase 21** | Micro-Increment Tempo Ramp & Trouble-Spot Micro-SRS *(Track A)* | [phase-21-tempo-ramp-and-trouble-spot-srs.md](./phases/phase-21-tempo-ramp-and-trouble-spot-srs.md) | `[ ] Planned` |
+| **Phase 21** | Micro-Increment Tempo Ramp & Trouble-Spot Micro-SRS *(Track A)* | [phase-21-tempo-ramp-and-trouble-spot-srs.md](./phases/phase-21-tempo-ramp-and-trouble-spot-srs.md) | `[x] Complete` |
 | **Phase 22** | Chopin Speed Lab: Rhythmic Alteration, `4+1` Bursts & Hand Blocking *(Track A)* | [phase-22-chopin-speed-lab-practice-methods.md](./phases/phase-22-chopin-speed-lab-practice-methods.md) | `[ ] Planned` |
 | **Phase 23** | MIDI-Verified Memory Fade Mode *(Track A)* | [phase-23-midi-verified-memory-fade.md](./phases/phase-23-midi-verified-memory-fade.md) | `[ ] Planned` |
 | **Phase 24** | Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) *(Track B)* | [phase-24-fine-subdivisions-and-tuplets.md](./phases/phase-24-fine-subdivisions-and-tuplets.md) | `[ ] Planned` |

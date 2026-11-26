@@ -52,6 +52,8 @@ struct CliOptions {
   std::optional<int> window_height;
   bool open_curriculum{false};
   bool open_lesson_settings{false};
+  bool auto_ramp{false};
+  bool seed_trouble_spot{false};
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

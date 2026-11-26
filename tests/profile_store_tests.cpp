@@ -118,6 +118,19 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
       .phrase_both_mask = 0x1U,
   };
   profile.imported_lesson_ids = {"imp_abc123"};
+  profile.trouble_spot_queue = {
+      TroubleSpotCard{
+          .lesson_id = "t3_04",
+          .start_bar_index = 2,
+          .end_bar_index = 3,
+          .target_bpm = 112.0,
+          .current_clean_bpm = 76.0,
+          .interval_days = 3,
+          .ease_factor = 2.6,
+          .repetitions = 2,
+          .due_epoch_day = today + 3,
+      },
+  };
   profile.preferences.sync_weekly_key_to_lesson = false;
   profile.preferences.lesson_show_fingerings = false;
   profile.preferences.lesson_show_harmony = true;
@@ -150,6 +163,7 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res->lesson_progress.at("t1_01").phrase_lh_mask == 0U);
     REQUIRE(res->lesson_progress.at("t1_01").phrase_both_mask == 0U);
     REQUIRE(res->imported_lesson_ids.empty());
+    REQUIRE(res->trouble_spot_queue.empty());
     REQUIRE(res->repertoire_phrases.empty());
     REQUIRE(res->srs_cards.empty());
     REQUIRE(res->preferences.default_bpm == 72.0);

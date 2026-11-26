@@ -99,10 +99,39 @@ void LessonView::load_lesson(const core::LessonScore& score, const core::LessonP
   show_post_run_coach_ = false;
   coach_focus_bar_.reset();
   last_loop_accuracy_.reset();
+  trouble_spot_saved_for_run_ = false;
   last_run_summary_.reset();
   active_harmony_explanation_.reset();
   active_tab_ = step.open_learn_brief ? LessonViewTab::Learn : LessonViewTab::Practice;
   engine_.load_score(score, step.target_config);
+}
+
+void LessonView::launch_trouble_spot_drill(const core::LessonScore& score,
+                                           const core::LessonProgress& /*progress*/,
+                                           const core::TroubleSpotCard& card) {
+  just_mastered_banner_ = false;
+  show_post_run_coach_ = false;
+  coach_focus_bar_.reset();
+  last_loop_accuracy_.reset();
+  trouble_spot_saved_for_run_ = false;
+  last_run_summary_.reset();
+  active_harmony_explanation_.reset();
+  active_tab_ = LessonViewTab::Practice;
+
+  core::LessonConfig cfg{};
+  cfg.practice_mode = core::LessonPracticeMode::SteadyPulse;
+  cfg.hand_mode = core::LessonHandMode::HandsTogether;
+  cfg.custom_bar_range = std::pair{card.start_bar_index, card.end_bar_index};
+  cfg.loop_phrase = true;
+  cfg.auto_tempo_ramp = true;
+  cfg.ramp_step_bpm = 4.0;
+  if (card.current_clean_bpm >= 40.0) {
+    cfg.tempo_step = core::TempoLadderStep::Custom;
+    cfg.custom_bpm = card.current_clean_bpm;
+  } else {
+    cfg.tempo_step = core::TempoLadderStep::Slow60;
+  }
+  engine_.load_score(score, cfg);
 }
 
 void LessonView::start_practicing(core::UserProfile& profile, LessonViewActions& actions) {
@@ -153,18 +182,20 @@ std::size_t LessonView::expected_chord_cardinality() const noexcept {
 void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t today_epoch_day,
                                         bool& out_chime, bool& out_just_mastered) {
   out_chime = true;
+  trouble_spot_saved_for_run_ = false;
   const auto summary = engine_.build_run_summary();
   last_run_summary_ = summary;
+  const double run_acc =
+      engine_.config().loop_phrase ? engine_.last_loop_accuracy() : summary.accuracy;
   if (engine_.config().loop_phrase) {
     show_post_run_coach_ = false;
     coach_focus_bar_.reset();
-    last_loop_accuracy_ = summary.accuracy;
+    last_loop_accuracy_ = run_acc;
   } else {
     show_post_run_coach_ = true;
     last_loop_accuracy_.reset();
     const bool clean =
-        summary.accuracy >=
-        (summary.practice_mode == core::LessonPracticeMode::ChordSkeleton ? 0.85 : 0.90);
+        run_acc >= (summary.practice_mode == core::LessonPracticeMode::ChordSkeleton ? 0.85 : 0.90);
     if (!clean) {
       if (const auto spot = core::find_trouble_spot(summary); spot.has_value()) {
         coach_focus_bar_ = spot->start_bar_index;
@@ -179,6 +210,11 @@ void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t
   const auto& id = engine_.score().meta.id;
   if (id.empty()) {
     return;
+  }
+  if (const auto& range = engine_.config().custom_bar_range; range.has_value()) {
+    (void)core::complete_trouble_spot_review(profile.trouble_spot_queue, id, range->first,
+                                             range->second, run_acc, engine_.effective_bpm(),
+                                             today_epoch_day);
   }
   auto& prog = profile.lesson_progress[id];
   const auto upd =
@@ -412,11 +448,15 @@ bool LessonView::on_played_chord(const midi::PlayedChord& chord, core::UserProfi
 void LessonView::update(double dt_ms, double now_ms, core::UserProfile& profile,
                         std::int64_t today_epoch_day, bool& out_click, bool& out_accent,
                         bool& out_chime, bool& out_just_mastered,
-                        std::vector<midi::ScheduledMidiNote>& out_streamed_playback) {
+                        std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
+                        double* out_tempo_ramp_delta) {
   const auto tick = engine_.update(dt_ms);
   if (metronome_enabled_ && tick.metronome_click) {
     out_click = true;
     out_accent = tick.metronome_accent;
+  }
+  if (out_tempo_ramp_delta != nullptr) {
+    *out_tempo_ramp_delta = tick.tempo_ramped_delta;
   }
   append_playback_notes(now_ms, tick.playback_notes, out_streamed_playback);
   if (tick.phrase_completed) {
@@ -852,6 +892,29 @@ void LessonView::draw_practice_settings(const core::LessonProgress& progress,
       last_loop_accuracy_.reset();
     }
   }
+  if (cfg.practice_mode == core::LessonPracticeMode::SteadyPulse && cfg.loop_phrase) {
+    bool auto_ramp = cfg.auto_tempo_ramp;
+    const std::string ramp_lbl = std::format("Auto-ramp (+{:.0f} BPM)", cfg.ramp_step_bpm);
+    if (settings_toggle_row(ramp_lbl.c_str(), "##auto_ramp", &auto_ramp)) {
+      engine_.set_auto_tempo_ramp(auto_ramp);
+    }
+    if (auto_ramp) {
+      if (pill_button("-2 BPM##lv_ramp_dec", ButtonTone::Secondary, IconId::None, 24.0f)) {
+        engine_.set_ramp_step_bpm(cfg.ramp_step_bpm - 2.0);
+      }
+      ImGui::SameLine(0.0f, 6.0f * ImGui::GetStyle().FontScaleDpi);
+      {
+        ScopedFont sf(TypeStyle::Caption);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(colors().text_secondary, "Step: +%.0f BPM / 2 clean",
+                           engine_.config().ramp_step_bpm);
+      }
+      ImGui::SameLine(0.0f, 6.0f * ImGui::GetStyle().FontScaleDpi);
+      if (pill_button("+2 BPM##lv_ramp_inc", ButtonTone::Secondary, IconId::None, 24.0f)) {
+        engine_.set_ramp_step_bpm(cfg.ramp_step_bpm + 2.0);
+      }
+    }
+  }
   if (previous.practice_mode != cfg.practice_mode || previous.hand_mode != cfg.hand_mode ||
       previous.phrase_index != cfg.phrase_index ||
       previous.custom_bar_range != cfg.custom_bar_range) {
@@ -994,6 +1057,16 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
     place_chip_inline(74.0f * scale);
     status_pill("Loop on", StatusTone::Accent);
   }
+  if (cfg.practice_mode == core::LessonPracticeMode::SteadyPulse && cfg.loop_phrase &&
+      cfg.auto_tempo_ramp) {
+    place_chip_inline(180.0f * scale);
+    const std::string ramp_chip =
+        engine_.consecutive_clean_loops() > 0
+            ? std::format("Ramping \xC2\xB7 +{:.0f} BPM ({}/2 clean)", cfg.ramp_step_bpm,
+                          engine_.consecutive_clean_loops())
+            : std::format("Ramping \xC2\xB7 +{:.0f} BPM on 2 clean", cfg.ramp_step_bpm);
+    status_pill(ramp_chip, StatusTone::Success);
+  }
   if (cfg.loop_phrase && last_loop_accuracy_.has_value()) {
     place_chip_inline(124.0f * scale);
     status_pill(std::format("Last loop: {:.0f}%", *last_loop_accuracy_ * 100.0),
@@ -1125,7 +1198,8 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
 }
 
 void LessonView::draw_result(const core::LessonLibrary& library,
-                             const core::LessonProgress& progress, LessonViewActions& actions) {
+                             const core::LessonProgress& progress, core::UserProfile& profile,
+                             std::int64_t today_epoch_day, LessonViewActions& actions) {
   const auto& score = engine_.score();
   const auto next = core::suggest_next_practice_step(score, progress);
   const auto next_lesson =
@@ -1170,7 +1244,7 @@ void LessonView::draw_result(const core::LessonLibrary& library,
     }
   } else if (spot) {
     heading = "Give this passage another try at a slower tempo.";
-    action_label = std::format("Loop {} at 60%",
+    action_label = std::format("Drill {} (Ramp Loop)",
                                format_bar_range(spot->start_bar_number, spot->end_bar_number));
   } else {
     heading = "Take another pass through this passage.";
@@ -1211,6 +1285,8 @@ void LessonView::draw_result(const core::LessonLibrary& library,
       cfg.custom_bar_range = std::pair{spot->start_bar_index, spot->end_bar_index};
       cfg.tempo_step = core::TempoLadderStep::Slow60;
       cfg.loop_phrase = true;
+      cfg.auto_tempo_ramp = true;
+      cfg.ramp_step_bpm = 4.0;
       engine_.configure(cfg);
     } else {
       reset_phrase();
@@ -1219,6 +1295,33 @@ void LessonView::draw_result(const core::LessonLibrary& library,
     coach_focus_bar_.reset();
   }
   const float row_right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+  if (spot && !score.meta.id.empty()) {
+    const std::string save_lbl =
+        trouble_spot_saved_for_run_
+            ? std::format("Saved {} for tomorrow##coach_save_ts",
+                          format_bar_range(spot->start_bar_number, spot->end_bar_number))
+            : std::format("Save {} for tomorrow##coach_save_ts",
+                          format_bar_range(spot->start_bar_number, spot->end_bar_number));
+    if (ImGui::GetItemRectMax().x + 8.0f * scale + 185.0f * scale <= row_right) {
+      ImGui::SameLine(0.0f, 8.0f * scale);
+    }
+    ImGui::BeginDisabled(trouble_spot_saved_for_run_);
+    if (pill_button(save_lbl.c_str(),
+                    trouble_spot_saved_for_run_ ? ButtonTone::Secondary : ButtonTone::SoftAccent,
+                    trouble_spot_saved_for_run_ ? IconId::Check : IconId::Layers)) {
+      const double clean_bpm =
+          core::compute_ladder_bpm(score.meta.target_bpm, core::TempoLadderStep::Slow60);
+      core::enqueue_or_update_trouble_spot(profile.trouble_spot_queue, score.meta.id,
+                                           spot->start_bar_index, spot->end_bar_index,
+                                           score.meta.target_bpm, clean_bpm, today_epoch_day);
+      trouble_spot_saved_for_run_ = true;
+      actions.profile_dirty = true;
+      actions.hud_toast =
+          std::format("Saved {} to Trouble-Spot Micro-SRS",
+                      format_bar_range(spot->start_bar_number, spot->end_bar_number));
+    }
+    ImGui::EndDisabled();
+  }
   const bool show_try_again = (action_label != "Try again" && action_label != "Play again");
   if (show_try_again) {
     if (ImGui::GetItemRectMax().x + 8.0f * scale + 105.0f * scale <= row_right) {
@@ -1558,8 +1661,36 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     }
   } else {
     if (show_post_run_coach_) {
-      draw_result(library, prog, actions);
+      draw_result(library, prog, profile, today_epoch_day, actions);
     } else {
+      if (!engine_.config().custom_bar_range.has_value()) {
+        const auto due_spots =
+            core::due_trouble_spot_indices(profile.trouble_spot_queue, today_epoch_day);
+        if (!due_spots.empty()) {
+          const std::size_t q_idx = due_spots.front();
+          const auto& card = profile.trouble_spot_queue[q_idx];
+          const auto* ts_score = library.find_lesson(card.lesson_id);
+          const std::string ts_title = ts_score ? ts_score->meta.title : card.lesson_id;
+          const std::string bar_txt =
+              format_bar_range(static_cast<std::uint32_t>(card.start_bar_index + 1U),
+                               static_cast<std::uint32_t>(card.end_bar_index + 1U));
+          begin_card("##lv_due_ts_cue", {}, 8.0f, 10.0f, true);
+          status_pill("Due Trouble-Spot", StatusTone::Warning);
+          ImGui::SameLine(0.0f, 8.0f * scale);
+          {
+            ScopedFont sf(TypeStyle::Subheadline);
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("%s \xC2\xB7 %s", ts_title.c_str(), bar_txt.c_str());
+          }
+          ImGui::SameLine(0.0f, 10.0f * scale);
+          if (pill_button("Drill Now##lv_ts_drill", ButtonTone::SoftAccent, IconId::Repeat,
+                          26.0f)) {
+            actions.launch_trouble_spot_index = q_idx;
+          }
+          end_card();
+          ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+        }
+      }
       draw_practice_prompt(prog, actions, open_settings);
     }
     ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
