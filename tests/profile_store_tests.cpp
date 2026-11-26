@@ -1,7 +1,16 @@
+#include "core/ear_trainer.hpp"
+#include "core/etude_engine.hpp"
+#include "core/flashcard_engine.hpp"
+#include "core/lesson_engine.hpp"
 #include "core/profile_store.hpp"
+#include "core/weekly_key.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstdint>
 #include <filesystem>
+#include <string>
+#include <system_error>
+#include <vector>
 
 using namespace selfano::core;
 

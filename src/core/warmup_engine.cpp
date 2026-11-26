@@ -1,13 +1,23 @@
 #include "core/warmup_engine.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 #include "core/theory.hpp"
+#include "core/weekly_key.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <expected>
 #include <format>
 #include <limits>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 namespace selfano::core {
 

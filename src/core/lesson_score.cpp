@@ -1,13 +1,24 @@
 #include "core/lesson_score.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/pitch.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <format>
 #include <map>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace selfano::core {
 

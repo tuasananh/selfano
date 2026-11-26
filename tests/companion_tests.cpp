@@ -1,9 +1,12 @@
 #include "core/chord_symbol.hpp"
 #include "core/companion_matcher.hpp"
+#include "core/pitch.hpp"
 
 #include <array>
 #include <bit>
 #include <catch2/catch_test_macros.hpp>
+#include <cstdint>
+#include <initializer_list>
 #include <vector>
 
 using namespace selfano::core;

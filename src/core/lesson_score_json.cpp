@@ -1,11 +1,17 @@
+#include "core/key_signature.hpp"
 #include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <format>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace selfano::core {
 

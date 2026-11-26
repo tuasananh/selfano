@@ -1,13 +1,16 @@
 #pragma once
 
 #include "core/autopilot.hpp"
+#include "core/lesson_engine.hpp"
 #include "core/lesson_library.hpp"
+#include "core/lesson_score.hpp"
 #include "core/piano_remote.hpp"
 #include "core/profile_store.hpp"
 
 #include "midi/audio_synth.hpp"
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_engine.hpp"
+#include "midi/midi_event.hpp"
 #include "midi/midi_scheduler.hpp"
 #include "midi/qwerty_mapper.hpp"
 

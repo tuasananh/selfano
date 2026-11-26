@@ -1,6 +1,10 @@
+#include "core/key_signature.hpp"
 #include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstdint>
+#include <string>
 
 using namespace selfano::core;
 

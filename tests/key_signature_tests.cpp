@@ -1,7 +1,12 @@
 #include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <set>
+#include <span>
+#include <string>
 
 using namespace selfano::core;
 

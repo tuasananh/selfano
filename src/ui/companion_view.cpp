@@ -1,9 +1,12 @@
 #include "ui/companion_view.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/companion_matcher.hpp"
+#include "core/pitch.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
@@ -12,7 +15,13 @@
 #include <array>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace selfano::ui {

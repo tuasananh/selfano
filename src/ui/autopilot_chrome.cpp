@@ -1,5 +1,7 @@
 #include "ui/autopilot_chrome.hpp"
 
+#include "core/autopilot.hpp"
+
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
 #include "ui/widgets.hpp"
@@ -9,8 +11,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <format>
 #include <string>
+#include <string_view>
 
 namespace selfano::ui {
 

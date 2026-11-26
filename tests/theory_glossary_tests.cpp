@@ -1,3 +1,4 @@
+#include "core/key_signature.hpp"
 #include "core/theory_glossary.hpp"
 
 #include <catch2/catch_test_macros.hpp>

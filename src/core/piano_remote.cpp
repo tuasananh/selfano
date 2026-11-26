@@ -1,5 +1,9 @@
 #include "core/piano_remote.hpp"
 
+#include "core/pitch.hpp"
+
+#include <optional>
+
 namespace selfano::core {
 
 PianoRemoteAction resolve_piano_remote_action(MidiPitch midi_note,

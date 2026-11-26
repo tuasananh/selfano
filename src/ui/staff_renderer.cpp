@@ -1,5 +1,8 @@
 #include "ui/staff_renderer.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 #include "core/staff_layout.hpp"
 
 #include "ui/design_system.hpp"
@@ -11,8 +14,13 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <format>
 #include <optional>
+#include <span>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace selfano::ui {

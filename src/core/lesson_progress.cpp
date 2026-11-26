@@ -1,10 +1,18 @@
 #include "core/chord_symbol.hpp"
 #include "core/lesson_engine.hpp"
+#include "core/lesson_score.hpp"
+#include "core/srs_deck.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <map>
 #include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace selfano::core {

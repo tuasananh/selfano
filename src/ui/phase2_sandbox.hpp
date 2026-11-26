@@ -10,6 +10,7 @@
 #include "ui/virtual_piano.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>

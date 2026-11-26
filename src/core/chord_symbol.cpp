@@ -1,7 +1,17 @@
 #include "core/chord_symbol.hpp"
 
+#include "core/pitch.hpp"
+
 #include <array>
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace selfano::core {
 

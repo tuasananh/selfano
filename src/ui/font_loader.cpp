@@ -6,8 +6,11 @@
 
 #include <SDL3/SDL.h>
 #include <array>
+#include <expected>
 #include <filesystem>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace selfano::ui {

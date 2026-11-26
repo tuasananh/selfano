@@ -1,8 +1,18 @@
 #include "ui/lesson_staff_adapter.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+
+#include "ui/staff_renderer.hpp"
+
 #include <algorithm>
+#include <cstddef>
 #include <format>
 #include <map>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::ui {
 

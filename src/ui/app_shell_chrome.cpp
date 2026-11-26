@@ -1,7 +1,14 @@
 #include "ui/app_shell_chrome.hpp"
 
+#include "core/autopilot.hpp"
+
+#include "midi/audio_synth.hpp"
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_engine.hpp"
+
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
+#include "ui/midi_device_bar.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
@@ -12,6 +19,7 @@
 #include <cmath>
 #include <format>
 #include <string>
+#include <string_view>
 
 namespace selfano::ui {
 

@@ -1,6 +1,9 @@
 #include "core/autopilot.hpp"
 
 #include <algorithm>
+#include <optional>
+#include <string>
+#include <utility>
 
 namespace selfano::core {
 

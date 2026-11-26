@@ -2,8 +2,15 @@
 
 #include <SDL3/SDL.h>
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <numbers>
+#include <span>
+#include <string>
 
 namespace selfano::midi {
 

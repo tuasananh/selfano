@@ -1,5 +1,21 @@
 CompileFlags:
   CompilationDatabase: build/native-debug
 
+Diagnostics:
+  MissingIncludes: Strict
+  UnusedIncludes: Strict
+  Includes:
+    IgnoreHeader:
+      - SDL3/.*
+      - libremidi/.*
+      - catch2/.*
+      - nlohmann/.*
+      - imgui.*
+      - pugixml.*
+      - miniz.*
+      - emscripten/.*
+      - bits/.*
+      - __.*
+
 Index:
   Background: Build

@@ -9,7 +9,6 @@
 #include "imgui.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <string>
 
 namespace selfano::ui::detail {

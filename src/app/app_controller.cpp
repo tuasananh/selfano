@@ -1,15 +1,31 @@
 #include "app/app_controller.hpp"
 
+#include "core/autopilot.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/piano_remote.hpp"
+#include "core/profile_store.hpp"
 #include "core/weekly_key.hpp"
 
+#include "midi/audio_synth.hpp"
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_engine.hpp"
+#include "midi/midi_event.hpp"
+#include "midi/midi_scheduler.hpp"
+#include "midi/qwerty_mapper.hpp"
+
+#include "ui/app_shell_chrome.hpp"
 #include "ui/autopilot_chrome.hpp"
 #include "ui/design_system.hpp"
+#include "ui/font_loader.hpp"
 #include "ui/home_dashboard.hpp"
+#include "ui/lesson_view.hpp"
+#include "ui/midi_device_bar.hpp"
 #include "ui/piano_remote_overlay.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "app/app_paths.hpp"
-#include "app/web_platform.hpp"
+#include "app/cli_options.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
@@ -17,11 +33,22 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #ifdef __EMSCRIPTEN__
+#include "app/web_platform.hpp"
+
 #include <emscripten.h>
 #endif
 

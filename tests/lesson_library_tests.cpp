@@ -1,18 +1,26 @@
 #include "core/chord_symbol.hpp"
+#include "core/key_signature.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/lesson_library.hpp"
+#include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
+#include "core/pitch.hpp"
 #include "core/theory_glossary.hpp"
 
 #include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 

@@ -6,9 +6,11 @@
 #include "ui/design_system.hpp"
 #include "ui/staff_showcase.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace selfano::app {

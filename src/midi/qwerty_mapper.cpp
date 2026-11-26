@@ -1,6 +1,13 @@
 #include "midi/qwerty_mapper.hpp"
 
+#include "midi/midi_event.hpp"
+
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace selfano::midi {
 

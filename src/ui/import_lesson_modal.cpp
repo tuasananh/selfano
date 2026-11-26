@@ -2,6 +2,8 @@
 
 #include "core/chord_symbol.hpp"
 #include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/musicxml_importer.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
@@ -13,6 +15,10 @@
 #include <array>
 #include <cstdio>
 #include <format>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::ui {
 

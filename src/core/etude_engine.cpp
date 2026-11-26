@@ -1,13 +1,20 @@
 #include "core/etude_engine.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 #include "core/theory.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <map>
+#include <optional>
+#include <random>
+#include <span>
 #include <utility>
+#include <vector>
 
 namespace selfano::core {
 

@@ -2,6 +2,9 @@
 
 #include "core/key_signature.hpp"
 #include "core/lesson_engine.hpp"
+#include "core/lesson_library.hpp"
+#include "core/lesson_score.hpp"
+#include "core/profile_store.hpp"
 #include "core/theory_glossary.hpp"
 
 #include "ui/design_system.hpp"
@@ -12,7 +15,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <string>
 #include <string_view>
 
 namespace selfano::ui {

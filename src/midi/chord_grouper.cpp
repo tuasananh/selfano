@@ -1,7 +1,13 @@
 #include "midi/chord_grouper.hpp"
 
+#include "midi/midi_event.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 namespace selfano::midi {
 

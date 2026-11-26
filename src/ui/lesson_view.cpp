@@ -1,19 +1,38 @@
 #include "ui/lesson_view.hpp"
 
 #include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/lesson_library.hpp"
+#include "core/lesson_score.hpp"
+#include "core/musicxml_importer.hpp"
+#include "core/pitch.hpp"
+#include "core/profile_store.hpp"
+#include "core/srs_deck.hpp"
+#include "core/theory_glossary.hpp"
+
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_scheduler.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
 #include "ui/lesson_brief_view.hpp"
 #include "ui/lesson_staff_adapter.hpp"
+#include "ui/staff_renderer.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <optional>
+#include <span>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace selfano::ui {

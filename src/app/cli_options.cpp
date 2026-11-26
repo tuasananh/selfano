@@ -1,9 +1,21 @@
 #include "app/cli_options.hpp"
 
+#include "core/autopilot.hpp"
+#include "core/lesson_engine.hpp"
+
+#include "ui/design_system.hpp"
+#include "ui/staff_showcase.hpp"
+
 #include <algorithm>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <sstream>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <vector>
 
 namespace selfano::app {
 

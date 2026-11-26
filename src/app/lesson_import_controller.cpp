@@ -1,10 +1,18 @@
+#include "core/autopilot.hpp"
+#include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
 
 #include "app/app_controller.hpp"
 #include "app/app_paths.hpp"
+#include "app/cli_options.hpp"
 #include "app/web_platform.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace selfano::app {
 

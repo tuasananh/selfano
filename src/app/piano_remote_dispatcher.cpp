@@ -1,7 +1,19 @@
+#include "core/autopilot.hpp"
+#include "core/etude_engine.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/piano_remote.hpp"
+#include "core/srs_deck.hpp"
+#include "core/warmup_engine.hpp"
 #include "core/weekly_key.hpp"
 
-#include "app/app_controller.hpp"
+#include "midi/midi_scheduler.hpp"
 
+#include "app/app_controller.hpp"
+#include "app/cli_options.hpp"
+
+#include <cstddef>
+#include <cstdint>
 #include <format>
 #include <string>
 #include <vector>

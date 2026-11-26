@@ -1,5 +1,7 @@
 #include "ui/virtual_piano.hpp"
 
+#include "midi/midi_event.hpp"
+
 #include "ui/design_system.hpp"
 
 #include "imgui.h"
@@ -7,8 +9,12 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace selfano::ui {
 

@@ -1,11 +1,19 @@
 #include "ui/staff_primitives.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/staff_layout.hpp"
+
 #include "ui/design_system.hpp"
 #include "ui/smufl_glyphs.hpp"
+#include "ui/staff_renderer.hpp"
 
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <string>
 
 namespace selfano::ui::detail {
 

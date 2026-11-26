@@ -1,5 +1,7 @@
 #include "ui/lesson_brief_view.hpp"
 
+#include "core/lesson_engine.hpp"
+#include "core/lesson_score.hpp"
 #include "core/theory_glossary.hpp"
 
 #include "ui/design_system.hpp"
@@ -8,7 +10,7 @@
 
 #include "imgui.h"
 
-#include <algorithm>
+#include <cstddef>
 #include <format>
 #include <string>
 

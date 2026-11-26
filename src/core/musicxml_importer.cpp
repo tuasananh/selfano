@@ -1,19 +1,27 @@
 #include "core/musicxml_importer.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <map>
 #include <optional>
 #include <pugixml.hpp>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 

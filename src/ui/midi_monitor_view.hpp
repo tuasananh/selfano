@@ -8,10 +8,12 @@
 #include "ui/virtual_piano.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace selfano::ui {

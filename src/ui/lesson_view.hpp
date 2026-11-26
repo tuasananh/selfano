@@ -2,7 +2,9 @@
 
 #include "core/lesson_engine.hpp"
 #include "core/lesson_library.hpp"
+#include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
+#include "core/pitch.hpp"
 #include "core/profile_store.hpp"
 #include "core/theory_glossary.hpp"
 

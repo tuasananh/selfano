@@ -1,8 +1,11 @@
 #include "app/web_platform.hpp"
 
+#include <vector>
+
 #ifdef __EMSCRIPTEN__
 
 #include <atomic>
+#include <cstdint>
 #include <emscripten.h>
 #include <mutex>
 #include <utility>

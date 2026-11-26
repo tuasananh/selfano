@@ -1,5 +1,10 @@
 #include "core/weekly_key.hpp"
 
+#include "core/key_signature.hpp"
+
+#include <cstddef>
+#include <optional>
+
 namespace selfano::core {
 
 std::optional<std::size_t> find_weekly_key_index(KeySignature key) noexcept {

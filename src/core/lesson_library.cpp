@@ -1,10 +1,24 @@
 #include "core/lesson_library.hpp"
 
+#include "core/lesson_score.hpp"
+
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <nlohmann/json.hpp>
+#include <optional>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace selfano::core {
 

@@ -2,11 +2,20 @@
 
 #include "core/chord_symbol.hpp"
 #include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <map>
+#include <optional>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::core {
 

@@ -1,12 +1,29 @@
 #include "core/profile_store.hpp"
 
+#include "core/companion_matcher.hpp"
+#include "core/ear_trainer.hpp"
+#include "core/etude_engine.hpp"
+#include "core/flashcard_engine.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/srs_deck.hpp"
+#include "core/weekly_key.hpp"
+
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <nlohmann/json.hpp>
 #include <set>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
 
 namespace selfano::core {
 

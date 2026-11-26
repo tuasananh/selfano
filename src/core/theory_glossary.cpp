@@ -1,11 +1,17 @@
 #include "core/theory_glossary.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/pitch.hpp"
 #include "core/theory.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <format>
 #include <limits>
 #include <optional>

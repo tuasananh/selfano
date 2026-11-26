@@ -1,11 +1,25 @@
+#include "core/autopilot.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/profile_store.hpp"
+#include "core/srs_deck.hpp"
+#include "core/warmup_engine.hpp"
 #include "core/weekly_key.hpp"
 
+#include "ui/design_system.hpp"
+
 #include "app/app_controller.hpp"
+#include "app/cli_options.hpp"
 #include "app/web_platform.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <format>
 #include <iostream>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace selfano::app {
 

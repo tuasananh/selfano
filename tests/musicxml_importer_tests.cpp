@@ -1,13 +1,16 @@
+#include "core/key_signature.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <miniz.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace selfano::core;

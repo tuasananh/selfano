@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 #include "core/srs_deck.hpp"
 
 #include <cstddef>
@@ -10,6 +11,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace selfano::core {

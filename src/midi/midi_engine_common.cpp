@@ -1,6 +1,7 @@
 #include "midi/midi_engine.hpp"
 
 #include <chrono>
+#include <ratio>
 
 namespace selfano::midi {
 

@@ -1,18 +1,27 @@
 #include "ui/staff_showcase.hpp"
 
+#include "core/key_signature.hpp"
 #include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 #include "core/theory.hpp"
 
 #include "ui/design_system.hpp"
+#include "ui/icons.hpp"
 #include "ui/lesson_staff_adapter.hpp"
+#include "ui/staff_renderer.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <format>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace selfano::ui {
 

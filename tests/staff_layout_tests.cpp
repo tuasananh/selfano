@@ -1,8 +1,16 @@
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 #include "core/staff_layout.hpp"
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cstddef>
+#include <cstdlib>
+#include <optional>
 #include <set>
+#include <vector>
 
 using namespace selfano::core;
 using Catch::Matchers::WithinAbs;

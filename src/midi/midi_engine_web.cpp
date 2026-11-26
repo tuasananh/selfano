@@ -1,11 +1,20 @@
 #include "midi/midi_engine.hpp"
+#include "midi/midi_event.hpp"
 #include "midi/spsc_queue.hpp"
 
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <emscripten.h>
+#include <expected>
+#include <memory>
+#include <optional>
 #include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::midi {
 

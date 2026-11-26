@@ -1,7 +1,14 @@
 #include "core/companion_matcher.hpp"
 
+#include "core/chord_symbol.hpp"
+#include "core/pitch.hpp"
+
 #include <algorithm>
 #include <bit>
+#include <cstdint>
+#include <span>
+#include <utility>
+#include <vector>
 
 namespace selfano::core {
 

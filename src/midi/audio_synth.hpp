@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <span>

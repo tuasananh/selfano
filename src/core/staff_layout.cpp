@@ -1,8 +1,16 @@
 #include "core/staff_layout.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <limits>
+#include <optional>
+#include <span>
+#include <vector>
 
 namespace selfano::core {
 

@@ -1,10 +1,14 @@
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 #include "core/warmup_engine.hpp"
 #include "core/weekly_key.hpp"
 
 #include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace selfano::core;
