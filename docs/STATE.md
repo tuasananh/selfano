@@ -299,13 +299,32 @@
 
 ## Next Concrete Action
 
-- **Execute Phases 17–20 (Lessons UX, Navigation & Discoverability):**
+- **Phases 21–36 Planned — Conservatory Mastery & Full *Ballade No. 1, Op. 23* Roadmap (4 Tracks):**
+  - **Track A (Learning Speed Multipliers — Ready Now):**
+    - **Phase 21:** Micro-Increment Tempo Ramp & Trouble-Spot Micro-SRS ([`docs/phases/phase-21-tempo-ramp-and-trouble-spot-srs.md`](./phases/phase-21-tempo-ramp-and-trouble-spot-srs.md)) (`[ ] Planned`)
+    - **Phase 22:** Chopin Speed Lab: Rhythmic Alteration, `4+1` Bursts & Hand Blocking ([`docs/phases/phase-22-chopin-speed-lab-practice-methods.md`](./phases/phase-22-chopin-speed-lab-practice-methods.md)) (`[ ] Planned`)
+    - **Phase 23:** MIDI-Verified Memory Fade Mode ([`docs/phases/phase-23-midi-verified-memory-fade.md`](./phases/phase-23-midi-verified-memory-fade.md)) (`[ ] Planned`)
+  - **Track B (Romantic Score & Importer Foundations — Ready Now):**
+    - **Phase 24:** Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) ([`docs/phases/phase-24-fine-subdivisions-and-tuplets.md`](./phases/phase-24-fine-subdivisions-and-tuplets.md)) (`[ ] Planned`)
+    - **Phase 25:** Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava ([`docs/phases/phase-25-grace-notes-clef-changes-and-ottava.md`](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)) (`[ ] Planned`)
+    - **Phase 26:** Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode ([`docs/phases/phase-26-tempo-maps-rolled-chords-and-rubato.md`](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)) (`[ ] Planned`)
+    - **Phase 27:** Automatic Harmonic Analyzer for Imported Scores ([`docs/phases/phase-27-auto-harmonic-analyzer-for-imports.md`](./phases/phase-27-auto-harmonic-analyzer-for-imports.md)) (`[ ] Planned`)
+  - **Track C (Daily Drills & MIDI Technique Diagnostics — Ready Now):**
+    - **Phase 28:** Advanced Warm-Up Circuits & Printed Scale Fingerings ([`docs/phases/phase-28-advanced-warmups-and-scale-fingerings.md`](./phases/phase-28-advanced-warmups-and-scale-fingerings.md)) (`[ ] Planned`)
+    - **Phase 29:** MIDI Evenness, Thumb-Crossing & Dynamic Contour Coaching ([`docs/phases/phase-29-midi-evenness-and-dynamic-coaching.md`](./phases/phase-29-midi-evenness-and-dynamic-coaching.md)) (`[ ] Planned`)
+    - **Phase 30:** Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus ([`docs/phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md`](./phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md)) (`[ ] Planned`)
+    - **Phase 31:** Harmonic Ear Training & Tier-Adaptive Autopilot ([`docs/phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md`](./phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md)) (`[ ] Planned`)
+  - **Track D (Curriculum Expansion: Missing Middle to Full *Ballade No. 1* — After Track B + Phases 22 & 29):**
+    - **Phase 32:** Tier 7: Counterpoint & Classical Velocity ([`docs/phases/phase-32-tier7-counterpoint-and-classical-velocity.md`](./phases/phase-32-tier7-counterpoint-and-classical-velocity.md)) (`[ ] Planned`)
+    - **Phase 33:** Tier 8: Romantic Texture, Rubato & Wide LH Strides ([`docs/phases/phase-33-tier8-romantic-texture-and-lh-strides.md`](./phases/phase-33-tier8-romantic-texture-and-lh-strides.md)) (`[ ] Planned`)
+    - **Phase 34:** Tier 9: Chopin Technique Lab & Étude Excerpts ([`docs/phases/phase-34-tier9-chopin-technique-lab-etudes.md`](./phases/phase-34-tier9-chopin-technique-lab-etudes.md)) (`[ ] Planned`)
+    - **Phase 35:** Tier 10A: Chopin *Ballade No. 1, Op. 23* — First Half (mm. 1–125) ([`docs/phases/phase-35-tier10a-ballade-no1-first-half.md`](./phases/phase-35-tier10a-ballade-no1-first-half.md)) (`[ ] Planned`)
+    - **Phase 36:** Tier 10B: Chopin *Ballade No. 1, Op. 23* — Second Half & Coda (mm. 126–264) ([`docs/phases/phase-36-tier10b-ballade-no1-second-half-and-coda.md`](./phases/phase-36-tier10b-ballade-no1-second-half-and-coda.md)) (`[ ] Planned`)
+- **Recently Completed (Phases 17–20 — Lessons UX, Navigation & Discoverability):**
   - **Phase 17:** Lesson Navigation Bar, Prev/Next Stepping & Discoverable Curriculum Access ([`docs/phases/phase-17-lesson-navigation-and-curriculum-access.md`](./phases/phase-17-lesson-navigation-and-curriculum-access.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 97/97 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified across `Learn`, `Practice`, and `My Books`)
   - **Phase 18:** Interactive Practice Strip, Visible Lesson Progress & Above-the-Fold Score Fit ([`docs/phases/phase-18-practice-bar-progress-and-viewport.md`](./phases/phase-18-practice-bar-progress-and-viewport.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 98/98 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on `t1_01`, `t6_04`, `--bar-range 2-3`, and `--open-lesson-settings`)
   - **Phase 19:** Non-Blocking Post-Run Coach & Upgraded Curriculum Browser ([`docs/phases/phase-19-post-run-coach-and-curriculum-browser.md`](./phases/phase-19-post-run-coach-and-curriculum-browser.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 98/98 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on imperfect Post-Run Coach, auto-scrolled Curriculum Browser `t3_03`, and `My Books` at `1360x860` & `980x710`)
   - **Phase 20:** Apple HIG Learn Brief, System Measure Numbers & Input Polish ([`docs/phases/phase-20-lesson-brief-and-score-ergonomics.md`](./phases/phase-20-lesson-brief-and-score-ergonomics.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 99/99 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on expanded Learn Brief `t4_01`/`t6_03` and Practice `t1_01`/`t3_01`/`t5_01`/`t6_04`, live headless Chromium CDP on `build/web-release` at `1360x717` & `980x710` passed with 0 console errors, 0 JS/WASM exceptions, and 0 HTTP errors)
-  - **Phase 19:** Non-Blocking Post-Run Coach & Upgraded Curriculum Browser ([`docs/phases/phase-19-post-run-coach-and-curriculum-browser.md`](./phases/phase-19-post-run-coach-and-curriculum-browser.md)) (`[ ] Planned`)
-  - **Phase 20:** Apple HIG Learn Brief, System Measure Numbers & Input Polish ([`docs/phases/phase-20-lesson-brief-and-score-ergonomics.md`](./phases/phase-20-lesson-brief-and-score-ergonomics.md)) (`[ ] Planned`)
 - **Previously Completed (Phases 0–16 + Post-Phase 16):**
   - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
   - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
