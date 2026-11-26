@@ -487,11 +487,9 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
   }
 
   const float canvas_w = std::max(460.0f, ImGui::GetContentRegionAvail().x);
-  const float top_h = compute_staff_canvas_height(top_opts);
-  const ImVec2 top_origin = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton("##etude_active_staff", ImVec2(canvas_w, top_h));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, top_origin, canvas_w,
-               active_measures, top_opts);
+
+  draw_staff_canvas("##etude_active_staff", smufl_font, ui_font, canvas_w, active_measures,
+                    top_opts);
 
   ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
   section_kicker("UPCOMING 4 BARS");
@@ -505,11 +503,8 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
   bot_opts.show_time_signature_4_4 = false;
   bot_opts.dim_preview = true;
 
-  const float bot_h = compute_staff_canvas_height(bot_opts);
-  const ImVec2 bot_origin = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton("##etude_preview_staff", ImVec2(canvas_w, bot_h));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, bot_origin, canvas_w,
-               preview_measures, bot_opts);
+  draw_staff_canvas("##etude_preview_staff", smufl_font, ui_font, canvas_w, preview_measures,
+                    bot_opts);
 }
 
 } // namespace selfano::ui

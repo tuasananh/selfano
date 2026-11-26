@@ -6,6 +6,7 @@
 
 #include "ui/design_system.hpp"
 #include "ui/smufl_glyphs.hpp"
+#include "ui/staff_ink.hpp"
 #include "ui/staff_renderer.hpp"
 
 #include <algorithm>
@@ -19,18 +20,18 @@ namespace selfano::ui::detail {
 
 namespace {
 
-void draw_time_sig_number(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                          float center_x, float y, std::uint8_t value, float space, ImU32 color) {
+void draw_time_sig_number(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float center_x,
+                          float y, std::uint8_t value, float space, ImU32 color) {
   if (value < 10U) {
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(center_x - 0.65f * space, y),
-                     color, time_sig_digit_glyph(value));
+    draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(center_x - 0.65f * space, y), color,
+                     time_sig_digit_glyph(value));
   } else {
     const auto tens = static_cast<std::uint8_t>(value / 10U);
     const auto ones = static_cast<std::uint8_t>(value % 10U);
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(center_x - 1.25f * space, y),
-                     color, time_sig_digit_glyph(tens));
-    draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(center_x + 0.05f * space, y),
-                     color, time_sig_digit_glyph(ones));
+    draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(center_x - 1.25f * space, y), color,
+                     time_sig_digit_glyph(tens));
+    draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(center_x + 0.05f * space, y), color,
+                     time_sig_digit_glyph(ones));
   }
 }
 
@@ -188,33 +189,33 @@ float compute_chord_x(float m_x0, float pad_left, float usable_w, float measure_
   return m_x0 + pad_left + (static_cast<float>(chord_idx) + 0.35f) * slot_w;
 }
 
-void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
+void draw_smufl_glyph(StaffInk& ink, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
                       ImU32 color, const char* utf8_glyph) {
-  if (draw_list == nullptr || smufl_font == nullptr || utf8_glyph == nullptr) {
+  if (smufl_font == nullptr || utf8_glyph == nullptr) {
     return;
   }
   ImFontBaked* baked = smufl_font->GetFontBaked(font_size);
   const float ascent = (baked != nullptr) ? baked->Ascent : (font_size * 0.5f);
   const ImVec2 draw_pos(std::round(origin_pos.x), std::round(origin_pos.y - ascent));
-  draw_list->AddText(smufl_font, font_size, draw_pos, color, utf8_glyph);
+  ink.text(smufl_font, font_size, draw_pos, color, utf8_glyph);
 }
 
-void draw_smufl_glyph_centered(ImDrawList* draw_list, ImFont* smufl_font, float font_size,
+void draw_smufl_glyph_centered(StaffInk& ink, ImFont* smufl_font, float font_size,
                                ImVec2 center_x_origin_y, ImU32 color, const char* utf8_glyph) {
-  if (draw_list == nullptr || smufl_font == nullptr || utf8_glyph == nullptr) {
+  if (smufl_font == nullptr || utf8_glyph == nullptr) {
     return;
   }
   const ImVec2 gsz = smufl_font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, utf8_glyph);
-  draw_smufl_glyph(draw_list, smufl_font, font_size,
+  draw_smufl_glyph(ink, smufl_font, font_size,
                    ImVec2(center_x_origin_y.x - gsz.x * 0.5f, center_x_origin_y.y), color,
                    utf8_glyph);
 }
 
-void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
-                     ImU32 color, float thickness) {
+void draw_five_lines(StaffInk& ink, float x0, float x1, float bottom_y, float space, ImU32 color,
+                     float thickness) {
   for (int i = 0; i < 5; ++i) {
     const float y = std::round(bottom_y - static_cast<float>(i) * space);
-    draw_list->AddLine(ImVec2(x0, y), ImVec2(x1, y), color, thickness);
+    ink.line(ImVec2(x0, y), ImVec2(x1, y), color, thickness);
   }
 }
 
@@ -253,52 +254,49 @@ void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_a
                      is_partial ? pal.partial : pal.incorrect, text.c_str());
 }
 
-void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                           float x, int step, core::Clef clef, float bottom_y, float space,
-                           ImU32 color) {
+void draw_augmentation_dot(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float x,
+                           int step, core::Clef clef, float bottom_y, float space, ImU32 color) {
   const int dot_step = (step % 2 == 0) ? (step + 1) : step;
   const float dy = core::step_to_y(dot_step, clef, bottom_y, space);
-  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(x, dy), color,
-                   kGlyphAugmentationDot);
+  draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(x, dy), color, kGlyphAugmentationDot);
 }
 
-void render_clef_rest(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                      float chord_x, float bottom_y, float space, core::Clef clef,
-                      RestDuration rest_dur, bool dotted, const ThemePalette& pal) {
+void render_clef_rest(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float chord_x,
+                      float bottom_y, float space, core::Clef clef, RestDuration rest_dur,
+                      bool dotted, const ThemePalette& pal) {
   const int step = rest_anchor_step(rest_dur, clef);
   const float ry = core::step_to_y(step, clef, bottom_y, space);
-  draw_smufl_glyph(draw_list, smufl_font, smufl_font_size, ImVec2(chord_x + 0.1f * space, ry),
-                   pal.ink, rest_glyph(rest_dur));
+  draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(chord_x + 0.1f * space, ry), pal.ink,
+                   rest_glyph(rest_dur));
   if (dotted) {
     const int dot_step = core::staff_middle_step(clef) + 1;
     draw_smufl_glyph(
-        draw_list, smufl_font, smufl_font_size,
+        ink, smufl_font, smufl_font_size,
         ImVec2(chord_x + 1.35f * space, core::step_to_y(dot_step, clef, bottom_y, space)), pal.ink,
         kGlyphAugmentationDot);
   }
 }
 
-void draw_time_signature(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                         float timesig_x, float bottom_y, float space, core::Clef clef,
-                         core::TimeSignature ts, ImU32 color) {
+void draw_time_signature(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float timesig_x,
+                         float bottom_y, float space, core::Clef clef, core::TimeSignature ts,
+                         ImU32 color) {
   const float top_y = core::step_to_y(core::staff_bottom_step(clef) + 6, clef, bottom_y, space);
   const float bot_y = core::step_to_y(core::staff_bottom_step(clef) + 2, clef, bottom_y, space);
   const float center_x = timesig_x + 0.72f * space;
-  draw_time_sig_number(draw_list, smufl_font, smufl_font_size, center_x, top_y, ts.numerator, space,
+  draw_time_sig_number(ink, smufl_font, smufl_font_size, center_x, top_y, ts.numerator, space,
                        color);
-  draw_time_sig_number(draw_list, smufl_font, smufl_font_size, center_x, bot_y, ts.denominator,
-                       space, color);
+  draw_time_sig_number(ink, smufl_font, smufl_font_size, center_x, bot_y, ts.denominator, space,
+                       color);
 }
 
-void draw_beam_quad(ImDrawList* draw_list, float x0, float y0, float x1, float y1, float thickness,
+void draw_beam_quad(StaffInk& ink, float x0, float y0, float x1, float y1, float thickness,
                     core::StemDirection dir, ImU32 color) {
   const float dy_in = (dir == core::StemDirection::Up) ? thickness : -thickness;
-  draw_list->AddQuadFilled(ImVec2(x0, y0), ImVec2(x1, y1), ImVec2(x1, y1 + dy_in),
-                           ImVec2(x0, y0 + dy_in), color);
+  ink.quad(ImVec2(x0, y0), ImVec2(x1, y1), ImVec2(x1, y1 + dy_in), ImVec2(x0, y0 + dy_in), color);
 }
 
-void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef clef,
-                    float bottom_y, float space, ImU32 color) {
+void draw_tie_curve(StaffInk& ink, const core::TieSpan& span, core::Clef clef, float bottom_y,
+                    float space, ImU32 color) {
   const float start_y = core::step_to_y(span.start_step, clef, bottom_y, space);
   const float end_y = core::step_to_y(span.end_step, clef, bottom_y, space);
   const float x0 = span.start_x_spaces * space;
@@ -314,15 +312,14 @@ void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef
   const ImVec2 p2(x0 + dx * 0.72f, end_y + y_off + arch);
 
   const float stroke = std::max(1.2f, 0.13f * space);
-  draw_list->AddBezierCubic(p0, p1, p2, p3, color, stroke, 18);
+  ink.curve(p0, p1, p2, p3, color, stroke, 18);
   // Subtle inner double stroke for tapered classical tie thickness at the apex
-  draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.10f * space),
-                            ImVec2(p2.x, p2.y + sign * 0.10f * space), p3, color, stroke * 0.85f,
-                            18);
+  ink.curve(p0, ImVec2(p1.x, p1.y + sign * 0.10f * space),
+            ImVec2(p2.x, p2.y + sign * 0.10f * space), p3, color, stroke * 0.85f, 18);
 }
 
-void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float y1, bool above,
-                     float space, ImU32 color) {
+void draw_slur_curve(StaffInk& ink, float x0, float y0, float x1, float y1, bool above, float space,
+                     ImU32 color) {
   const float dx = std::max(1.0f, x1 - x0);
   const float sign = above ? -1.0f : 1.0f;
   const float arch = sign * std::clamp(0.18f * dx, 1.05f * space, 2.35f * space);
@@ -334,10 +331,9 @@ void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float 
   const ImVec2 p2(x0 + dx * 0.72f, mid_y);
 
   const float stroke = std::max(1.25f, 0.13f * space);
-  draw_list->AddBezierCubic(p0, p1, p2, p3, color, stroke, 22);
-  draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.11f * space),
-                            ImVec2(p2.x, p2.y + sign * 0.11f * space), p3, color, stroke * 0.85f,
-                            22);
+  ink.curve(p0, p1, p2, p3, color, stroke, 22);
+  ink.curve(p0, ImVec2(p1.x, p1.y + sign * 0.11f * space),
+            ImVec2(p2.x, p2.y + sign * 0.11f * space), p3, color, stroke * 0.85f, 22);
 }
 
 } // namespace selfano::ui::detail

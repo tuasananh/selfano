@@ -233,6 +233,7 @@ add_library(piano_ui STATIC
   src/ui/design_system.cpp
   src/ui/icons.cpp
   src/ui/widgets.cpp
+  src/ui/staff_ink.cpp
   src/ui/staff_primitives.cpp
   src/ui/staff_renderer.cpp
   src/ui/lesson_staff_adapter.cpp

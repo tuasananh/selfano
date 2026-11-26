@@ -1217,37 +1217,17 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
           : (show_treble ? StaffViewMode::TrebleOnly : StaffViewMode::BassOnly);
 
   const float avail_w = std::max(340.0f, ImGui::GetContentRegionAvail().x);
-  const float avail_h = std::max(220.0f, ImGui::GetContentRegionAvail().y);
   const bool has_sys2 = (sys1_end + 1U <= slice_end);
-  const float gap_spaces = (has_sys2 && avail_h < 500.0f * scale) ? 5.4f : 6.5f;
-
-  StaffRenderOptions probe_opts{};
-  probe_opts.view_mode = view_mode;
-  probe_opts.staff_space = 100.0f;
-  probe_opts.grand_staff_gap_spaces = gap_spaces;
-  probe_opts.show_harmony_labels = show_harmony_;
-  probe_opts.reserve_pedal_lane = !engine_.score().pedals.empty();
-  if (!meta.tempo_marking.empty() && sys1_start == 0U) {
-    probe_opts.tempo_marking = meta.tempo_marking;
-  }
-  const float spaces_per_sys = compute_staff_canvas_height(probe_opts) / 100.0f;
-  const float sys2_chrome =
-      has_sys2 ? (8.0f * scale + ImGui::GetTextLineHeightWithSpacing() + 4.0f * scale) : 0.0f;
-  const float fit_space =
-      (avail_h - sys2_chrome - 4.0f * scale) / ((has_sys2 ? 2.0f : 1.0f) * spaces_per_sys);
-  const float staff_space = std::clamp(fit_space, 8.2f, 15.0f);
 
   StaffRenderOptions opts1{};
   opts1.key = meta.key;
   opts1.time_signature = meta.time_signature;
   opts1.view_mode = view_mode;
-  opts1.staff_space = staff_space;
-  opts1.grand_staff_gap_spaces = gap_spaces;
+  opts1.staff_space = 15.0f;
   opts1.light_paper_theme = light_paper_theme_;
   opts1.show_fingerings = show_fingerings_;
   opts1.show_harmony_labels = show_harmony_;
   opts1.show_final_barline = !has_sys2;
-  opts1.reserve_pedal_lane = !engine_.score().pedals.empty();
   if (sys1_start == 0U) {
     opts1.tempo_marking = meta.tempo_marking;
   }
@@ -1283,11 +1263,9 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   opts1.slurs =
       slice_system_slurs(engine_.score().slurs, sys1_start, sys1_end, sm1, show_treble, show_bass);
   opts1.pedals = slice_system_pedals(engine_.score().pedals, sys1_start, sys1_end, sm1);
-  const float h1 = compute_staff_canvas_height(opts1);
-  const ImVec2 o1 = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton("##lv_sys1", ImVec2(avail_w, h1));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o1, avail_w, sm1, opts1,
-               show_harmony_ ? &out_hitboxes : nullptr);
+
+  draw_staff_canvas("##lv_sys1", smufl_font, ui_font, avail_w, sm1, opts1,
+                    show_harmony_ ? &out_hitboxes : nullptr);
 
   if (has_sys2) {
     ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
@@ -1306,11 +1284,9 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     opts2.slurs = slice_system_slurs(engine_.score().slurs, sys2_start, sys2_end, sm2, show_treble,
                                      show_bass);
     opts2.pedals = slice_system_pedals(engine_.score().pedals, sys2_start, sys2_end, sm2);
-    const float h2 = compute_staff_canvas_height(opts2);
-    const ImVec2 o2 = ImGui::GetCursorScreenPos();
-    ImGui::InvisibleButton("##lv_sys2", ImVec2(avail_w, h2));
-    render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, o2, avail_w, sm2, opts2,
-                 show_harmony_ ? &out_hitboxes : nullptr);
+
+    draw_staff_canvas("##lv_sys2", smufl_font, ui_font, avail_w, sm2, opts2,
+                      show_harmony_ ? &out_hitboxes : nullptr);
   }
 }
 
@@ -1460,7 +1436,7 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
       ImGui::OpenPopup("##lv_harmony_popover");
     } else if (can_trigger_hitbox && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId)) {
       for (const auto& hb : hitboxes) {
-        if (ImGui::IsMouseHoveringRect(hb.min, hb.max, false)) {
+        if (ImGui::IsMouseHoveringRect(hb.min, hb.max)) {
           ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
           if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             active_harmony_explanation_ =

@@ -4,6 +4,7 @@
 #include "core/lesson_score.hpp"
 #include "core/staff_layout.hpp"
 
+#include "ui/staff_ink.hpp"
 #include "ui/staff_renderer.hpp"
 
 #include "imgui.h"
@@ -13,9 +14,6 @@
 
 namespace selfano::ui::detail {
 
-inline constexpr float kTopMarginSpaces = 5.4f;
-inline constexpr float kTopMarginHarmonyExtraSpaces = 5.4f;
-inline constexpr float kBottomMarginSpaces = 5.0f;
 inline constexpr float kStaffHeightSpaces = 4.0f;
 
 struct ThemePalette {
@@ -51,39 +49,38 @@ struct ThemePalette {
                                     int measure_ticks, std::size_t chord_idx,
                                     std::size_t chord_count, const StaffChord& chord) noexcept;
 
-void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
+void draw_smufl_glyph(StaffInk& ink, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
                       ImU32 color, const char* utf8_glyph);
 
-void draw_smufl_glyph_centered(ImDrawList* draw_list, ImFont* smufl_font, float font_size,
+void draw_smufl_glyph_centered(StaffInk& ink, ImFont* smufl_font, float font_size,
                                ImVec2 center_x_origin_y, ImU32 color, const char* utf8_glyph);
 
-void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
-                     ImU32 color, float thickness);
+void draw_five_lines(StaffInk& ink, float x0, float x1, float bottom_y, float space, ImU32 color,
+                     float thickness);
 
 [[nodiscard]] ImVec2 measure_feedback_badge_size(ImFont* ui_font, const std::string& text);
 
 void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
                          const std::string& text, const ThemePalette& pal, bool is_partial = false);
 
-void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                           float x, int step, core::Clef clef, float bottom_y, float space,
-                           ImU32 color);
+void draw_augmentation_dot(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float x,
+                           int step, core::Clef clef, float bottom_y, float space, ImU32 color);
 
-void render_clef_rest(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                      float chord_x, float bottom_y, float space, core::Clef clef,
-                      RestDuration rest_dur, bool dotted, const ThemePalette& pal);
+void render_clef_rest(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float chord_x,
+                      float bottom_y, float space, core::Clef clef, RestDuration rest_dur,
+                      bool dotted, const ThemePalette& pal);
 
-void draw_time_signature(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
-                         float timesig_x, float bottom_y, float space, core::Clef clef,
-                         core::TimeSignature ts, ImU32 color);
+void draw_time_signature(StaffInk& ink, ImFont* smufl_font, float smufl_font_size, float timesig_x,
+                         float bottom_y, float space, core::Clef clef, core::TimeSignature ts,
+                         ImU32 color);
 
-void draw_beam_quad(ImDrawList* draw_list, float x0, float y0, float x1, float y1, float thickness,
+void draw_beam_quad(StaffInk& ink, float x0, float y0, float x1, float y1, float thickness,
                     core::StemDirection dir, ImU32 color);
 
-void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef clef,
-                    float bottom_y, float space, ImU32 color);
+void draw_tie_curve(StaffInk& ink, const core::TieSpan& span, core::Clef clef, float bottom_y,
+                    float space, ImU32 color);
 
-void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float y1, bool above,
-                     float space, ImU32 color);
+void draw_slur_curve(StaffInk& ink, float x0, float y0, float x1, float y1, bool above, float space,
+                     ImU32 color);
 
 } // namespace selfano::ui::detail

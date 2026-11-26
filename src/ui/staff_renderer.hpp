@@ -135,14 +135,16 @@ struct StaffRenderOptions {
   std::string tempo_marking{};
   std::vector<StaffSlurSpan> slurs{};
   std::vector<StaffPedalSpan> pedals{};
-  bool reserve_pedal_lane{false};
 };
 
-[[nodiscard]] float compute_staff_canvas_height(const StaffRenderOptions& options) noexcept;
+// Returns the engraved size, which may exceed the preferred width for dense music.
+ImVec2 render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, ImVec2 origin,
+                    float width, std::span<const StaffMeasure> measures,
+                    const StaffRenderOptions& options,
+                    std::vector<StaffHarmonicHitbox>* out_harmony_hitboxes = nullptr);
 
-void render_staff(ImDrawList* draw_list, ImFont* smufl_font, ImFont* ui_font, ImVec2 origin,
-                  float width, std::span<const StaffMeasure> measures,
-                  const StaffRenderOptions& options,
-                  std::vector<StaffHarmonicHitbox>* out_harmony_hitboxes = nullptr);
+void draw_staff_canvas(const char* id, ImFont* smufl_font, ImFont* ui_font, float width,
+                       std::span<const StaffMeasure> measures, const StaffRenderOptions& options,
+                       std::vector<StaffHarmonicHitbox>* out_harmony_hitboxes = nullptr);
 
 } // namespace selfano::ui

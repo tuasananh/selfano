@@ -272,10 +272,10 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   opts.staff_space = std::clamp(15.0f * scale, 11.0f, 22.0f);
   opts.grand_staff_gap_spaces = 6.5f;
   opts.light_paper_theme = light_paper_theme_;
-  const float canvas_h = compute_staff_canvas_height(opts);
 
   if (engine_.state() == core::EarTrainerState::Listening) {
-    const float listen_h = std::clamp(ImGui::GetContentRegionAvail().y - 12.0f, canvas_h, 460.0f);
+    const float listen_h = std::clamp(ImGui::GetContentRegionAvail().y - 12.0f,
+                                      std::min(460.0f, 24.9f * opts.staff_space), 460.0f);
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     const ImVec2 p1(p0.x + canvas_w, p0.y + listen_h);
     ImGui::InvisibleButton("##ear_hidden_staff", ImVec2(canvas_w, listen_h));
@@ -350,9 +350,7 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   }
 
   std::array<StaffMeasure, 2> measures{std::move(m_tonic), std::move(m_melody)};
-  const ImVec2 origin = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton("##ear_revealed_staff", ImVec2(canvas_w, canvas_h));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, origin, canvas_w, measures, opts);
+  draw_staff_canvas("##ear_revealed_staff", smufl_font, ui_font, canvas_w, measures, opts);
 }
 
 } // namespace selfano::ui

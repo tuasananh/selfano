@@ -268,6 +268,13 @@
   - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean across all modified C++ files.
   - Headless Light & Dark screenshots inspected (`t5_02 --bar-range 0-3 --simulate-coach clean`, `t5_02 --bar-range 0-3 --simulate-coach imperfect`, `t1_01 --simulate-coach virtual`) and live headless Chromium CDP verification on `build/web-release` (`http://127.0.0.1:8767/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors** with crisp 1360x717 WebGL rendering.
 
+### Post-Phase 16 — Staff engraving layout
+
+- The shared staff renderer measures glyphs and strokes before drawing each system. Fingerings clear phrase slurs, expression marks clear nearby notes, and the grand staff expands for the music between the hands. All practice views reserve the measured card height.
+- Lessons retain four-bar groups with 15-pixel staff spacing. Upcoming is reachable by vertical scrolling. Dense systems redistribute bar widths and can scroll horizontally within their own card.
+- `cmake --build --preset native-debug` and `ctest --preset native-debug --output-on-failure` passed 95/95 cases. The renderer regressions exercise the opening and Upcoming systems of `t1_01`, bass and grand-staff fingering stacks, continued spans, harmony hitboxes, feedback stability, and compact Ballade bass spacing.
+- The `web-release` build passed. Native light and dark screenshots covered `t1_01` and `t6_04`. Chromium checks at 1780×1080 and 980×710 verified vertical and horizontal scrolling and the tonic popover after a Roman-numeral click, with zero console, runtime, or network errors.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
