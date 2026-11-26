@@ -1,7 +1,13 @@
 #include "midi/chord_grouper.hpp"
 
+#include "midi/midi_event.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 namespace selfano::midi {
 
@@ -34,13 +40,17 @@ void PolyphonicChordGrouper::push_event(const MidiNoteEvent& event) {
     batch_start_ms_ = event.timestamp_ms;
     batch_from_hardware_ = event.from_hardware;
     active_notes_.clear();
-    active_notes_.push_back(event.note);
+    active_notes_.emplace_back(event.note, event.velocity);
     return;
   }
 
   if (event.timestamp_ms - batch_start_ms_ <= window_ms_) {
-    if (std::ranges::find(active_notes_, event.note) == active_notes_.end()) {
-      active_notes_.push_back(event.note);
+    const auto it =
+        std::ranges::find_if(active_notes_, [&](const auto& p) { return p.first == event.note; });
+    if (it == active_notes_.end()) {
+      active_notes_.emplace_back(event.note, event.velocity);
+    } else {
+      it->second = std::max(it->second, event.velocity);
     }
     batch_from_hardware_ = batch_from_hardware_ || event.from_hardware;
     return;
@@ -51,7 +61,7 @@ void PolyphonicChordGrouper::push_event(const MidiNoteEvent& event) {
   batch_start_ms_ = event.timestamp_ms;
   batch_from_hardware_ = event.from_hardware;
   active_notes_.clear();
-  active_notes_.push_back(event.note);
+  active_notes_.emplace_back(event.note, event.velocity);
 }
 
 void PolyphonicChordGrouper::update(double now_ms) {
@@ -90,11 +100,19 @@ void PolyphonicChordGrouper::flush_active_batch(double completed_ms) {
     return;
   }
 
-  std::ranges::sort(active_notes_);
-  active_notes_.erase(std::ranges::unique(active_notes_).begin(), active_notes_.end());
+  std::ranges::sort(active_notes_, [](const auto& a, const auto& b) { return a.first < b.first; });
+  std::vector<std::uint8_t> sorted_notes;
+  std::vector<std::uint8_t> sorted_vels;
+  sorted_notes.reserve(active_notes_.size());
+  sorted_vels.reserve(active_notes_.size());
+  for (const auto& [pitch, vel] : active_notes_) {
+    sorted_notes.push_back(pitch);
+    sorted_vels.push_back(vel);
+  }
 
   completed_chords_.push_back(PlayedChord{
-      .notes = active_notes_,
+      .notes = std::move(sorted_notes),
+      .velocities = std::move(sorted_vels),
       .start_ms = batch_start_ms_,
       .completed_ms = completed_ms,
       .from_hardware = batch_from_hardware_,

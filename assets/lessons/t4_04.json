@@ -18,8 +18,52 @@
       "summary": "Lyrical study in Bb Major (relative major of G Minor) combining rolling arpeggio accompaniment with cantabile melody.",
       "pattern_tip": "Bb major shares the exact 2-flat signature of G minor; trace the I-vi-ii-V7-I circle of fifths.",
       "technique_tip": "Roll the left-hand 8th/16th arpeggios with supple wrist weight so the Bb-Eb black-key shapes feel effortless.",
-      "ballade_link": "Trains the warm Bb-major secondary harmony frequently illuminated inside G-minor Romantic works."
-    }
+      "ballade_link": "Trains the warm Bb-major secondary harmony frequently illuminated inside G-minor Romantic works.",
+      "concept_title": "Bb Major Fluency (Relative Key of Ballade No. 1) & Arpeggio Sweep",
+      "concept_paragraphs": [
+        "Bb Major (two flats: Bb, Eb) is the exact Relative Major sharing G minor's key signature\u2014it appears repeatedly whenever Chopin opens the dark minor curtain onto warm lyrical sunlight.",
+        "Notice how the piece uses C7 (V7/V) in Phrase A and B to illuminate F Major (V), while LH broken arpeggios sweep cleanly across two-black-key shapes (Bb and Eb)."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Rolling Bb-major arpeggios climbing through Gm (vi) and C7 (V7/V) to F."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Moves through Eb (IV) and Bb/F (I6/4) -> C7 back to Dominant F."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Expands with Bb/D (I6) first inversion for a singing bass counterpoint to F7."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Luminous lyrical closure back onto home Tonic Bb."
+        }
+      ],
+      "practice_steps": [
+        "1. Shape LH arpeggios with relaxed wrist rotation\u2014thumbs stay whisper-quiet on beat transitions.",
+        "2. Practice I - ii - V7 - vi - V7/V - V in Skeleton mode to hear the bright C7 (E-natural) twist.",
+        "3. Bring out the singing RH melody cleanly above rolled accompaniments.",
+        "4. Build fluid cantabile motion up to 92 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Bb Major Circle + Bright C7 Lift (I - vi - V7/V - V)",
+          "caption": "Bb -> Gm -> C7 -> F -> F7 -> Bb",
+          "chords": [
+            "Bb",
+            "Gm",
+            "C7",
+            "F",
+            "F7",
+            "Bb"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegro leggiero"
   },
   "measures": [
     {
@@ -173,6 +217,12 @@
           "start_tick": 0,
           "chord_symbol": "Bb",
           "roman_numeral": "I"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
         }
       ]
     },
@@ -346,6 +396,13 @@
           "start_tick": 960,
           "chord_symbol": "F7",
           "roman_numeral": "V7"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -822,6 +879,12 @@
           "chord_symbol": "Bb",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -989,6 +1052,13 @@
           "start_tick": 0,
           "chord_symbol": "Eb",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1529,6 +1599,12 @@
           "chord_symbol": "Bb",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
+        }
       ]
     },
     {
@@ -1586,7 +1662,7 @@
             {
               "spell": "Bb4",
               "midi": 70,
-              "finger": 2
+              "finger": 3
             }
           ]
         },
@@ -1738,6 +1814,13 @@
           "start_tick": 0,
           "chord_symbol": "Eb",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -2276,6 +2359,12 @@
           "chord_symbol": "Gm",
           "roman_numeral": "vi"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -2490,6 +2579,13 @@
           "start_tick": 960,
           "chord_symbol": "Eb",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -2754,5 +2850,64 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

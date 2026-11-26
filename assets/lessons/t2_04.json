@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 4,
     "title": "Dotted Rhythms & Ties",
-    "composer_source": "Czerny Op. 599, No. 38",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 38",
     "key": {
       "fifths": -1,
       "mode": "major"
@@ -18,8 +18,48 @@
       "summary": "F Major cantabile study combining dotted-quarter + eighth subdivisions with barline ties.",
       "pattern_tip": "Feel the hidden 8th-note grid ('1-and-2-AND') so the 8th after the dot lands crisply without rushing.",
       "technique_tip": "Hold tied notes silently across the barline while the left hand changes harmony underneath.",
-      "ballade_link": "Syncopated ties and dotted cantabile rhythms underpin Chopin's singing right-hand themes."
-    }
+      "ballade_link": "Syncopated ties and dotted cantabile rhythms underpin Chopin's singing right-hand themes.",
+      "concept_title": "Dotted Quarter Rhythms & Expressive Barline Ties",
+      "concept_paragraphs": [
+        "A dotted quarter note steals half of beat 2\u2014lasting three 8th-note pulses\u2014so the following eighth note arrives cleanly on the 'AND' of 2. Counting the underlying 8th-note grid ('1-and-2-AND') makes dotted rhythms effortless and musical rather than guessed.",
+        "Meanwhile, barline ties suspend the melody tone gracefully across harmonic shifts below, creating sweet singing friction that resolves by step."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Cantabile dotted-quarter F-major motif gently bending into relative minor Dm (vi)."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Rises through Bb (IV) and Dm with tied suspensions over C7 tension."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Resolves smoothly through ii (Gm) and V7 (C7) into a serene Tonic ending."
+        }
+      ],
+      "practice_steps": [
+        "1. Tap the dotted-quarter + eighth pattern against a steady pulse ('1-and-2-AND-3-4').",
+        "2. Check every tie in the score: hold the tied key silently when the harmony shifts beneath it.",
+        "3. Keep LH accompaniments soft and rounded under the singing soprano line.",
+        "4. Aim for smooth expressive phrasing at 84 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Deceptive Warmth via Submediant vi (I -> V7 -> vi)",
+          "caption": "F -> C7 -> Dm -> Bb -> C7 -> F",
+          "chords": [
+            "F",
+            "C7",
+            "Dm",
+            "Bb",
+            "C7",
+            "F"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Moderato deciso"
   },
   "measures": [
     {
@@ -123,6 +163,12 @@
           "chord_symbol": "F",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -221,6 +267,13 @@
           "start_tick": 0,
           "chord_symbol": "C7",
           "roman_numeral": "V7"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -494,6 +547,12 @@
           "chord_symbol": "Bb",
           "roman_numeral": "IV"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -592,6 +651,13 @@
           "start_tick": 0,
           "chord_symbol": "C7",
           "roman_numeral": "V7"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -882,6 +948,12 @@
           "chord_symbol": "F",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -980,6 +1052,13 @@
           "start_tick": 0,
           "chord_symbol": "Gm",
           "roman_numeral": "ii"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1130,11 +1209,6 @@
             {
               "spell": "C3",
               "midi": 48,
-              "finger": 2
-            },
-            {
-              "spell": "F3",
-              "midi": 53,
               "finger": 1
             }
           ]
@@ -1165,5 +1239,50 @@
       "start_bar": 8,
       "end_bar": 11
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

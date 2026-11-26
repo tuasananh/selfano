@@ -1,8 +1,13 @@
 #include "core/etude_engine.hpp"
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <set>
 #include <vector>
 

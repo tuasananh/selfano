@@ -1,9 +1,21 @@
 #include "app/cli_options.hpp"
 
+#include "core/autopilot.hpp"
+#include "core/lesson_engine.hpp"
+
+#include "ui/design_system.hpp"
+#include "ui/staff_showcase.hpp"
+
 #include <algorithm>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <sstream>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <vector>
 
 namespace selfano::app {
 
@@ -111,6 +123,61 @@ CliOptions parse_cli(int argc, char* argv[]) {
       opts.open_keymap = true;
     } else if (arg == "--show-key-hints") {
       opts.force_key_hints = true;
+    } else if (arg == "--lesson-tab" && i + 1 < argc) {
+      const std::string_view tab = argv[++i];
+      if (tab == "learn") {
+        opts.lesson_learn_tab = true;
+      } else if (tab == "practice") {
+        opts.lesson_learn_tab = false;
+      }
+    } else if (arg == "--chapter-guide" && i + 1 < argc) {
+      if (const auto tier = parse_strict_int(argv[++i]);
+          tier.has_value() && *tier >= 1 && *tier <= 6) {
+        opts.open_chapter_guide_tier = static_cast<std::uint8_t>(*tier);
+      }
+    } else if (arg == "--theory-popover" && i + 1 < argc) {
+      if (const auto idx = parse_strict_int(argv[++i]); idx.has_value() && *idx >= 0) {
+        opts.open_theory_popover_index = static_cast<std::size_t>(*idx);
+      }
+    } else if (arg == "--lesson-mode" && i + 1 < argc) {
+      const std::string_view m = argv[++i];
+      if (m == "skeleton") {
+        opts.lesson_mode_override = core::LessonPracticeMode::ChordSkeleton;
+      } else if (m == "wait") {
+        opts.lesson_mode_override = core::LessonPracticeMode::WaitForNote;
+      } else if (m == "pulse") {
+        opts.lesson_mode_override = core::LessonPracticeMode::SteadyPulse;
+      }
+    } else if (arg == "--lesson-hand" && i + 1 < argc) {
+      const std::string_view h = argv[++i];
+      if (h == "rh") {
+        opts.lesson_hand_override = core::LessonHandMode::RightHand;
+      } else if (h == "lh") {
+        opts.lesson_hand_override = core::LessonHandMode::LeftHand;
+      } else if (h == "both") {
+        opts.lesson_hand_override = core::LessonHandMode::HandsTogether;
+      }
+    } else if (arg == "--start-demo") {
+      opts.start_lesson_demo = true;
+    } else if (arg == "--bar-range" && i + 1 < argc) {
+      const std::string_view spec = argv[++i];
+      const std::size_t dash = spec.find('-');
+      if (dash != std::string_view::npos) {
+        const auto a = parse_strict_int(spec.substr(0, dash));
+        const auto b = parse_strict_int(spec.substr(dash + 1));
+        if (a.has_value() && b.has_value() && *a >= 0 && *b >= 0) {
+          opts.bar_range_override = {static_cast<std::size_t>(*a), static_cast<std::size_t>(*b)};
+        }
+      }
+    } else if (arg == "--simulate-coach" && i + 1 < argc) {
+      const std::string_view mode = argv[++i];
+      if (mode == "clean") {
+        opts.simulate_coach = SmokeCoachMode::Clean;
+      } else if (mode == "imperfect") {
+        opts.simulate_coach = SmokeCoachMode::Imperfect;
+      } else if (mode == "virtual") {
+        opts.simulate_coach = SmokeCoachMode::Virtual;
+      }
     }
   }
   return opts;

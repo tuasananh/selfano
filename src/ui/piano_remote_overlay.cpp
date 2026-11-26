@@ -1,5 +1,6 @@
 #include "ui/piano_remote_overlay.hpp"
 
+#include "core/autopilot.hpp"
 #include "core/piano_remote.hpp"
 
 #include "ui/design_system.hpp"
@@ -9,6 +10,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <optional>
 
 namespace selfano::ui {
 

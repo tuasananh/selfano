@@ -1,15 +1,31 @@
 #include "app/app_controller.hpp"
 
+#include "core/autopilot.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/piano_remote.hpp"
+#include "core/profile_store.hpp"
 #include "core/weekly_key.hpp"
 
+#include "midi/audio_synth.hpp"
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_engine.hpp"
+#include "midi/midi_event.hpp"
+#include "midi/midi_scheduler.hpp"
+#include "midi/qwerty_mapper.hpp"
+
+#include "ui/app_shell_chrome.hpp"
 #include "ui/autopilot_chrome.hpp"
 #include "ui/design_system.hpp"
+#include "ui/font_loader.hpp"
 #include "ui/home_dashboard.hpp"
+#include "ui/lesson_view.hpp"
+#include "ui/midi_device_bar.hpp"
 #include "ui/piano_remote_overlay.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "app/app_paths.hpp"
-#include "app/web_platform.hpp"
+#include "app/cli_options.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
@@ -17,11 +33,22 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <iostream>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #ifdef __EMSCRIPTEN__
+#include "app/web_platform.hpp"
+
 #include <emscripten.h>
 #endif
 
@@ -354,6 +381,11 @@ void AppController::process_note_events(const std::vector<midi::MidiNoteEvent>& 
       continue;
     }
 
+    if (ev.is_damper_pedal()) {
+      lesson_view_.on_damper_pedal(ev.is_note_on, ev.from_hardware);
+      continue;
+    }
+
     if (!ev.is_note_message()) {
       continue;
     }
@@ -361,6 +393,9 @@ void AppController::process_note_events(const std::vector<midi::MidiNoteEvent>& 
     if (!ev.is_note_on && ev.note < 128U && remote_suppressed_notes_[ev.note]) {
       remote_suppressed_notes_[ev.note] = false;
       continue;
+    }
+    if (!ev.is_note_on) {
+      lesson_view_.on_note_off(ev.note);
     }
 
     if (ev.is_note_on && ev.note < 128U) {
@@ -561,6 +596,40 @@ bool AppController::init(const CliOptions& cli_opts) {
   }
   if (!cli_.lesson_id_override.empty()) {
     (void)select_active_lesson(cli_.lesson_id_override, prev_now_ms_, false);
+  }
+  if (cli_.lesson_learn_tab.has_value()) {
+    lesson_view_.set_active_tab(*cli_.lesson_learn_tab ? ui::LessonViewTab::Learn
+                                                       : ui::LessonViewTab::Practice);
+  }
+  if (cli_.open_chapter_guide_tier.has_value()) {
+    lesson_view_.open_chapter_guide(*cli_.open_chapter_guide_tier);
+  }
+  if (cli_.open_theory_popover_index.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.request_open_theory_popover_index(*cli_.open_theory_popover_index);
+  }
+  if (cli_.lesson_mode_override.has_value()) {
+    lesson_view_.mutable_engine().set_practice_mode(*cli_.lesson_mode_override);
+  }
+  if (cli_.lesson_hand_override.has_value()) {
+    lesson_view_.mutable_engine().set_hand_mode(*cli_.lesson_hand_override);
+  }
+  if (cli_.start_lesson_demo) {
+    lesson_view_.start_demo_for_smoke(prev_now_ms_, pending_playback_, 550.0);
+  }
+  if (cli_.bar_range_override.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.mutable_engine().set_custom_bar_range(cli_.bar_range_override);
+    lesson_view_.mutable_engine().set_loop_phrase(true);
+  }
+  if (cli_.simulate_coach.has_value()) {
+    ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
+    if (*cli_.simulate_coach == SmokeCoachMode::Imperfect) {
+      sim_mode = ui::SmokeCoachSimMode::Imperfect;
+    } else if (*cli_.simulate_coach == SmokeCoachMode::Virtual) {
+      sim_mode = ui::SmokeCoachSimMode::Virtual;
+    }
+    lesson_view_.simulate_completed_run_for_smoke(sim_mode, profile_, boot_epoch_day);
   }
 
   if (cli_.initial_mode == AppMode::Autopilot) {
@@ -775,9 +844,14 @@ void AppController::update_active_stage(double dt_ms, double now_ms, std::int64_
       bool accent = false;
       bool chime = false;
       bool just_mastered = false;
-      lesson_view_.update(dt_ms, profile_, today_epoch_day, click, accent, chime, just_mastered);
+      std::vector<midi::ScheduledMidiNote> streamed_playback;
+      lesson_view_.update(dt_ms, now_ms, profile_, today_epoch_day, click, accent, chime,
+                          just_mastered, streamed_playback);
       if (click) {
         audio_synth_.play_metronome_click(accent);
+      }
+      if (!streamed_playback.empty()) {
+        playback_scheduler_.schedule_batch(streamed_playback);
       }
       if (chime) {
         audio_synth_.play_confirmation_chime();
@@ -832,11 +906,35 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
     if (lv_act.phrase_chime) {
       audio_synth_.play_confirmation_chime();
     }
+    if (lv_act.stop_all_playback) {
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
+    }
     if (lv_act.trigger_demo_playback) {
       for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
         send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
       }
-      lesson_view_.build_demo_playback(now_ms, pending_playback_);
+      bool demo_stopped = false;
+      std::vector<midi::ScheduledMidiNote> demo_stream;
+      lesson_view_.toggle_demo(now_ms, demo_stream, demo_stopped);
+      if (!demo_stopped && !demo_stream.empty()) {
+        playback_scheduler_.schedule_batch(demo_stream);
+      }
+    }
+    if (!lv_act.preview_playback_notes.empty()) {
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
+      for (const auto& n : lv_act.preview_playback_notes) {
+        pending_playback_.push_back(midi::ScheduledMidiNote{
+            .note = n.midi,
+            .velocity = n.velocity,
+            .start_ms = now_ms + n.start_ms,
+            .duration_ms = n.duration_ms,
+            .channel = n.channel,
+        });
+      }
     }
     if (lv_act.select_lesson_id.has_value()) {
       lesson_view_.set_revision_context(false);

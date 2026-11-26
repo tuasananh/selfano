@@ -1,6 +1,15 @@
 #include "core/key_signature.hpp"
 
+#include "core/pitch.hpp"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <format>
+#include <span>
+#include <string>
+#include <string_view>
 
 namespace selfano::core {
 

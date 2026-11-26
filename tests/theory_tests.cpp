@@ -1,6 +1,9 @@
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 #include "core/theory.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 
 using namespace selfano::core;
 

@@ -1,6 +1,9 @@
 #include "midi/midi_scheduler.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <span>
+#include <vector>
 
 namespace selfano::midi {
 

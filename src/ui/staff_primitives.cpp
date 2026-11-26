@@ -1,11 +1,19 @@
 #include "ui/staff_primitives.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/staff_layout.hpp"
+
 #include "ui/design_system.hpp"
 #include "ui/smufl_glyphs.hpp"
+#include "ui/staff_renderer.hpp"
 
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <string>
 
 namespace selfano::ui::detail {
 
@@ -46,9 +54,12 @@ ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
         .ink = IM_COL32(29, 29, 31, 255),
         .harmony_chord = IM_COL32(29, 29, 31, 245),
         .correct = IM_COL32(24, 148, 66, 255),
+        .partial = IM_COL32(204, 118, 0, 255),
         .incorrect = IM_COL32(224, 46, 36, 255),
         .badge_bg = IM_COL32(255, 236, 235, 248),
         .badge_border = IM_COL32(255, 59, 48, 120),
+        .partial_badge_bg = IM_COL32(255, 244, 224, 248),
+        .partial_badge_border = IM_COL32(255, 149, 0, 140),
         .annotation = IM_COL32(88, 86, 214, 235),
         .cursor_fill = IM_COL32(0, 122, 255, 24),
         .cursor_accent = IM_COL32(0, 122, 255, 190),
@@ -64,9 +75,12 @@ ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
         .ink = IM_COL32(245, 245, 247, 255),
         .harmony_chord = IM_COL32(245, 245, 247, 245),
         .correct = IM_COL32(48, 209, 88, 255),
+        .partial = IM_COL32(255, 159, 10, 255),
         .incorrect = IM_COL32(255, 69, 58, 255),
         .badge_bg = IM_COL32(66, 24, 26, 244),
         .badge_border = IM_COL32(255, 69, 58, 145),
+        .partial_badge_bg = IM_COL32(64, 44, 18, 244),
+        .partial_badge_border = IM_COL32(255, 159, 10, 160),
         .annotation = IM_COL32(142, 164, 255, 235),
         .cursor_fill = IM_COL32(10, 132, 255, 34),
         .cursor_accent = IM_COL32(10, 132, 255, 210),
@@ -166,7 +180,7 @@ float compute_chord_x(float m_x0, float pad_left, float usable_w, float measure_
     return m_x0 + pad_left + frac * usable_w;
   }
   if (chord.beat_offset.has_value()) {
-    const float frac = std::clamp(*chord.beat_offset / std::max(1.0f, measure_beats), 0.0f, 1.0f);
+    const float frac = std::clamp(*chord.beat_offset / std::max(0.25f, measure_beats), 0.0f, 1.0f);
     return m_x0 + pad_left + frac * usable_w;
   }
   const float slot_w =
@@ -185,6 +199,17 @@ void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size
   draw_list->AddText(smufl_font, font_size, draw_pos, color, utf8_glyph);
 }
 
+void draw_smufl_glyph_centered(ImDrawList* draw_list, ImFont* smufl_font, float font_size,
+                               ImVec2 center_x_origin_y, ImU32 color, const char* utf8_glyph) {
+  if (draw_list == nullptr || smufl_font == nullptr || utf8_glyph == nullptr) {
+    return;
+  }
+  const ImVec2 gsz = smufl_font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, utf8_glyph);
+  draw_smufl_glyph(draw_list, smufl_font, font_size,
+                   ImVec2(center_x_origin_y.x - gsz.x * 0.5f, center_x_origin_y.y), color,
+                   utf8_glyph);
+}
+
 void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
                      ImU32 color, float thickness) {
   for (int i = 0; i < 5; ++i) {
@@ -193,25 +218,39 @@ void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, 
   }
 }
 
+ImVec2 measure_feedback_badge_size(ImFont* ui_font, const std::string& text) {
+  ImFont* badge_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
+  if (badge_font == nullptr || text.empty()) {
+    return ImVec2(0.0f, 0.0f);
+  }
+  const float text_size_px = draw_font_size(10.5f);
+  const ImVec2 txt_sz = badge_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
+  const float pad_x = 6.0f;
+  const float pad_y = 2.0f;
+  return ImVec2(txt_sz.x + pad_x * 2.0f, txt_sz.y + pad_y * 2.0f);
+}
+
 void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
-                         const std::string& text, const ThemePalette& pal) {
+                         const std::string& text, const ThemePalette& pal, bool is_partial) {
   ImFont* badge_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
   if (badge_font == nullptr || text.empty()) {
     return;
   }
-  const float text_size_px = draw_font_size(11.5f);
+  const float text_size_px = draw_font_size(10.5f);
   const ImVec2 txt_sz = badge_font->CalcTextSizeA(text_size_px, FLT_MAX, 0.0f, text.c_str());
-  const float pad_x = 8.0f;
-  const float pad_y = 3.0f;
+  const float pad_x = 6.0f;
+  const float pad_y = 2.0f;
   const ImVec2 box_min(std::round(center_anchor.x - txt_sz.x * 0.5f - pad_x),
                        std::round(center_anchor.y - txt_sz.y * 0.5f - pad_y));
   const ImVec2 box_max(box_min.x + txt_sz.x + pad_x * 2.0f, box_min.y + txt_sz.y + pad_y * 2.0f);
   const float pill_r = (box_max.y - box_min.y) * 0.5f;
 
-  draw_list->AddRectFilled(box_min, box_max, pal.badge_bg, pill_r);
-  draw_list->AddRect(box_min, box_max, pal.badge_border, pill_r, 0, 1.0f);
+  draw_list->AddRectFilled(box_min, box_max, is_partial ? pal.partial_badge_bg : pal.badge_bg,
+                           pill_r);
+  draw_list->AddRect(box_min, box_max, is_partial ? pal.partial_badge_border : pal.badge_border,
+                     pill_r, 0, 1.0f);
   draw_list->AddText(badge_font, text_size_px, ImVec2(box_min.x + pad_x, box_min.y + pad_y),
-                     pal.incorrect, text.c_str());
+                     is_partial ? pal.partial : pal.incorrect, text.c_str());
 }
 
 void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
@@ -280,6 +319,25 @@ void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef
   draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.10f * space),
                             ImVec2(p2.x, p2.y + sign * 0.10f * space), p3, color, stroke * 0.85f,
                             18);
+}
+
+void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float y1, bool above,
+                     float space, ImU32 color) {
+  const float dx = std::max(1.0f, x1 - x0);
+  const float sign = above ? -1.0f : 1.0f;
+  const float arch = sign * std::clamp(0.18f * dx, 1.05f * space, 2.35f * space);
+  const float mid_y = (above ? std::min(y0, y1) : std::max(y0, y1)) + arch;
+
+  const ImVec2 p0(x0, y0);
+  const ImVec2 p3(x1, y1);
+  const ImVec2 p1(x0 + dx * 0.28f, mid_y);
+  const ImVec2 p2(x0 + dx * 0.72f, mid_y);
+
+  const float stroke = std::max(1.25f, 0.13f * space);
+  draw_list->AddBezierCubic(p0, p1, p2, p3, color, stroke, 22);
+  draw_list->AddBezierCubic(p0, ImVec2(p1.x, p1.y + sign * 0.11f * space),
+                            ImVec2(p2.x, p2.y + sign * 0.11f * space), p3, color, stroke * 0.85f,
+                            22);
 }
 
 } // namespace selfano::ui::detail

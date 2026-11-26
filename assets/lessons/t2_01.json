@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 1,
     "title": "Intro to Alberti Bass",
-    "composer_source": "Carl Czerny, Op. 599 No. 22",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 22",
     "key": {
       "fifths": 0,
       "mode": "major"
@@ -18,8 +18,55 @@
       "summary": "Automates the Classical Alberti bass pattern (low-high-mid-high 8ths) so you read chords as single grips.",
       "pattern_tip": "See each 4-eighth Alberti group as one static chord (C, G7/B, F, G7) rather than eight separate notes.",
       "technique_tip": "Use gentle forearm rotation toward thumb and pinky; keep the Alberti bass softer than the singing melody.",
-      "ballade_link": "Frees reading bandwidth for melodic contour over flowing broken-chord accompaniments."
-    }
+      "ballade_link": "Frees reading bandwidth for melodic contour over flowing broken-chord accompaniments.",
+      "concept_title": "Chunking Alberti Bass & Preparing Secondary V7/V",
+      "concept_paragraphs": [
+        "Mozart and Clementi accompany countless melodies with the Alberti bass: a four-note broken pattern (Bottom - Top - Middle - Top). Don't read four isolated 8th notes per beat\u2014see one blocked chord shape rocking back and forth via effortless forearm rotation.",
+        "At Bar 7 you meet your first chromatic surprise: D7 (V7/V) injects an F# to briefly brighten the dominant chord G before Cadential 6/4 (C/G) brings the piece gently home."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Establishes C Major Alberti accompaniment, moving smoothly through G7/B, F, and Dm."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Turns brightly toward G Major using the borrowed D7 (V7/V) secondary dominant."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Returns home via IV and an expressive Cadential 6/4 (C/G -> G7 -> C)."
+        }
+      ],
+      "practice_steps": [
+        "1. Block every Alberti measure as a solid chord first using Skeleton mode.",
+        "2. Roll LH 8th notes with gentle thumb-pinky wrist rotation, whisper-quiet under RH.",
+        "3. Spot F# in Bar 7 ahead of time and feel the extra pull into G.",
+        "4. Lock Steady Pulse at 60%, 80%, then 88 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Secondary Dominant Pivot (C -> D7 -> G)",
+          "caption": "D7 (V7/V) pulls C Major briefly onto G",
+          "chords": [
+            "C",
+            "D7",
+            "G"
+          ]
+        },
+        {
+          "label": "Classical Cadential 6/4 Ending (F -> C/G -> G7 -> C)",
+          "caption": "Wait for that floating G bass before V7 resolves",
+          "chords": [
+            "F",
+            "C/G",
+            "G7",
+            "C"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegro moderato"
   },
   "measures": [
     {
@@ -173,6 +220,12 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "I"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
         }
       ]
     },
@@ -341,6 +394,13 @@
           "start_tick": 0,
           "chord_symbol": "G7/B",
           "roman_numeral": "V6/5"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -837,6 +897,12 @@
           "chord_symbol": "C",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -1004,6 +1070,13 @@
           "start_tick": 0,
           "chord_symbol": "G/B",
           "roman_numeral": "V6"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1469,6 +1542,12 @@
           "chord_symbol": "C",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1636,6 +1715,13 @@
           "start_tick": 0,
           "chord_symbol": "F",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1904,5 +1990,50 @@
       "start_bar": 8,
       "end_bar": 11
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 960,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

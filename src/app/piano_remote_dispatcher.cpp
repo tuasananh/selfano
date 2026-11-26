@@ -1,7 +1,19 @@
+#include "core/autopilot.hpp"
+#include "core/etude_engine.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/piano_remote.hpp"
+#include "core/srs_deck.hpp"
+#include "core/warmup_engine.hpp"
 #include "core/weekly_key.hpp"
 
-#include "app/app_controller.hpp"
+#include "midi/midi_scheduler.hpp"
 
+#include "app/app_controller.hpp"
+#include "app/cli_options.hpp"
+
+#include <cstddef>
+#include <cstdint>
 #include <format>
 #include <string>
 #include <vector>
@@ -28,9 +40,16 @@ void AppController::trigger_replay_for_active_view(double now_ms) {
     case core::AutopilotStage::Stage2AFlashcards:
       preview = flashcard_view_.build_current_prompt_preview(now_ms);
       break;
-    case core::AutopilotStage::Stage3Lessons:
-      lesson_view_.build_demo_playback(now_ms, preview);
+    case core::AutopilotStage::Stage3Lessons: {
+      bool stopped = false;
+      lesson_view_.toggle_demo(now_ms, preview, stopped);
+      if (stopped) {
+        for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+          send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+        }
+      }
       break;
+    }
     case core::AutopilotStage::Stage4BEarTrainer:
       ear_trainer_view_.trigger_replay(now_ms, preview);
       break;
@@ -159,7 +178,13 @@ void AppController::execute_piano_remote_action(core::PianoRemoteAction action, 
     } else if (stage == S::Stage3Lessons) {
       bool click = false;
       bool accent = false;
-      lesson_view_.toggle_play_pause(click, accent);
+      bool stopped = false;
+      lesson_view_.toggle_play_pause(click, accent, &stopped);
+      if (stopped) {
+        for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+          send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+        }
+      }
       if (click) {
         audio_synth_.play_metronome_click(accent);
       }
@@ -192,6 +217,9 @@ void AppController::execute_piano_remote_action(core::PianoRemoteAction action, 
       show_hud_toast("Etude Reset", now_ms);
     } else if (stage == S::Stage3Lessons) {
       lesson_view_.reset_phrase();
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
       show_hud_toast("Phrase Reset", now_ms);
     } else if (app_mode_ == AppMode::CompanionTool) {
       companion_view_.reset_phrase(now_ms);

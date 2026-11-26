@@ -18,8 +18,60 @@
       "summary": "Crisp 2/4 Baroque musette in D Major contrasting an octave drone bass with agile right-hand leaps.",
       "pattern_tip": "Anchor the left-hand D2-D3 octave bounce on autopilot while your right hand outlines D major (D-F#-A) and A7 (A-C#-E).",
       "technique_tip": "Keep the 8th-note drone light and buoyant; let the top notes of the right-hand leaps ring clearly.",
-      "ballade_link": "Develops 2/4 rhythmic precision and clean hand-independence over repeating bass pedals."
-    }
+      "ballade_link": "Develops 2/4 rhythmic precision and clean hand-independence over repeating bass pedals.",
+      "concept_title": "Drone Pedal Basses, IV6/4 & Applied V7/V Color",
+      "concept_paragraphs": [
+        "A Baroque Musette imitates a folk bagpipe by holding a steady octave drone on the tonic note D2-D3 beneath playful, leaping melodies in 2/4 time. Even as the Right Hand moves through G (IV6/4) and A7 (V4/2), that stubborn D stays ringing in the bass.",
+        "In Phrase C (Bars 9-12), the piece pivots temporarily up into Dominant A Major using E7 (V7/V) with its expressive G# accidental before skipping home."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Bagpipe D-octave drone anchoring pedal harmonies (IV6/4, V4/2) under RH leaps."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Echoes and closes the A section cleanly on D Major (I)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "B-section contrast introducing G# (E7 = V7/V) to emphasize Dominant A Major."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Brisk return to D Major closing with bright Musette energy."
+        }
+      ],
+      "practice_steps": [
+        "1. Let the LH D-octave drone feel bounce-light with zero wrist stiffness.",
+        "2. Highlight the top melody notes of the RH broken-interval leaps.",
+        "3. Watch for the G# accidental in Phrase C (E7 -> A) before returning to natural G.",
+        "4. Maintain crisp 2/4 pulse up to 96 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Bagpipe Pedal Chords over Stationary Bass D",
+          "caption": "D -> G/D (IV6/4) -> A7/D (V4/2) -> D",
+          "chords": [
+            "D",
+            "G/D",
+            "A7/D",
+            "D"
+          ]
+        },
+        {
+          "label": "Bright Shift to A via E7 (V7/V)",
+          "caption": "D -> E7 -> A -> D",
+          "chords": [
+            "D",
+            "E7",
+            "A",
+            "D"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegro pastorale"
   },
   "measures": [
     {
@@ -146,6 +198,12 @@
           "chord_symbol": "D",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -163,6 +221,9 @@
               "midi": 67,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -262,6 +323,13 @@
           "start_tick": 480,
           "chord_symbol": "D",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "crescendo"
         }
       ]
     },
@@ -411,6 +479,9 @@
               "midi": 64,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -618,6 +689,12 @@
           "chord_symbol": "D",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -635,6 +712,9 @@
               "midi": 67,
               "finger": 2
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -734,6 +814,13 @@
           "start_tick": 480,
           "chord_symbol": "D",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -890,13 +977,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D2",
-              "midi": 38,
+              "spell": "D3",
+              "midi": 50,
               "finger": 5
             },
             {
-              "spell": "D3",
-              "midi": 50,
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 3
+            },
+            {
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]
@@ -1034,6 +1126,12 @@
           "chord_symbol": "A",
           "roman_numeral": "V"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1051,6 +1149,9 @@
               "midi": 74,
               "finger": 4
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -1159,6 +1260,13 @@
           "start_tick": 0,
           "chord_symbol": "E7",
           "roman_numeral": "V7/V"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1325,8 +1433,8 @@
               "finger": 5
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1464,6 +1572,12 @@
           "chord_symbol": "D",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -1481,6 +1595,9 @@
               "midi": 71,
               "finger": 3
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -1594,6 +1711,13 @@
           "start_tick": 480,
           "chord_symbol": "D",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 960,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1750,18 +1874,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D2",
-              "midi": 38,
+              "spell": "D3",
+              "midi": 50,
               "finger": 5
             },
             {
-              "spell": "A2",
-              "midi": 45,
-              "finger": 2
+              "spell": "F#3",
+              "midi": 54,
+              "finger": 3
             },
             {
-              "spell": "D3",
-              "midi": 50,
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]
@@ -1797,5 +1921,64 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 720,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 720,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

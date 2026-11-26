@@ -1,13 +1,16 @@
+#include "core/key_signature.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <miniz.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace selfano::core;
@@ -297,4 +300,147 @@ TEST_CASE("MusicXmlImporter rejects malformed XML, corrupt ZIPs, and oversized p
 
   // Missing file
   REQUIRE_FALSE(import_musicxml_file("/tmp/nonexistent_selfano_file_12345.musicxml").has_value());
+}
+
+TEST_CASE("MusicXmlImporter preserves implicit anacrusis pickup measures", "[musicxml_importer]") {
+  constexpr const char* kPickupXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Pickup Waltz</work-title></work>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="0" implicit="yes">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>minor</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+      </attributes>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>2</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+      </note>
+      <backup><duration>2</duration></backup>
+      <note>
+        <rest/><duration>2</duration><voice>5</voice><type>quarter</type><staff>2</staff>
+      </note>
+    </measure>
+    <measure number="1">
+      <note>
+        <pitch><step>A</step><octave>4</octave></pitch>
+        <duration>6</duration><voice>1</voice><type>half</type><dot/><staff>1</staff>
+      </note>
+      <backup><duration>6</duration></backup>
+      <note>
+        <pitch><step>A</step><octave>2</octave></pitch>
+        <duration>6</duration><voice>5</voice><type>half</type><dot/><staff>2</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  const auto res = import_musicxml_string(kPickupXml);
+  REQUIRE(res.has_value());
+  REQUIRE(res->score.measures.size() == 2U);
+  REQUIRE(res->score.measures[0].bar_number == 0U);
+  REQUIRE(res->score.measures[0].pickup_ticks == 480);
+  REQUIRE(res->score.measures[1].bar_number == 1U);
+  REQUIRE_FALSE(res->score.measures[1].pickup_ticks.has_value());
+  REQUIRE(validate_lesson_score(res->score).has_value());
+}
+
+TEST_CASE("MusicXmlImporter imports expressive tempo words, dynamics, hairpins, articulations, "
+          "slurs, and pedals",
+          "[musicxml_importer]") {
+  constexpr const char* kExpressiveXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Expressive Prelude</work-title></work>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths><mode>major</mode></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+      </attributes>
+      <direction placement="above">
+        <direction-type><words>Andante cantabile</words></direction-type>
+        <direction-type><dynamics><mp/></dynamics></direction-type>
+      </direction>
+      <direction placement="above">
+        <direction-type><wedge type="crescendo"/></direction-type>
+      </direction>
+      <direction placement="below">
+        <direction-type><pedal type="start"/></direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations>
+          <slur type="start" number="1"/>
+          <articulations><tenuto/></articulations>
+        </notations>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><articulations><staccato/></articulations></notations>
+      </note>
+      <note>
+        <pitch><step>G</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations><articulations><accent/></articulations></notations>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+        <notations>
+          <slur type="stop" number="1"/>
+          <arpeggiate/>
+        </notations>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>E</step><octave>5</octave></pitch>
+        <duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff>
+      </note>
+      <direction placement="above">
+        <direction-type><wedge type="stop"/></direction-type>
+      </direction>
+      <direction placement="above">
+        <direction-type><dynamics><f/></dynamics></direction-type>
+      </direction>
+      <direction placement="below">
+        <direction-type><pedal type="stop"/></direction-type>
+      </direction>
+      <backup><duration>4</duration></backup>
+      <note>
+        <pitch><step>C</step><octave>3</octave></pitch>
+        <duration>4</duration><voice>5</voice><type>whole</type><staff>2</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  const auto res = import_musicxml_string(kExpressiveXml);
+  REQUIRE(res.has_value());
+  const auto& sc = res->score;
+  REQUIRE(validate_lesson_score(sc).has_value());
+  REQUIRE(sc.meta.tempo_marking == "Andante cantabile");
+  REQUIRE(sc.measures.size() == 1U);
+  REQUIRE(sc.measures[0].dynamics.size() == 2U);
+  REQUIRE(sc.measures[0].dynamics[0].level == DynamicLevel::MP);
+  REQUIRE(sc.measures[0].dynamics[1].level == DynamicLevel::F);
+  REQUIRE(sc.measures[0].hairpins.size() == 1U);
+  REQUIRE(sc.measures[0].hairpins[0].kind == HairpinKind::Crescendo);
+  REQUIRE(sc.slurs.size() == 1U);
+  REQUIRE(sc.slurs[0].treble);
+  REQUIRE(sc.pedals.size() == 1U);
+
+  const auto& tr = sc.measures[0].treble_events;
+  REQUIRE(tr.size() == 4U);
+  REQUIRE(has_articulation(tr[0].articulations, ArticulationFlag::Tenuto));
+  REQUIRE(has_articulation(tr[1].articulations, ArticulationFlag::Staccato));
+  REQUIRE(has_articulation(tr[2].articulations, ArticulationFlag::Accent));
+  REQUIRE(has_articulation(tr[3].articulations, ArticulationFlag::Arpeggiate));
 }

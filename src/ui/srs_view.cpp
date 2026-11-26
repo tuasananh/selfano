@@ -1,5 +1,7 @@
 #include "ui/srs_view.hpp"
 
+#include "core/srs_deck.hpp"
+
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
 #include "ui/widgets.hpp"
@@ -7,7 +9,13 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace selfano::ui {

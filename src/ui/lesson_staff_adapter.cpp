@@ -1,7 +1,18 @@
 #include "ui/lesson_staff_adapter.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+
+#include "ui/staff_renderer.hpp"
+
+#include <algorithm>
+#include <cstddef>
 #include <format>
 #include <map>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::ui {
 
@@ -52,14 +63,19 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       active_meter = *lm.meter_change;
     }
 
+    const int eff_ticks = core::effective_measure_ticks(lm, active_meter);
+    const float beat_ticks_f = static_cast<float>(std::max(1, active_meter.beat_ticks()));
+
     StaffMeasure sm{};
-    sm.measure_ticks = active_meter.measure_ticks();
-    sm.beats_per_measure = static_cast<float>(active_meter.pulse_count());
+    sm.measure_ticks = eff_ticks;
+    sm.beats_per_measure = static_cast<float>(eff_ticks) / beat_ticks_f;
+    sm.is_pickup = lm.pickup_ticks.has_value();
     if (idx > 0U && lm.meter_change.has_value()) {
       sm.time_signature = *lm.meter_change;
     }
+    sm.dynamics = lm.dynamics;
+    sm.hairpins = lm.hairpins;
 
-    const float beat_ticks_f = static_cast<float>(std::max(1, active_meter.beat_ticks()));
     for (const auto& ha : lm.harmony) {
       sm.harmony_labels.push_back(StaffHarmonicLabel{
           .beat_offset = static_cast<float>(ha.start_tick) / beat_ticks_f,
@@ -69,22 +85,18 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
     }
 
     struct TickSlot {
-      const core::LessonEvent* treble{nullptr};
-      const core::LessonEvent* bass{nullptr};
+      std::vector<const core::LessonEvent*> treble;
+      std::vector<const core::LessonEvent*> bass;
     };
     std::map<int, TickSlot> slots;
     if (show_treble) {
       for (const auto& ev : lm.treble_events) {
-        if (ev.voice == 0U || slots[ev.start_tick].treble == nullptr) {
-          slots[ev.start_tick].treble = &ev;
-        }
+        slots[ev.start_tick].treble.push_back(&ev);
       }
     }
     if (show_bass) {
       for (const auto& ev : lm.bass_events) {
-        if (ev.voice == 0U || slots[ev.start_tick].bass == nullptr) {
-          slots[ev.start_tick].bass = &ev;
-        }
+        slots[ev.start_tick].bass.push_back(&ev);
       }
     }
 
@@ -94,7 +106,8 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       chord.tick_offset = tick;
       chord.beat_offset = static_cast<float>(tick) / beat_ticks_f;
       if (tick == 0) {
-        chord.annotation = std::format("Bar {}", lm.bar_number);
+        chord.annotation =
+            (lm.bar_number == 0U) ? std::string("Pickup") : std::format("Bar {}", lm.bar_number);
       }
 
       NoteFeedback fb = NoteFeedback::Neutral;
@@ -108,57 +121,52 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       }
 
       bool badge_attached = false;
-      if (slot.treble != nullptr) {
-        if (slot.treble->is_rest) {
-          chord.treble_rest = to_staff_rest_duration(slot.treble->duration.base);
-          chord.treble_rest_dotted = slot.treble->duration.dotted;
-        } else {
-          const NoteDuration dur = to_staff_note_duration(slot.treble->duration.base);
-          chord.duration = dur;
-          chord.dotted = slot.treble->duration.dotted;
-          for (const auto& ln : slot.treble->notes) {
-            chord.notes.push_back(StaffNote{
-                .note = ln.spelled,
-                .clef = core::Clef::Treble,
-                .feedback = fb,
-                .played_label = (!badge_attached ? played_lbl : std::string{}),
-                .duration = dur,
-                .dotted = slot.treble->duration.dotted,
-                .finger = ln.finger,
-                .tie_start = ln.tie_start,
-                .tie_stop = ln.tie_stop,
-            });
-            badge_attached = true;
+      bool chord_dur_set = false;
+      auto append_events = [&](std::span<const core::LessonEvent* const> evs, core::Clef clef) {
+        for (const core::LessonEvent* ev : evs) {
+          if (ev->is_rest) {
+            if (ev->voice == 0U) {
+              if (clef == core::Clef::Treble) {
+                chord.treble_rest = to_staff_rest_duration(ev->duration.base);
+                chord.treble_rest_dotted = ev->duration.dotted;
+              } else {
+                chord.bass_rest = to_staff_rest_duration(ev->duration.base);
+                chord.bass_rest_dotted = ev->duration.dotted;
+              }
+            }
+            continue;
           }
-        }
-      }
-
-      if (slot.bass != nullptr) {
-        if (slot.bass->is_rest) {
-          chord.bass_rest = to_staff_rest_duration(slot.bass->duration.base);
-          chord.bass_rest_dotted = slot.bass->duration.dotted;
-        } else {
-          const NoteDuration dur = to_staff_note_duration(slot.bass->duration.base);
-          if (slot.treble == nullptr || slot.treble->is_rest) {
+          const NoteDuration dur = to_staff_note_duration(ev->duration.base);
+          if (!chord_dur_set && ev->voice == 0U) {
             chord.duration = dur;
-            chord.dotted = slot.bass->duration.dotted;
+            chord.dotted = ev->duration.dotted;
+            chord_dur_set = true;
+          } else if (!chord_dur_set) {
+            chord.duration = dur;
+            chord.dotted = ev->duration.dotted;
+            chord_dur_set = true;
           }
-          for (const auto& ln : slot.bass->notes) {
+          for (const auto& ln : ev->notes) {
             chord.notes.push_back(StaffNote{
                 .note = ln.spelled,
-                .clef = core::Clef::Bass,
+                .clef = clef,
                 .feedback = fb,
                 .played_label = (!badge_attached ? played_lbl : std::string{}),
                 .duration = dur,
-                .dotted = slot.bass->duration.dotted,
+                .dotted = ev->duration.dotted,
                 .finger = ln.finger,
                 .tie_start = ln.tie_start,
                 .tie_stop = ln.tie_stop,
+                .voice = ev->voice,
+                .articulations = ev->articulations,
             });
             badge_attached = true;
           }
         }
-      }
+      };
+
+      append_events(slot.treble, core::Clef::Treble);
+      append_events(slot.bass, core::Clef::Bass);
 
       sm.chords.push_back(std::move(chord));
     }
@@ -166,6 +174,79 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
     out.push_back(std::move(sm));
   }
 
+  return out;
+}
+
+std::vector<StaffSlurSpan> slice_system_slurs(std::span<const core::SlurSpan> slurs,
+                                              std::size_t sys_start_bar, std::size_t sys_end_bar,
+                                              std::span<const StaffMeasure> sys_measures,
+                                              bool show_treble, bool show_bass) {
+  std::vector<StaffSlurSpan> out;
+  if (sys_measures.empty() || sys_start_bar > sys_end_bar) {
+    return out;
+  }
+  const std::size_t last_local = sys_measures.size() - 1U;
+  for (const auto& sl : slurs) {
+    if ((sl.treble && !show_treble) || (!sl.treble && !show_bass)) {
+      continue;
+    }
+    if (sl.end_bar < sys_start_bar || sl.start_bar > sys_end_bar) {
+      continue;
+    }
+    const bool open_l = (sl.start_bar < sys_start_bar);
+    const bool open_r = (sl.end_bar > sys_end_bar);
+    const std::size_t loc_s = open_l ? 0U : (sl.start_bar - sys_start_bar);
+    const std::size_t loc_e = open_r ? last_local : (sl.end_bar - sys_start_bar);
+    const int s_tick = open_l ? 0 : std::clamp(sl.start_tick, 0, sys_measures[loc_s].measure_ticks);
+    const int e_tick = open_r ? sys_measures[loc_e].measure_ticks
+                              : std::clamp(sl.end_tick, 0, sys_measures[loc_e].measure_ticks);
+    if (loc_s > loc_e || (loc_s == loc_e && s_tick >= e_tick)) {
+      continue;
+    }
+    out.push_back(StaffSlurSpan{
+        .start_measure_idx = loc_s,
+        .start_tick = s_tick,
+        .end_measure_idx = loc_e,
+        .end_tick = e_tick,
+        .treble = sl.treble,
+        .open_left = open_l,
+        .open_right = open_r,
+    });
+  }
+  return out;
+}
+
+std::vector<StaffPedalSpan> slice_system_pedals(std::span<const core::PedalSpan> pedals,
+                                                std::size_t sys_start_bar, std::size_t sys_end_bar,
+                                                std::span<const StaffMeasure> sys_measures) {
+  std::vector<StaffPedalSpan> out;
+  if (sys_measures.empty() || sys_start_bar > sys_end_bar) {
+    return out;
+  }
+  const std::size_t last_local = sys_measures.size() - 1U;
+  for (const auto& pd : pedals) {
+    if (pd.end_bar < sys_start_bar || pd.start_bar > sys_end_bar) {
+      continue;
+    }
+    const bool open_l = (pd.start_bar < sys_start_bar);
+    const bool open_r = (pd.end_bar > sys_end_bar);
+    const std::size_t loc_s = open_l ? 0U : (pd.start_bar - sys_start_bar);
+    const std::size_t loc_e = open_r ? last_local : (pd.end_bar - sys_start_bar);
+    const int s_tick = open_l ? 0 : std::clamp(pd.start_tick, 0, sys_measures[loc_s].measure_ticks);
+    const int e_tick = open_r ? sys_measures[loc_e].measure_ticks
+                              : std::clamp(pd.end_tick, 0, sys_measures[loc_e].measure_ticks);
+    if (loc_s > loc_e || (loc_s == loc_e && s_tick >= e_tick)) {
+      continue;
+    }
+    out.push_back(StaffPedalSpan{
+        .start_measure_idx = loc_s,
+        .start_tick = s_tick,
+        .end_measure_idx = loc_e,
+        .end_tick = e_tick,
+        .open_left = open_l,
+        .open_right = open_r,
+    });
+  }
   return out;
 }
 

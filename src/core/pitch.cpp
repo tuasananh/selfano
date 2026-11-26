@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <format>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace selfano::core {
 

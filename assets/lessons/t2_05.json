@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 5,
     "title": "Dramatic D-Minor Cadences",
-    "composer_source": "Carl Czerny, Op. 599 No. 45",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 45",
     "key": {
       "fifths": -1,
       "mode": "minor"
@@ -18,8 +18,60 @@
       "summary": "Contrasts dramatic D-minor chordal punctuation with nimble 8th-note melodic turns and C# leading-tone cadences.",
       "pattern_tip": "Spot the cadential 6/4 pivot (Dm/A -> A7 -> Dm) in Bars 7-8 and 15-16.",
       "technique_tip": "Release the left-hand chords crisply while keeping the right-hand 8th notes singing and connected.",
-      "ballade_link": "Prepares the sharp dynamic contrast and cadential i6/4 -> V7 -> i grammar of minor-key Chopin."
-    }
+      "ballade_link": "Prepares the sharp dynamic contrast and cadential i6/4 -> V7 -> i grammar of minor-key Chopin.",
+      "concept_title": "Minor-Key Cadential 6/4 & Secondary V7/III Brightness",
+      "concept_paragraphs": [
+        "Romantic minor pieces love dramatic contrast: crisp LH punctuation answered by nimble 8th-note flourishes, and sudden rays of warmth when the harmony pivots momentarily into the Relative Major (F Major via C7 = V7/III).",
+        "At the climactic cadence (Bars 11-12 and 15-16), learn to recognize the iconic i6/4 -> V7 -> i pattern (Dm/A -> A7 -> Dm) with the 5th (A) held steadfast in the bass."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Crisp D-minor opening building through Gm (iv) to a dramatic A Major Half Cadence."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Illuminates Relative Major F via C7 (V7/III) before snapping back to A7."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Drives through subdominant Gm into a textbook Dm/A (i6/4) -> A7 -> Dm cadence."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Crowning dramatic confirmation locking in minor-key cadential authority."
+        }
+      ],
+      "practice_steps": [
+        "1. Run Skeleton mode to memorize the i - VI - V7/III - III - iv - i6/4 - V7 - i map.",
+        "2. Keep LH chords crisp and articulated without banging, releasing tension immediately.",
+        "3. Connect the RH 8th-note turns cleanly with finger articulation, watching C# leading tones.",
+        "4. Bring up tempo cleanly to 88 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Momentary Relative-Major Glow (VI -> V7/III -> III)",
+          "caption": "Dm -> Bb -> C7 -> F",
+          "chords": [
+            "Dm",
+            "Bb",
+            "C7",
+            "F"
+          ]
+        },
+        {
+          "label": "Minor Cadential 6/4 Formula (iv -> i6/4 -> V7 -> i)",
+          "caption": "Gm -> Dm/A -> A7 -> Dm",
+          "chords": [
+            "Gm",
+            "Dm/A",
+            "A7",
+            "Dm"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegro con fuoco"
   },
   "measures": [
     {
@@ -160,6 +212,12 @@
           "chord_symbol": "Dm",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -245,14 +303,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -269,14 +327,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -300,6 +358,13 @@
           "chord_symbol": "A7",
           "roman_numeral": "V7"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
+        }
       ]
     },
     {
@@ -315,7 +380,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -329,7 +394,7 @@
             {
               "spell": "E5",
               "midi": 76,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -428,8 +493,13 @@
               "finger": 5
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "Bb2",
+              "midi": 46,
+              "finger": 3
+            },
+            {
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]
@@ -488,13 +558,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C#3",
+              "midi": 49,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -604,13 +674,13 @@
               "finger": 5
             },
             {
-              "spell": "F3",
-              "midi": 53,
-              "finger": 2
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "F3",
+              "midi": 53,
               "finger": 1
             }
           ]
@@ -628,13 +698,13 @@
               "finger": 5
             },
             {
-              "spell": "F3",
-              "midi": 53,
-              "finger": 2
+              "spell": "D3",
+              "midi": 50,
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "F3",
+              "midi": 53,
               "finger": 1
             }
           ]
@@ -653,6 +723,12 @@
           "start_tick": 0,
           "chord_symbol": "Bb",
           "roman_numeral": "VI"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
         }
       ]
     },
@@ -739,14 +815,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C3",
-              "midi": 48,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "Bb3",
@@ -763,14 +839,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "C3",
-              "midi": 48,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
               "spell": "G3",
               "midi": 55,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "Bb3",
@@ -793,6 +869,13 @@
           "start_tick": 0,
           "chord_symbol": "C7",
           "roman_numeral": "V7/III"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -912,18 +995,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "Bb2",
+              "midi": 46,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -982,13 +1065,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C#3",
+              "midi": 49,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1001,9 +1084,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
+            },
+            {
+              "spell": "E3",
+              "midi": 52,
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1149,6 +1237,12 @@
           "chord_symbol": "Dm",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1234,18 +1328,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "Bb2",
+              "midi": 46,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -1256,6 +1350,13 @@
           "start_tick": 0,
           "chord_symbol": "Gm",
           "roman_numeral": "iv"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1380,14 +1481,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1587,18 +1688,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "G2",
-              "midi": 43,
+              "spell": "Bb2",
+              "midi": 46,
               "finger": 5
             },
             {
               "spell": "D3",
               "midi": 50,
-              "finger": 2
+              "finger": 3
             },
             {
-              "spell": "Bb3",
-              "midi": 58,
+              "spell": "G3",
+              "midi": 55,
               "finger": 1
             }
           ]
@@ -1609,6 +1710,12 @@
           "start_tick": 0,
           "chord_symbol": "Gm",
           "roman_numeral": "iv"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
         }
       ]
     },
@@ -1625,7 +1732,7 @@
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 2
+              "finger": 1
             }
           ]
         },
@@ -1639,7 +1746,7 @@
             {
               "spell": "B4",
               "midi": 71,
-              "finger": 3
+              "finger": 2
             }
           ]
         },
@@ -1653,7 +1760,7 @@
             {
               "spell": "C#5",
               "midi": 73,
-              "finger": 4
+              "finger": 3
             }
           ]
         },
@@ -1667,7 +1774,7 @@
             {
               "spell": "D5",
               "midi": 74,
-              "finger": 5
+              "finger": 4
             }
           ]
         },
@@ -1714,13 +1821,13 @@
               "finger": 5
             },
             {
-              "spell": "E3",
-              "midi": 52,
-              "finger": 2
+              "spell": "C#3",
+              "midi": 49,
+              "finger": 3
             },
             {
-              "spell": "A3",
-              "midi": 57,
+              "spell": "E3",
+              "midi": 52,
               "finger": 1
             }
           ]
@@ -1733,14 +1840,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1755,6 +1862,13 @@
           "start_tick": 0,
           "chord_symbol": "A7",
           "roman_numeral": "V7"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1874,14 +1988,14 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "A2",
-              "midi": 45,
+              "spell": "C#3",
+              "midi": 49,
               "finger": 5
             },
             {
               "spell": "E3",
               "midi": 52,
-              "finger": 2
+              "finger": 3
             },
             {
               "spell": "G3",
@@ -1931,18 +2045,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "D2",
-              "midi": 38,
+              "spell": "D3",
+              "midi": 50,
               "finger": 5
             },
             {
-              "spell": "A2",
-              "midi": 45,
-              "finger": 2
+              "spell": "F3",
+              "midi": 53,
+              "finger": 3
             },
             {
-              "spell": "D3",
-              "midi": 50,
+              "spell": "A3",
+              "midi": 57,
               "finger": 1
             }
           ]
@@ -1978,5 +2092,64 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

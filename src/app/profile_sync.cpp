@@ -1,11 +1,25 @@
+#include "core/autopilot.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/profile_store.hpp"
+#include "core/srs_deck.hpp"
+#include "core/warmup_engine.hpp"
 #include "core/weekly_key.hpp"
 
+#include "ui/design_system.hpp"
+
 #include "app/app_controller.hpp"
+#include "app/cli_options.hpp"
 #include "app/web_platform.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <format>
 #include <iostream>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace selfano::app {
 
@@ -244,7 +258,7 @@ void AppController::enter_stage3_autopilot_block(std::int64_t today_epoch_day, d
   if (stage3_plan_.has_revision) {
     if (const auto* rev = lesson_library_.find_lesson(stage3_plan_.revision_lesson_id);
         rev != nullptr) {
-      lesson_view_.load_lesson(*rev);
+      lesson_view_.load_lesson(*rev, true);
       lesson_view_.set_revision_context(true, rev->meta.id);
       stage3_revision_active_ = true;
       show_hud_toast("Stage 3A: Guided Revision (" + rev->meta.title + ")", now_ms);

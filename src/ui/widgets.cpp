@@ -1,10 +1,13 @@
 #include "ui/widgets.hpp"
 
 #include "ui/design_system.hpp"
+#include "ui/icons.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <span>
+#include <string_view>
 
 namespace selfano::ui {
 

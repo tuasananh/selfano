@@ -4,7 +4,7 @@
     "tier": 2,
     "order_in_tier": 2,
     "title": "Waltz Accompaniment & Hand Shifts",
-    "composer_source": "Carl Czerny, Op. 599 No. 29",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 29",
     "key": {
       "fifths": 1,
       "mode": "major"
@@ -18,8 +18,51 @@
       "summary": "Combines a buoyant 3/4 bass-chord-chord waltz left hand with clean thumb-under right-hand scale shifts.",
       "pattern_tip": "Prepare the thumb tuck (finger 3 -> 1) before reaching C5 so the rising G-major line flows seamlessly.",
       "technique_tip": "Keep the left-hand wrist light on the leap from the low bass note up to the mid-register chord.",
-      "ballade_link": "Direct training for Chopin's waltz and 6/4 bass-to-chord left-hand leaps."
-    }
+      "ballade_link": "Direct training for Chopin's waltz and 6/4 bass-to-chord left-hand leaps.",
+      "concept_title": "Waltz Bass-Chord Leaps & Smooth Thumb-Under Shifts",
+      "concept_paragraphs": [
+        "Two essential Romantic piano habits meet here: while your Left Hand leaps cleanly from a low bass root up to mid-register chords, your Right Hand shifts out of a static five-finger frame using a silent thumb tuck (passing 1 under 3).",
+        "Preparing the thumb under early\u2014the moment finger 2 or 3 plays\u2014prevents jerky wrist twists and keeps the rising G-major melody silk-smooth."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Buoyant G-major waltz motif rising to an early Authentic Cadence."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Sequential exploration through C (IV) and Am (ii) settling on Half Cadence D (V)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Extended lyrical line using thumb-under shifts cleanly over G-C-D7."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Subdominant climax tapering into a poised final G-major cadence."
+        }
+      ],
+      "practice_steps": [
+        "1. Drill the RH thumb crossing slowly without tension, letting the elbow follow gracefully.",
+        "2. Practice LH blind leaps (bass on beat 1 -> chord on beats 2-3) at 60% speed.",
+        "3. Balance LH beat 1 deeper than beats 2-3 so the melody dances on top.",
+        "4. Graduate smoothly up to 96 BPM in Steady Pulse."
+      ],
+      "audio_examples": [
+        {
+          "label": "Predominant ii -> V -> I Waltz Drive",
+          "caption": "G -> C -> Am -> D -> G",
+          "chords": [
+            "G",
+            "C",
+            "Am",
+            "D",
+            "G"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Tempo di Valse"
   },
   "measures": [
     {
@@ -128,6 +171,12 @@
           "chord_symbol": "G",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -235,6 +284,13 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -546,6 +602,12 @@
           "chord_symbol": "C",
           "roman_numeral": "IV"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -667,6 +729,13 @@
           "start_tick": 0,
           "chord_symbol": "G",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -964,6 +1033,12 @@
           "chord_symbol": "G",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1071,6 +1146,13 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1396,6 +1478,12 @@
           "chord_symbol": "C",
           "roman_numeral": "IV"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -1503,6 +1591,13 @@
           "start_tick": 0,
           "chord_symbol": "G",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1660,8 +1755,13 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "B2",
+              "midi": 47,
+              "finger": 3
+            },
+            {
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]
@@ -1696,6 +1796,156 @@
       "label": "Phrase D (Bars 13-16)",
       "start_bar": 12,
       "end_bar": 15
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 0,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 12,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 13,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 14,
+      "end_tick": 1320
     }
   ]
 }

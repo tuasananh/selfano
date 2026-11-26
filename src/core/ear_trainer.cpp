@@ -1,12 +1,17 @@
 #include "core/ear_trainer.hpp"
 
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 #include "core/theory.hpp"
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <format>
+#include <random>
 #include <utility>
+#include <vector>
 
 namespace selfano::core {
 

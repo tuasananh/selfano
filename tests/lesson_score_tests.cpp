@@ -1,6 +1,10 @@
+#include "core/key_signature.hpp"
 #include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstdint>
+#include <string>
 
 using namespace selfano::core;
 
@@ -30,14 +34,12 @@ namespace {
       .key = KeySignature{.fifths = -2, .mode = Mode::Minor},
       .time_signature = TimeSignature{.numerator = 4, .denominator = 4},
       .target_bpm = 80.0,
-      .theory =
-          TheoryLens{
-              .summary = "G minor tonic pedal",
-              .pattern_tip = "Read fifths in LH",
-              .technique_tip = "Drop wrist on beat 1",
-              .ballade_link = "Shared G minor home key",
-          },
+      .theory = {},
   };
+  score.meta.theory.summary = "G minor tonic pedal";
+  score.meta.theory.pattern_tip = "Read fifths in LH";
+  score.meta.theory.technique_tip = "Drop wrist on beat 1";
+  score.meta.theory.ballade_link = "Shared G minor home key";
 
   LessonMeasure m1{};
   m1.bar_number = 1;
@@ -275,6 +277,35 @@ TEST_CASE("lesson_score_to_json and lesson_score_from_json round-trip cleanly", 
   REQUIRE(*parsed == original);
 
   REQUIRE_FALSE(lesson_score_from_json("{invalid json").has_value());
+
+  SECTION("Extended TheoryLens fields round-trip and stay backward-compatible") {
+    LessonScore rich = original;
+    rich.meta.theory.concept_title = "Tonic Pedal vs. Dominant Tension";
+    rich.meta.theory.concept_paragraphs = {
+        "Paragraph one explains the pedal tone in simple language.",
+        "Paragraph two connects the harmony to the left hand shape.",
+    };
+    rich.meta.theory.form_map = {
+        PhraseFormNote{.phrase_label = "Phrase A", .role = "Opening question settling on V7"},
+    };
+    rich.meta.theory.practice_steps = {
+        "1. Play RH melody alone.",
+        "2. Add LH pedal on beat 1.",
+    };
+    rich.meta.theory.audio_examples = {
+        TheoryAudioExample{.label = "Tonic vs. Dominant",
+                           .caption = "Gm -> D7 -> Gm",
+                           .chords = {"Gm", "D7", "Gm"}},
+    };
+
+    const std::string rich_json = lesson_score_to_json(rich);
+    const auto reparsed = lesson_score_from_json(rich_json);
+    REQUIRE(reparsed.has_value());
+    REQUIRE(*reparsed == rich);
+    REQUIRE(reparsed->meta.theory.concept_title == "Tonic Pedal vs. Dominant Tension");
+    REQUIRE(reparsed->meta.theory.form_map.size() == 1U);
+    REQUIRE(reparsed->meta.theory.audio_examples[0].chords.size() == 3U);
+  }
 }
 
 TEST_CASE("split_ticks_to_values greedily decomposes durations into rhythmic values",
@@ -290,4 +321,118 @@ TEST_CASE("split_ticks_to_values greedily decomposes durations into rhythmic val
 
   REQUIRE(split_ticks_to_values(0).empty());
   REQUIRE(split_ticks_to_values(60).empty());
+}
+
+TEST_CASE("LessonScore supports anacrusis pickup measures with backward-compatible JSON",
+          "[lesson_score]") {
+  LessonScore s = make_valid_two_bar_score();
+  s.meta.time_signature = TimeSignature{.numerator = 3, .denominator = 4};
+  s.measures.clear();
+
+  LessonMeasure pickup{};
+  pickup.bar_number = 0;
+  pickup.pickup_ticks = 480;
+  pickup.treble_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::E, Accidental::Natural, 4, 1)}},
+  };
+  pickup.bass_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = false},
+                  .is_rest = true,
+                  .voice = 0,
+                  .notes = {}},
+  };
+
+  LessonMeasure bar1{};
+  bar1.bar_number = 1;
+  bar1.treble_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 4, 3)}},
+  };
+  bar1.bass_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                  .is_rest = false,
+                  .voice = 0,
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 3, 5)}},
+  };
+  bar1.harmony = {HarmonicAnnotation{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
+
+  s.measures = {pickup, bar1};
+  s.phrases = {LessonPhrase{.label = "Phrase A", .start_bar = 0, .end_bar = 1}};
+
+  REQUIRE(effective_measure_ticks(pickup, s.meta.time_signature) == 480);
+  REQUIRE(effective_measure_ticks(bar1, s.meta.time_signature) == 1440);
+  REQUIRE(validate_lesson_score(s).has_value());
+
+  const std::string json_str = lesson_score_to_json(s);
+  const auto parsed = lesson_score_from_json(json_str);
+  REQUIRE(parsed.has_value());
+  REQUIRE(*parsed == s);
+  REQUIRE(parsed->measures[0].bar_number == 0U);
+  REQUIRE(parsed->measures[0].pickup_ticks == 480);
+  REQUIRE_FALSE(parsed->measures[1].pickup_ticks.has_value());
+
+  SECTION("Rejects invalid pickup_ticks bounds or voice sums") {
+    auto bad_zero = s;
+    bad_zero.measures[0].pickup_ticks = 0;
+    REQUIRE_FALSE(validate_lesson_score(bad_zero).has_value());
+
+    auto bad_full = s;
+    bad_full.measures[0].pickup_ticks = 1440;
+    REQUIRE_FALSE(validate_lesson_score(bad_full).has_value());
+
+    auto bad_sum = s;
+    bad_sum.measures[0].pickup_ticks = 240;
+    REQUIRE_FALSE(validate_lesson_score(bad_sum).has_value());
+  }
+}
+
+TEST_CASE("Expressive LessonScore fields round-trip cleanly and validate bounds",
+          "[lesson_score]") {
+  auto score = make_valid_two_bar_score();
+  score.meta.tempo_marking = "Moderato cantabile";
+  score.measures[0].treble_events[0].articulations =
+      articulation_bit(ArticulationFlag::Accent) | articulation_bit(ArticulationFlag::Staccato);
+  score.measures[1].treble_events[1].articulations =
+      articulation_bit(ArticulationFlag::Tenuto) | articulation_bit(ArticulationFlag::Arpeggiate);
+  score.measures[0].dynamics = {{.start_tick = 0, .level = DynamicLevel::P}};
+  score.measures[1].dynamics = {{.start_tick = 960, .level = DynamicLevel::FF}};
+  score.measures[0].hairpins = {
+      {.start_tick = 0, .end_tick = 1920, .kind = HairpinKind::Crescendo}};
+  score.slurs = {{.start_bar = 0, .start_tick = 0, .end_bar = 1, .end_tick = 960, .treble = true}};
+  score.pedals = {{.start_bar = 0, .start_tick = 0, .end_bar = 1, .end_tick = 1920}};
+
+  REQUIRE(validate_lesson_score(score).has_value());
+  const std::string json_text = lesson_score_to_json(score);
+  const auto round = lesson_score_from_json(json_text);
+  REQUIRE(round.has_value());
+  REQUIRE(*round == score);
+  REQUIRE(round->meta.tempo_marking == "Moderato cantabile");
+  REQUIRE(has_articulation(round->measures[0].treble_events[0].articulations,
+                           ArticulationFlag::Accent));
+  REQUIRE(has_articulation(round->measures[1].treble_events[1].articulations,
+                           ArticulationFlag::Arpeggiate));
+
+  SECTION("Rejects out-of-range hairpins, slurs, and pedals") {
+    auto bad_hp = score;
+    bad_hp.measures[0].hairpins[0].end_tick = 4000;
+    REQUIRE_FALSE(validate_lesson_score(bad_hp).has_value());
+
+    auto bad_slur = score;
+    bad_slur.slurs[0].end_bar = 5;
+    REQUIRE_FALSE(validate_lesson_score(bad_slur).has_value());
+
+    auto bad_pedal = score;
+    bad_pedal.pedals[0].start_bar = 1;
+    bad_pedal.pedals[0].end_bar = 0;
+    REQUIRE_FALSE(validate_lesson_score(bad_pedal).has_value());
+  }
 }

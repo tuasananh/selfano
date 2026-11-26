@@ -9,13 +9,12 @@
 #include "imgui.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <string>
 
 namespace selfano::ui::detail {
 
 inline constexpr float kTopMarginSpaces = 5.4f;
-inline constexpr float kTopMarginHarmonyExtraSpaces = 4.8f;
+inline constexpr float kTopMarginHarmonyExtraSpaces = 5.4f;
 inline constexpr float kBottomMarginSpaces = 5.0f;
 inline constexpr float kStaffHeightSpaces = 4.0f;
 
@@ -26,9 +25,12 @@ struct ThemePalette {
   ImU32 ink;
   ImU32 harmony_chord;
   ImU32 correct;
+  ImU32 partial;
   ImU32 incorrect;
   ImU32 badge_bg;
   ImU32 badge_border;
+  ImU32 partial_badge_bg;
+  ImU32 partial_badge_border;
   ImU32 annotation;
   ImU32 cursor_fill;
   ImU32 cursor_accent;
@@ -52,11 +54,16 @@ struct ThemePalette {
 void draw_smufl_glyph(ImDrawList* draw_list, ImFont* smufl_font, float font_size, ImVec2 origin_pos,
                       ImU32 color, const char* utf8_glyph);
 
+void draw_smufl_glyph_centered(ImDrawList* draw_list, ImFont* smufl_font, float font_size,
+                               ImVec2 center_x_origin_y, ImU32 color, const char* utf8_glyph);
+
 void draw_five_lines(ImDrawList* draw_list, float x0, float x1, float bottom_y, float space,
                      ImU32 color, float thickness);
 
+[[nodiscard]] ImVec2 measure_feedback_badge_size(ImFont* ui_font, const std::string& text);
+
 void draw_feedback_badge(ImDrawList* draw_list, ImFont* ui_font, ImVec2 center_anchor,
-                         const std::string& text, const ThemePalette& pal);
+                         const std::string& text, const ThemePalette& pal, bool is_partial = false);
 
 void draw_augmentation_dot(ImDrawList* draw_list, ImFont* smufl_font, float smufl_font_size,
                            float x, int step, core::Clef clef, float bottom_y, float space,
@@ -75,5 +82,8 @@ void draw_beam_quad(ImDrawList* draw_list, float x0, float y0, float x1, float y
 
 void draw_tie_curve(ImDrawList* draw_list, const core::TieSpan& span, core::Clef clef,
                     float bottom_y, float space, ImU32 color);
+
+void draw_slur_curve(ImDrawList* draw_list, float x0, float y0, float x1, float y1, bool above,
+                     float space, ImU32 color);
 
 } // namespace selfano::ui::detail

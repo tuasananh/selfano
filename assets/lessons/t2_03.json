@@ -18,8 +18,56 @@
       "summary": "Flowing E-minor broken-chord study drilling the natural minor i-VI-III-VII progression and B7 cadence.",
       "pattern_tip": "Hear the descending bass roots E -> C -> G -> D in Phrase A, then watch for D# on the V7 (B7) cadence.",
       "technique_tip": "Shape each 8th-note arpeggio with a single supple wrist circle rather than poking individual fingers.",
-      "ballade_link": "Builds left-hand arpeggio fluency and natural-minor harmonic recognition."
-    }
+      "ballade_link": "Builds left-hand arpeggio fluency and natural-minor harmonic recognition.",
+      "concept_title": "Flowing Arpeggios & The Natural-Minor i - VI - III - VII Cycle",
+      "concept_paragraphs": [
+        "In Phrase A, notice a progression loved by both Romantic and modern film composers: Em -> C -> G -> D (i -> VI -> III -> VII). Instead of using a sharp leading tone yet, natural minor tumbles warmly downward along a resonant chain of relative chords.",
+        "Only in Phrase B and C does D# enter inside B7 (V7), tightening the harmonic spring cleanly back into home E minor."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Broken-chord E-minor cascade through the Aeolian cycle Em - C - G - D."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Shifts through G/B (III6) and Am (iv) to build to a dramatic D# B7 Dominant."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Combines natural minor v (Bm) with the full harmonic B7 -> Em resolution."
+        }
+      ],
+      "practice_steps": [
+        "1. Play through Skeleton mode to feel the root cascade (E -> C -> G -> D -> B).",
+        "2. Shape LH 8th-note arpeggios with one slow circular wrist motion per bar.",
+        "3. Spot D# in Bars 8 and 11 before playing so the harmonic minor turn shines.",
+        "4. Perform smoothly at 80 BPM without chopping individual arpeggio notes."
+      ],
+      "audio_examples": [
+        {
+          "label": "Aeolian Cascade (i -> VI -> III -> VII)",
+          "caption": "Em -> C -> G -> D",
+          "chords": [
+            "Em",
+            "C",
+            "G",
+            "D"
+          ]
+        },
+        {
+          "label": "Natural v vs. Harmonic Dominant V7",
+          "caption": "Em -> Bm -> Em vs. Em -> B7 -> Em",
+          "chords": [
+            "Em",
+            "Bm",
+            "B7",
+            "Em"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Andantino espressivo"
   },
   "measures": [
     {
@@ -174,6 +222,12 @@
           "chord_symbol": "Em",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -327,6 +381,13 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "VI"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -798,6 +859,12 @@
           "chord_symbol": "Em",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -970,6 +1037,13 @@
           "start_tick": 960,
           "chord_symbol": "G/B",
           "roman_numeral": "III6"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -1488,6 +1562,12 @@
           "chord_symbol": "C",
           "roman_numeral": "VI"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1660,6 +1740,13 @@
           "start_tick": 960,
           "chord_symbol": "Bm",
           "roman_numeral": "v"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1877,18 +1964,18 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E2",
-              "midi": 40,
+              "spell": "E3",
+              "midi": 52,
               "finger": 5
             },
             {
-              "spell": "B2",
-              "midi": 47,
-              "finger": 2
+              "spell": "G3",
+              "midi": 55,
+              "finger": 3
             },
             {
-              "spell": "E3",
-              "midi": 52,
+              "spell": "B3",
+              "midi": 59,
               "finger": 1
             }
           ]
@@ -1919,5 +2006,50 @@
       "start_bar": 8,
       "end_bar": 11
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

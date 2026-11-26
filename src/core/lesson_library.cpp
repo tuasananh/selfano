@@ -1,10 +1,24 @@
 #include "core/lesson_library.hpp"
 
+#include "core/lesson_score.hpp"
+
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <nlohmann/json.hpp>
+#include <optional>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace selfano::core {
 
@@ -104,7 +118,87 @@ LessonLibrary::load_built_in_from_directory(const std::filesystem::path& dir) {
     loaded_built_in.push_back(*parsed);
   }
 
+  std::vector<TierChapterGuide> loaded_guides;
+  const auto guides_path = dir / "tier_guides.json";
+  std::error_code guides_ec;
+  if (std::filesystem::exists(guides_path, guides_ec) && !guides_ec) {
+    const auto guides_text = read_text_file(guides_path);
+    if (!guides_text.has_value()) {
+      return std::unexpected(guides_text.error());
+    }
+    const json guides_root = json::parse(*guides_text, nullptr, false);
+    if (guides_root.is_discarded() || !guides_root.is_object() || !guides_root.contains("guides") ||
+        !guides_root.at("guides").is_array()) {
+      return std::unexpected(std::format("Malformed tier_guides.json: {}", guides_path.string()));
+    }
+    for (const auto& gj : guides_root.at("guides")) {
+      if (!gj.is_object()) {
+        return std::unexpected("Tier guide entry must be an object");
+      }
+      TierChapterGuide g{};
+      if (!gj.contains("tier") || !gj.at("tier").is_number_integer()) {
+        return std::unexpected("Tier guide missing integer 'tier'");
+      }
+      g.tier = static_cast<std::uint8_t>(std::clamp(gj.at("tier").get<int>(), 1, 16));
+      if (gj.contains("title") && gj.at("title").is_string()) {
+        g.title = gj.at("title").get<std::string>();
+      }
+      if (gj.contains("subtitle") && gj.at("subtitle").is_string()) {
+        g.subtitle = gj.at("subtitle").get<std::string>();
+      }
+      if (gj.contains("reading_time") && gj.at("reading_time").is_string()) {
+        g.reading_time = gj.at("reading_time").get<std::string>();
+      }
+      if (gj.contains("sections")) {
+        if (!gj.at("sections").is_array()) {
+          return std::unexpected("Tier guide 'sections' must be an array");
+        }
+        for (const auto& sj : gj.at("sections")) {
+          if (!sj.is_object()) {
+            return std::unexpected("Tier guide section must be an object");
+          }
+          TierGuideSection sec{};
+          if (sj.contains("heading") && sj.at("heading").is_string()) {
+            sec.heading = sj.at("heading").get<std::string>();
+          }
+          if (sj.contains("body") && sj.at("body").is_string()) {
+            sec.body = sj.at("body").get<std::string>();
+          }
+          g.sections.push_back(std::move(sec));
+        }
+      }
+      if (gj.contains("audio_examples")) {
+        if (!gj.at("audio_examples").is_array()) {
+          return std::unexpected("Tier guide 'audio_examples' must be an array");
+        }
+        for (const auto& ej : gj.at("audio_examples")) {
+          if (!ej.is_object()) {
+            return std::unexpected("Tier guide audio_example must be an object");
+          }
+          TheoryAudioExample ex{};
+          if (ej.contains("label") && ej.at("label").is_string()) {
+            ex.label = ej.at("label").get<std::string>();
+          }
+          if (ej.contains("caption") && ej.at("caption").is_string()) {
+            ex.caption = ej.at("caption").get<std::string>();
+          }
+          if (ej.contains("chords") && ej.at("chords").is_array()) {
+            for (const auto& cj : ej.at("chords")) {
+              if (!cj.is_string()) {
+                return std::unexpected("Tier guide audio_examples 'chords' entry must be a string");
+              }
+              ex.chords.push_back(cj.get<std::string>());
+            }
+          }
+          g.audio_examples.push_back(std::move(ex));
+        }
+      }
+      loaded_guides.push_back(std::move(g));
+    }
+  }
+
   tiers_ = std::move(loaded_tiers);
+  tier_guides_ = std::move(loaded_guides);
   // Preserve any already-loaded imported lessons while replacing built-ins cleanly
   std::vector<LessonScore> existing_imported;
   for (auto& s : lessons_) {
@@ -268,6 +362,15 @@ std::vector<const LessonScore*> LessonLibrary::lessons_in_tier(std::uint8_t tier
     return a->meta.order_in_tier < b->meta.order_in_tier;
   });
   return out;
+}
+
+const TierChapterGuide* LessonLibrary::find_tier_guide(std::uint8_t tier) const noexcept {
+  for (const auto& g : tier_guides_) {
+    if (g.tier == tier) {
+      return &g;
+    }
+  }
+  return nullptr;
 }
 
 const LessonScore* LessonLibrary::find_lesson(std::string_view id) const noexcept {

@@ -1,14 +1,25 @@
 #include "ui/midi_monitor_view.hpp"
 
+#include "midi/audio_synth.hpp"
+#include "midi/midi_engine.hpp"
+#include "midi/midi_event.hpp"
+#include "midi/midi_scheduler.hpp"
+
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::ui {
 

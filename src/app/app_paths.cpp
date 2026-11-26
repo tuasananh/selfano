@@ -3,7 +3,12 @@
 #include <SDL3/SDL.h>
 #include <cctype>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 

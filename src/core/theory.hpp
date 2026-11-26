@@ -4,6 +4,7 @@
 #include "core/pitch.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <string>

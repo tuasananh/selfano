@@ -4,7 +4,7 @@
     "tier": 1,
     "order_in_tier": 4,
     "title": "First Sharp & Waltz Pulse",
-    "composer_source": "Carl Czerny, Op. 599 No. 16",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 16",
     "key": {
       "fifths": 1,
       "mode": "major"
@@ -18,8 +18,55 @@
       "summary": "Introduces the G-major key signature (F#) and graceful 3/4 waltz accompaniment (ONE-two-three).",
       "pattern_tip": "Every F in this score is F# automatically from the key signature\u2014spot the F#4 leading tone resolving to G4.",
       "technique_tip": "Keep beat 1 resonant in the left hand and beats 2-3 lighter for an authentic waltz lilt.",
-      "ballade_link": "Trains triple-meter weight balance foundational for 3/4 waltzes and 6/4 barcarolle phrasing."
-    }
+      "ballade_link": "Trains triple-meter weight balance foundational for 3/4 waltzes and 6/4 barcarolle phrasing.",
+      "concept_title": "Key Signatures (First Sharp F#) & The 3/4 Waltz Lilt",
+      "concept_paragraphs": [
+        "Once a piece lives in G Major, one sharp (F#) sits right at the clef so the score doesn't clutter every bar with accidentals. Train your eye to treat every F\u2014high or low\u2014as F# automatically.",
+        "In 3/4 waltz meter, feel each bar as one gentle pendulum swing: ONE (warm Left-Hand root) - two - three (lighter Right-Hand / inner response). Also spot V6/5 (D7/F#), putting F# right in the bass so it steps half-step upward into G!"
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Graceful waltz opening rising from G (I) past D7/F# (V6/5) back to G."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Moves cleanly to Subdominant C (IV) and pauses openly on a D Half Cadence (V)."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Recapitulates the theme through C and D7 for a poised G-major ending."
+        }
+      ],
+      "practice_steps": [
+        "1. Trace all F# keys on the keyboard before starting\u2014never play F natural here!",
+        "2. Practice RH waltz tune alone feeling beat 1's natural downbeat lean.",
+        "3. Add LH chordal accompaniment softly so beats 2-3 never overpower beat 1.",
+        "4. Run Steady Pulse at 60%, 80%, then 100% (88 BPM)."
+      ],
+      "audio_examples": [
+        {
+          "label": "Why V6/5 Loves Stepping to I (G - D7/F# - G)",
+          "caption": "Notice the smooth bass line G -> F# -> G",
+          "chords": [
+            "G",
+            "D7/F#",
+            "G"
+          ]
+        },
+        {
+          "label": "Three-Chord G-Major Waltz Cadence",
+          "caption": "G -> C -> D7 -> G",
+          "chords": [
+            "G",
+            "C",
+            "D7",
+            "G"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegretto grazioso"
   },
   "measures": [
     {
@@ -109,6 +156,12 @@
           "chord_symbol": "G",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -183,6 +236,13 @@
           "start_tick": 0,
           "chord_symbol": "G",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -423,6 +483,12 @@
           "chord_symbol": "C",
           "roman_numeral": "IV"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -497,6 +563,13 @@
           "start_tick": 0,
           "chord_symbol": "G",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -718,6 +791,12 @@
           "chord_symbol": "G",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -806,6 +885,13 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "IV"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -930,8 +1016,8 @@
               "finger": 5
             },
             {
-              "spell": "G3",
-              "midi": 55,
+              "spell": "D3",
+              "midi": 50,
               "finger": 1
             }
           ]
@@ -961,6 +1047,118 @@
       "label": "Phrase C (Bars 9-12)",
       "start_bar": 8,
       "end_bar": 11
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 0,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1320
     }
   ]
 }

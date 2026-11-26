@@ -1,7 +1,10 @@
 #include "ui/design_system.hpp"
 
+#include "ui/font_loader.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <unordered_map>
 
 namespace selfano::ui {

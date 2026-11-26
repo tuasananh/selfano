@@ -1,6 +1,9 @@
+#include "core/autopilot.hpp"
 #include "core/piano_remote.hpp"
+#include "core/pitch.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <optional>
 
 using namespace selfano::core;
 

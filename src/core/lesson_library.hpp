@@ -22,6 +22,24 @@ struct CurriculumTierInfo {
   bool operator==(const CurriculumTierInfo&) const = default;
 };
 
+struct TierGuideSection {
+  std::string heading;
+  std::string body;
+
+  bool operator==(const TierGuideSection&) const = default;
+};
+
+struct TierChapterGuide {
+  std::uint8_t tier{1};
+  std::string title;
+  std::string subtitle;
+  std::string reading_time;
+  std::vector<TierGuideSection> sections;
+  std::vector<TheoryAudioExample> audio_examples;
+
+  bool operator==(const TierChapterGuide&) const = default;
+};
+
 class LessonLibrary {
 public:
   [[nodiscard]] std::expected<void, std::string>
@@ -39,6 +57,10 @@ public:
   bool remove_lesson(std::string_view id);
 
   [[nodiscard]] const std::vector<CurriculumTierInfo>& tiers() const noexcept { return tiers_; }
+  [[nodiscard]] const std::vector<TierChapterGuide>& tier_guides() const noexcept {
+    return tier_guides_;
+  }
+  [[nodiscard]] const TierChapterGuide* find_tier_guide(std::uint8_t tier) const noexcept;
   [[nodiscard]] const std::vector<LessonScore>& lessons() const noexcept { return lessons_; }
   [[nodiscard]] std::vector<const LessonScore*> built_in_lessons() const;
   [[nodiscard]] std::vector<const LessonScore*> imported_lessons() const;
@@ -49,6 +71,7 @@ public:
 
 private:
   std::vector<CurriculumTierInfo> tiers_;
+  std::vector<TierChapterGuide> tier_guides_;
   std::vector<LessonScore> lessons_;
 };
 

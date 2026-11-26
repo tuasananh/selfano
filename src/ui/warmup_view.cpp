@@ -1,9 +1,17 @@
 #include "ui/warmup_view.hpp"
 
+#include "core/key_signature.hpp"
 #include "core/pitch.hpp"
+#include "core/warmup_engine.hpp"
+#include "core/weekly_key.hpp"
+
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_scheduler.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
+#include "ui/staff_renderer.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
@@ -11,8 +19,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <format>
+#include <optional>
+#include <span>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace selfano::ui {
 

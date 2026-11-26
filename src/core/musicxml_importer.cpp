@@ -1,19 +1,27 @@
 #include "core/musicxml_importer.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
+#include "core/pitch.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <map>
 #include <optional>
 #include <pugixml.hpp>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -281,6 +289,7 @@ struct RawEvent {
   int duration_ticks{480};
   bool is_rest{false};
   std::uint8_t voice{0};
+  std::uint8_t articulations{0};
   std::vector<LessonNote> notes;
 };
 
@@ -300,7 +309,7 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
   }
 
   auto emit_split_event = [&](int start, int dur, bool is_rest, std::uint8_t voice,
-                              const std::vector<LessonNote>& notes) {
+                              std::uint8_t articulations, const std::vector<LessonNote>& notes) {
     const auto vals = split_ticks_to_values(dur);
     int cur = start;
     for (std::size_t vi = 0; vi < vals.size(); ++vi) {
@@ -310,6 +319,9 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
       lev.is_rest = is_rest;
       lev.voice = voice;
       if (!is_rest) {
+        if (vi == 0U) {
+          lev.articulations = articulations;
+        }
         lev.notes = notes;
         for (auto& n : lev.notes) {
           if (vi > 0U) {
@@ -370,7 +382,7 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
     if (dur < 120) {
       continue;
     }
-    emit_split_event(st, dur, ev.is_rest, 0U, ev.notes);
+    emit_split_event(st, dur, ev.is_rest, 0U, ev.articulations, ev.notes);
     cursor = st + dur;
   }
   if (cursor < measure_ticks) {
@@ -398,7 +410,7 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
       if (dur < 120) {
         continue;
       }
-      emit_split_event(st, dur, false, voice_id, ev.notes);
+      emit_split_event(st, dur, false, voice_id, ev.articulations, ev.notes);
       v_cursor = st + dur;
     }
   }
@@ -502,6 +514,12 @@ void repair_staff_ties(std::vector<LessonMeasure>& measures, bool treble,
   return {};
 }
 
+struct OpenHairpinState {
+  std::size_t bar_idx{0};
+  int start_tick{0};
+  HairpinKind kind{HairpinKind::Crescendo};
+};
+
 struct MeasureParseContext {
   LessonScore& score;
   KeySignature cur_key{.fifths = 0, .mode = Mode::Major};
@@ -513,9 +531,13 @@ struct MeasureParseContext {
   std::size_t skipped_out_of_range{0};
   std::size_t total_measures{0};
   std::vector<std::size_t> phrase_break_bars{};
+  std::map<std::pair<int, int>, std::pair<std::size_t, int>> open_slurs{};
+  std::optional<std::pair<std::size_t, int>> open_pedal{};
+  std::optional<OpenHairpinState> open_hairpin{};
 };
 
 struct MeasureVoiceState {
+  std::size_t bar_idx{0};
   int cursor_ticks{0};
   int measure_ticks{kTicksPerQuarter * 4};
   int active_div{1};
@@ -712,20 +734,70 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
   const std::uint8_t v =
       resolve_voice((staff_id == 2) ? vs.bass_voice_map : vs.treble_voice_map, voice_str);
 
+  std::uint8_t raw_art = 0U;
+  const pugi::xml_node notations = child.child("notations");
+  if (notations) {
+    if (const pugi::xml_node arts = notations.child("articulations")) {
+      if (arts.child("staccato")) {
+        raw_art |= articulation_bit(ArticulationFlag::Staccato);
+      }
+      if (arts.child("tenuto")) {
+        raw_art |= articulation_bit(ArticulationFlag::Tenuto);
+      }
+      if (arts.child("accent") || arts.child("strong-accent")) {
+        raw_art |= articulation_bit(ArticulationFlag::Accent);
+      }
+    }
+    if (notations.child("arpeggiate")) {
+      raw_art |= articulation_bit(ArticulationFlag::Arpeggiate);
+    }
+  }
+
+  int ev_start = vs.cursor_ticks;
   if (is_chord && vs.last_event_idx.contains({staff_id, v})) {
-    vec[vs.last_event_idx[{staff_id, v}]].notes.push_back(ln);
+    auto& prev = vec[vs.last_event_idx[{staff_id, v}]];
+    ev_start = prev.start_tick;
+    prev.articulations |= raw_art;
+    prev.notes.push_back(ln);
   } else {
-    const int ev_start = (is_chord && !vec.empty()) ? vec.back().start_tick : vs.cursor_ticks;
+    ev_start = (is_chord && !vec.empty()) ? vec.back().start_tick : vs.cursor_ticks;
     vec.push_back(RawEvent{
         .start_tick = ev_start,
         .duration_ticks = dur_ticks,
         .is_rest = false,
         .voice = v,
+        .articulations = raw_art,
         .notes = {ln},
     });
     vs.last_event_idx[{staff_id, v}] = vec.size() - 1U;
     if (!is_chord) {
       vs.cursor_ticks = std::min(vs.measure_ticks, vs.cursor_ticks + dur_ticks);
+    }
+  }
+
+  if (notations) {
+    for (pugi::xml_node sl : notations.children("slur")) {
+      const std::string_view sl_type = sl.attribute("type").as_string();
+      const int sl_num = parse_int_sv(sl.attribute("number").as_string()).value_or(1);
+      const std::pair<int, int> key{staff_id, sl_num};
+      const int tick = std::clamp(ev_start, 0, std::max(0, vs.measure_ticks - 1));
+      if (sl_type == "start") {
+        ctx.open_slurs[key] = {vs.bar_idx, tick};
+      } else if (sl_type == "stop") {
+        if (const auto it = ctx.open_slurs.find(key); it != ctx.open_slurs.end()) {
+          const auto [sb, st] = it->second;
+          if (vs.bar_idx > sb || (vs.bar_idx == sb && tick > st)) {
+            ctx.score.slurs.push_back(SlurSpan{
+                .start_bar = sb,
+                .start_tick = st,
+                .end_bar = vs.bar_idx,
+                .end_tick = tick,
+                .treble = (staff_id == 1),
+            });
+          }
+          ctx.open_slurs.erase(it);
+        }
+      }
     }
   }
 }
@@ -734,11 +806,14 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
                          bool allow_header_updates, int measure_ticks, std::size_t bar_idx,
                          MeasureParseContext& ctx, std::vector<RawEvent>& treble_raw,
                          std::vector<RawEvent>& bass_raw,
-                         std::vector<HarmonicAnnotation>& harmony_out) {
+                         std::vector<HarmonicAnnotation>& harmony_out,
+                         std::vector<DynamicEvent>* dynamics_out = nullptr,
+                         std::vector<HairpinSpan>* hairpins_out = nullptr) {
   parse_attributes_node(meas.child("attributes"), allow_header_updates, bar_idx, active_div,
                         measure_ticks, ctx);
 
   MeasureVoiceState vs{};
+  vs.bar_idx = bar_idx;
   vs.measure_ticks = measure_ticks;
   vs.active_div = active_div;
   vs.force_bass_staff = force_bass_staff;
@@ -757,8 +832,10 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
             ctx.found_tempo = true;
           }
         }
+      }
+      for (pugi::xml_node dt : child.children("direction-type")) {
         if (!ctx.found_tempo) {
-          if (const pugi::xml_node met = child.child("direction-type").child("metronome")) {
+          if (const pugi::xml_node met = dt.child("metronome")) {
             if (const auto t = parse_double_sv(met.child_value("per-minute"));
                 t.has_value() && *t > 0.0) {
               ctx.score.meta.target_bpm = std::clamp(*t, 36.0, 220.0);
@@ -766,9 +843,77 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
             }
           }
         }
-      }
-      if (child.child("direction-type").child("rehearsal") && bar_idx > 0U) {
-        ctx.phrase_break_bars.push_back(bar_idx);
+        if (allow_header_updates && bar_idx == 0U && ctx.score.meta.tempo_marking.empty()) {
+          if (const pugi::xml_node words = dt.child("words")) {
+            const std::string w = trim_copy(words.text().as_string());
+            if (!w.empty() && w.size() <= 40U) {
+              ctx.score.meta.tempo_marking = w;
+            }
+          }
+        }
+        if (dynamics_out != nullptr) {
+          if (const pugi::xml_node dyn_n = dt.child("dynamics")) {
+            for (pugi::xml_node dchild : dyn_n.children()) {
+              if (const auto lvl = parse_dynamic_level(dchild.name()); lvl.has_value()) {
+                dynamics_out->push_back(DynamicEvent{
+                    .start_tick = std::clamp(vs.cursor_ticks, 0, std::max(0, vs.measure_ticks - 1)),
+                    .level = *lvl,
+                });
+                break;
+              }
+            }
+          }
+        }
+        if (hairpins_out != nullptr) {
+          if (const pugi::xml_node wedge = dt.child("wedge")) {
+            const std::string_view wtype = wedge.attribute("type").as_string();
+            const int wtick = std::clamp(vs.cursor_ticks, 0, vs.measure_ticks);
+            if (wtype == "crescendo" || wtype == "diminuendo") {
+              ctx.open_hairpin = OpenHairpinState{
+                  .bar_idx = bar_idx,
+                  .start_tick = wtick,
+                  .kind = (wtype == "crescendo") ? HairpinKind::Crescendo : HairpinKind::Diminuendo,
+              };
+            } else if (wtype == "stop" && ctx.open_hairpin.has_value()) {
+              const int h0 =
+                  (ctx.open_hairpin->bar_idx == bar_idx) ? ctx.open_hairpin->start_tick : 0;
+              if (wtick > h0) {
+                hairpins_out->push_back(HairpinSpan{
+                    .start_tick = h0,
+                    .end_tick = wtick,
+                    .kind = ctx.open_hairpin->kind,
+                });
+              }
+              ctx.open_hairpin.reset();
+            }
+          }
+        }
+        if (allow_header_updates) {
+          if (const pugi::xml_node ped = dt.child("pedal")) {
+            const std::string_view ptype = ped.attribute("type").as_string();
+            const int ptick = std::clamp(vs.cursor_ticks, 0, vs.measure_ticks);
+            if (ptype == "start" || ptype == "change") {
+              if (ctx.open_pedal.has_value()) {
+                const auto [sb, st] = *ctx.open_pedal;
+                if (bar_idx > sb || (bar_idx == sb && ptick > st)) {
+                  ctx.score.pedals.push_back(PedalSpan{
+                      .start_bar = sb, .start_tick = st, .end_bar = bar_idx, .end_tick = ptick});
+                }
+              }
+              ctx.open_pedal = {bar_idx, ptick};
+            } else if (ptype == "stop" && ctx.open_pedal.has_value()) {
+              const auto [sb, st] = *ctx.open_pedal;
+              if (bar_idx > sb || (bar_idx == sb && ptick > st)) {
+                ctx.score.pedals.push_back(PedalSpan{
+                    .start_bar = sb, .start_tick = st, .end_bar = bar_idx, .end_tick = ptick});
+              }
+              ctx.open_pedal.reset();
+            }
+          }
+        }
+        if (dt.child("rehearsal") && bar_idx > 0U) {
+          ctx.phrase_break_bars.push_back(bar_idx);
+        }
       }
     } else if (tag == "barline") {
       const std::string bstyle = trim_copy(child.child_value("bar-style"));
@@ -793,6 +938,19 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
     } else if (tag == "note") {
       parse_note_node(child, vs, ctx);
     }
+  }
+  if (hairpins_out != nullptr && ctx.open_hairpin.has_value() &&
+      ctx.open_hairpin->bar_idx == bar_idx) {
+    const int h0 = std::clamp(ctx.open_hairpin->start_tick, 0, vs.measure_ticks);
+    if (vs.measure_ticks > h0) {
+      hairpins_out->push_back(HairpinSpan{
+          .start_tick = h0,
+          .end_tick = vs.measure_ticks,
+          .kind = ctx.open_hairpin->kind,
+      });
+    }
+    ctx.open_hairpin->bar_idx = bar_idx + 1U;
+    ctx.open_hairpin->start_tick = 0;
   }
 }
 
@@ -959,6 +1117,7 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
 
   int divisions = 1;
   int bass_divisions = 1;
+  std::uint32_t next_bar_num = 1U;
   MeasureParseContext ctx{.score = score, .total_measures = primary_measures.size()};
 
   for (std::size_t bi = 0; bi < primary_measures.size(); ++bi) {
@@ -968,9 +1127,11 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
     std::vector<RawEvent> treble_raw;
     std::vector<RawEvent> bass_raw;
     std::vector<HarmonicAnnotation> harmony_out;
+    std::vector<DynamicEvent> dynamics_out;
+    std::vector<HairpinSpan> hairpins_out;
 
     parse_measure_nodes(primary_measures[bi], divisions, false, true, ctx.cur_meter.measure_ticks(),
-                        bi, ctx, treble_raw, bass_raw, harmony_out);
+                        bi, ctx, treble_raw, bass_raw, harmony_out, &dynamics_out, &hairpins_out);
 
     if (bi < bass_part_measures.size()) {
       std::vector<RawEvent> unused_tr;
@@ -979,8 +1140,38 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
                           ctx.cur_meter.measure_ticks(), bi, ctx, unused_tr, bass_raw, unused_h);
     }
 
+    const int full_mticks = ctx.cur_meter.measure_ticks();
+    const bool is_implicit =
+        iequals(primary_measures[bi].attribute("implicit").as_string(), "yes") ||
+        trim_copy(primary_measures[bi].attribute("number").as_string()) == "0";
+
+    int mticks = full_mticks;
     LessonMeasure lm{};
-    lm.bar_number = static_cast<std::uint32_t>(bi + 1U);
+    if (is_implicit) {
+      int max_end = 0;
+      for (const auto& ev : treble_raw) {
+        if (ev.voice == 0U) {
+          max_end = std::max(max_end, ev.start_tick + ev.duration_ticks);
+        }
+      }
+      for (const auto& ev : bass_raw) {
+        if (ev.voice == 0U) {
+          max_end = std::max(max_end, ev.start_tick + ev.duration_ticks);
+        }
+      }
+      const int quantized_end = (max_end > 0) ? quantize_raw_ticks(max_end) : 0;
+      if (quantized_end >= 120 && quantized_end < full_mticks) {
+        mticks = quantized_end;
+        lm.pickup_ticks = quantized_end;
+      }
+    }
+
+    if (bi == 0U && lm.pickup_ticks.has_value()) {
+      lm.bar_number = 0U;
+    } else {
+      lm.bar_number = next_bar_num++;
+    }
+
     if (bi > 0U && ctx.cur_key != prev_key) {
       lm.key_change = ctx.cur_key;
     }
@@ -988,13 +1179,72 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
       lm.meter_change = ctx.cur_meter;
     }
 
-    const int mticks = ctx.cur_meter.measure_ticks();
+    for (auto& ha : harmony_out) {
+      ha.start_tick = std::clamp(ha.start_tick, 0, std::max(0, mticks - 1));
+    }
+    for (auto& d : dynamics_out) {
+      d.start_tick = std::clamp(d.start_tick, 0, std::max(0, mticks - 1));
+    }
+    std::vector<HairpinSpan> clamped_hp;
+    for (auto hp : hairpins_out) {
+      hp.start_tick = std::clamp(hp.start_tick, 0, mticks);
+      hp.end_tick = std::clamp(hp.end_tick, 0, mticks);
+      if (hp.end_tick > hp.start_tick) {
+        clamped_hp.push_back(hp);
+      }
+    }
+
     normalize_staff_events(treble_raw, mticks, lm.treble_events);
     normalize_staff_events(bass_raw, mticks, lm.bass_events);
     lm.harmony = std::move(harmony_out);
+    lm.dynamics = std::move(dynamics_out);
+    lm.hairpins = std::move(clamped_hp);
 
     score.measures.push_back(std::move(lm));
   }
+
+  // Close any open pedal span cleanly and clamp slurs/pedals against actual bar lengths.
+  std::vector<int> actual_bar_ticks;
+  actual_bar_ticks.reserve(score.measures.size());
+  TimeSignature span_meter = score.meta.time_signature;
+  for (const auto& m : score.measures) {
+    if (m.meter_change.has_value()) {
+      span_meter = *m.meter_change;
+    }
+    actual_bar_ticks.push_back(effective_measure_ticks(m, span_meter));
+  }
+  if (ctx.open_pedal.has_value() && !score.measures.empty()) {
+    const auto [sb, st] = *ctx.open_pedal;
+    const std::size_t last_b = score.measures.size() - 1U;
+    const int last_ticks = actual_bar_ticks[last_b];
+    if (last_b > sb || (last_b == sb && last_ticks > st)) {
+      score.pedals.push_back(PedalSpan{
+          .start_bar = sb,
+          .start_tick = st,
+          .end_bar = last_b,
+          .end_tick = last_ticks,
+      });
+    }
+    ctx.open_pedal.reset();
+  }
+  auto clamp_spans = [&](auto& spans) {
+    for (auto it = spans.begin(); it != spans.end();) {
+      if (it->start_bar >= actual_bar_ticks.size() || it->end_bar >= actual_bar_ticks.size()) {
+        it = spans.erase(it);
+        continue;
+      }
+      it->start_tick = std::clamp(it->start_tick, 0, actual_bar_ticks[it->start_bar]);
+      it->end_tick = std::clamp(it->end_tick, 0, actual_bar_ticks[it->end_bar]);
+      if (it->start_bar > it->end_bar ||
+          (it->start_bar == it->end_bar && it->start_tick >= it->end_tick)) {
+        it = spans.erase(it);
+        continue;
+      }
+      ++it;
+    }
+  };
+  clamp_spans(score.slurs);
+  clamp_spans(score.pedals);
 
   repair_staff_ties(score.measures, true, result.warnings);
   repair_staff_ties(score.measures, false, result.warnings);
@@ -1015,15 +1265,16 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   build_phrases_from_breaks(ctx.phrase_break_bars, score);
 
   score.meta.id = generate_imported_lesson_id(score.meta.title, score.measures.size(), xml_text);
-  score.meta.theory = TheoryLens{
-      .summary = std::format("Imported MusicXML study in {} ({}/{}, {} bars).",
-                             format_key_name(score.meta.key), score.meta.time_signature.numerator,
-                             score.meta.time_signature.denominator, score.measures.size()),
-      .pattern_tip =
-          "Practice in 4-to-8 bar phrase chunks using Wait-for-Note before Steady Pulse.",
-      .technique_tip = "Isolate Left Hand and Right Hand separately at 60% tempo, then combine.",
-      .ballade_link = "Imported My Books repertoire integrated with Selfano's Tempo Ladder & SRS.",
-  };
+  score.meta.theory.summary =
+      std::format("Imported MusicXML study in {} ({}/{}, {} bars).",
+                  format_key_name(score.meta.key), score.meta.time_signature.numerator,
+                  score.meta.time_signature.denominator, score.measures.size());
+  score.meta.theory.pattern_tip =
+      "Practice in 4-to-8 bar phrase chunks using Wait-for-Note before Steady Pulse.";
+  score.meta.theory.technique_tip =
+      "Isolate Left Hand and Right Hand separately at 60% tempo, then combine.";
+  score.meta.theory.ballade_link =
+      "Imported My Books repertoire integrated with Selfano's Tempo Ladder & SRS.";
 
   if (const auto valid = validate_lesson_score(score); !valid.has_value()) {
     return std::unexpected(

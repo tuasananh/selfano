@@ -1,7 +1,16 @@
+#include "core/ear_trainer.hpp"
+#include "core/etude_engine.hpp"
+#include "core/flashcard_engine.hpp"
+#include "core/lesson_engine.hpp"
 #include "core/profile_store.hpp"
+#include "core/weekly_key.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstdint>
 #include <filesystem>
+#include <string>
+#include <system_error>
+#include <vector>
 
 using namespace selfano::core;
 
@@ -102,6 +111,11 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
       .review_repetitions = 2,
       .review_due_epoch_day = today + 6,
       .last_practiced_epoch_day = today,
+      .brief_read = true,
+      .skeleton_clean = true,
+      .phrase_rh_mask = 0x3U,
+      .phrase_lh_mask = 0x1U,
+      .phrase_both_mask = 0x1U,
   };
   profile.imported_lesson_ids = {"imp_abc123"};
   profile.preferences.sync_weekly_key_to_lesson = false;
@@ -116,6 +130,12 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   SECTION("Missing optional fields fall back cleanly and empty user arrays stay empty") {
     const std::string minimal = R"({
       "schema_version": 1,
+      "lesson_progress": {
+        "t1_01": {
+          "status": 1,
+          "best_accuracy": 0.91
+        }
+      },
       "repertoire_phrases": [],
       "srs_cards": []
     })";
@@ -123,7 +143,12 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res.has_value());
     REQUIRE(res->schema_version == 1);
     REQUIRE(res->active_lesson_id == "t1_01");
-    REQUIRE(res->lesson_progress.empty());
+    REQUIRE(res->lesson_progress.size() == 1U);
+    REQUIRE_FALSE(res->lesson_progress.at("t1_01").brief_read);
+    REQUIRE_FALSE(res->lesson_progress.at("t1_01").skeleton_clean);
+    REQUIRE(res->lesson_progress.at("t1_01").phrase_rh_mask == 0U);
+    REQUIRE(res->lesson_progress.at("t1_01").phrase_lh_mask == 0U);
+    REQUIRE(res->lesson_progress.at("t1_01").phrase_both_mask == 0U);
     REQUIRE(res->imported_lesson_ids.empty());
     REQUIRE(res->repertoire_phrases.empty());
     REQUIRE(res->srs_cards.empty());

@@ -18,12 +18,59 @@
       "summary": "Classic Chopin waltz pairing a leaping bass-chord-chord left hand with a lyrical circle-of-fifths A-minor melody.",
       "pattern_tip": "Hear the textbook minor circle of fifths in Bars 1-8: Am -> Dm -> G -> C -> F -> Bm7b5 -> E7 -> Am.",
       "technique_tip": "Land the left-hand bass note on beat 1 with relaxed arm weight and brush beats 2-3 softly.",
-      "ballade_link": "Builds Chopin waltz pedal-and-leap agility and minor circle-of-fifths pattern recognition."
-    }
+      "ballade_link": "Builds Chopin waltz pedal-and-leap agility and minor circle-of-fifths pattern recognition.",
+      "concept_title": "Minor Circle of Fifths & Graceful Waltz Leaps",
+      "concept_paragraphs": [
+        "Opening with an expressive two-eighth pickup, Chopin's posthumous A-minor Waltz hides the cleanest harmonic textbook progression you'll ever memorize: a full minor Circle of Fifths in Bars 1-8 (Am -> Dm -> G7 -> C -> F -> Dm/B -> E7 -> Am).",
+        "Once you hear roots tumbling in fifths every bar, the melody sings effortlessly while your Left Hand learns smooth wrist-arc jumps from beat 1's bass root up to beats 2-3."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Pickup - Bar 4)",
+          "role": "Upbeat motif launching the descending 5th chain: Am -> Dm -> G7 (VII7)."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Completes the circle through C (III) -> F (VI) -> Dm/B (ii6) -> E7 -> Am."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Lyrical restatement singing cleanly over tonic-subdominant-dominant chords."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Graceful closing phrase settling decisively onto A minor."
+        }
+      ],
+      "practice_steps": [
+        "1. Lock in the Circle of Fifths bass roots (A - D - G - C - F - B - E - A) before speeding up.",
+        "2. Keep LH beat-1 bass warm and beats 2-3 light as a feather.",
+        "3. Breathe naturally on the opening beat-3 pickup into Measure 1.",
+        "4. Build effortless waltz sweep up to 116 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Full A-Minor Circle of Fifths (i - iv - VII7 - III - VI - ii6 - V7 - i)",
+          "caption": "Am -> Dm -> G7 -> C -> F -> Dm/B -> E7 -> Am",
+          "chords": [
+            "Am",
+            "Dm",
+            "G7",
+            "C",
+            "F",
+            "Dm/B",
+            "E7",
+            "Am"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegretto (Waltz)"
   },
   "measures": [
     {
-      "bar_number": 1,
+      "bar_number": 0,
+      "pickup_ticks": 480,
       "treble_events": [
         {
           "start_tick": 0,
@@ -38,10 +85,32 @@
               "finger": 1
             }
           ]
-        },
+        }
+      ],
+      "bass_events": [
         {
-          "start_tick": 480,
-          "dur": "8th",
+          "start_tick": 0,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
+        }
+      ],
+      "harmony": [],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
+      ]
+    },
+    {
+      "bar_number": 1,
+      "treble_events": [
+        {
+          "start_tick": 0,
+          "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
@@ -54,7 +123,7 @@
           ]
         },
         {
-          "start_tick": 720,
+          "start_tick": 480,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -68,7 +137,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 720,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -82,8 +151,8 @@
           ]
         },
         {
-          "start_tick": 1200,
-          "dur": "8th",
+          "start_tick": 960,
+          "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
@@ -263,6 +332,13 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "i"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -688,6 +764,12 @@
           "chord_symbol": "C",
           "roman_numeral": "III"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -834,6 +916,13 @@
           "chord_symbol": "F",
           "roman_numeral": "VI"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -950,13 +1039,27 @@
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
             {
               "spell": "A4",
               "midi": 69,
+              "finger": 2
+            }
+          ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": false,
+          "voice": 0,
+          "notes": [
+            {
+              "spell": "E4",
+              "midi": 64,
               "finger": 1
             }
           ]
@@ -1024,20 +1127,6 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "E4",
-              "midi": 64,
-              "finger": 1
-            }
-          ]
-        },
-        {
-          "start_tick": 480,
-          "dur": "8th",
-          "dotted": false,
-          "is_rest": false,
-          "voice": 0,
-          "notes": [
-            {
               "spell": "A4",
               "midi": 69,
               "finger": 2
@@ -1045,7 +1134,7 @@
           ]
         },
         {
-          "start_tick": 720,
+          "start_tick": 480,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -1059,7 +1148,7 @@
           ]
         },
         {
-          "start_tick": 960,
+          "start_tick": 720,
           "dur": "8th",
           "dotted": false,
           "is_rest": false,
@@ -1073,8 +1162,8 @@
           ]
         },
         {
-          "start_tick": 1200,
-          "dur": "8th",
+          "start_tick": 960,
+          "dur": "quarter",
           "dotted": false,
           "is_rest": false,
           "voice": 0,
@@ -1146,6 +1235,12 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "i"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
         }
       ]
     },
@@ -1254,6 +1349,13 @@
           "start_tick": 0,
           "chord_symbol": "Am",
           "roman_numeral": "i"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1683,6 +1785,12 @@
           "chord_symbol": "Am",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1829,6 +1937,13 @@
           "chord_symbol": "Dm",
           "roman_numeral": "iv"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1440,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -1955,23 +2070,31 @@
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
             {
               "spell": "A4",
               "midi": 69,
-              "finger": 1
+              "finger": 2
             }
           ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
         }
       ],
       "bass_events": [
         {
           "start_tick": 0,
           "dur": "half",
-          "dotted": true,
+          "dotted": false,
           "is_rest": false,
           "voice": 0,
           "notes": [
@@ -1991,6 +2114,14 @@
               "finger": 1
             }
           ]
+        },
+        {
+          "start_tick": 960,
+          "dur": "quarter",
+          "dotted": false,
+          "is_rest": true,
+          "voice": 0,
+          "notes": []
         }
       ],
       "harmony": [
@@ -2004,24 +2135,174 @@
   ],
   "phrases": [
     {
-      "label": "Phrase A (Bars 1-4)",
+      "label": "Phrase A (Pickup - Bar 4)",
       "start_bar": 0,
-      "end_bar": 3
+      "end_bar": 4
     },
     {
       "label": "Phrase B (Bars 5-8)",
-      "start_bar": 4,
-      "end_bar": 7
+      "start_bar": 5,
+      "end_bar": 8
     },
     {
       "label": "Phrase C (Bars 9-12)",
-      "start_bar": 8,
-      "end_bar": 11
+      "start_bar": 9,
+      "end_bar": 12
     },
     {
       "label": "Phrase D (Bars 13-16)",
+      "start_bar": 13,
+      "end_bar": 16
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 12,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 13,
+      "start_tick": 0,
+      "end_bar": 14,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 15,
+      "start_tick": 0,
+      "end_bar": 16,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1320
+    },
+    {
       "start_bar": 12,
-      "end_bar": 15
+      "start_tick": 0,
+      "end_bar": 12,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 13,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 14,
+      "end_tick": 1320
+    },
+    {
+      "start_bar": 15,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 1320
     }
   ]
 }

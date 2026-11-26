@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
 
 #include <cstdint>
@@ -63,6 +64,40 @@ inline constexpr const char* kGlyphRestHalf = "\xEE\x93\xA4";              // U+
 inline constexpr const char* kGlyphRestQuarter = "\xEE\x93\xA5";           // U+E4E5
 inline constexpr const char* kGlyphRest8th = "\xEE\x93\xA6";               // U+E4E6
 inline constexpr const char* kGlyphRest16th = "\xEE\x93\xA7";              // U+E4E7
+inline constexpr const char* kGlyphArticAccentAbove = "\xEE\x92\xA0";      // U+E4A0
+inline constexpr const char* kGlyphArticAccentBelow = "\xEE\x92\xA1";      // U+E4A1
+inline constexpr const char* kGlyphArticStaccatoAbove = "\xEE\x92\xA2";    // U+E4A2
+inline constexpr const char* kGlyphArticStaccatoBelow = "\xEE\x92\xA3";    // U+E4A3
+inline constexpr const char* kGlyphArticTenutoAbove = "\xEE\x92\xA4";      // U+E4A4
+inline constexpr const char* kGlyphArticTenutoBelow = "\xEE\x92\xA5";      // U+E4A5
+inline constexpr const char* kGlyphDynamicP = "\xEE\x94\xA0";              // U+E520
+inline constexpr const char* kGlyphDynamicM = "\xEE\x94\xA1";              // U+E521
+inline constexpr const char* kGlyphDynamicF = "\xEE\x94\xA2";              // U+E522
+inline constexpr const char* kGlyphDynamicPP = "\xEE\x94\xAB";             // U+E52B
+inline constexpr const char* kGlyphDynamicMP = "\xEE\x94\xAC";             // U+E52C
+inline constexpr const char* kGlyphDynamicMF = "\xEE\x94\xAD";             // U+E52D
+inline constexpr const char* kGlyphDynamicFF = "\xEE\x94\xAF";             // U+E52F
+inline constexpr const char* kGlyphPedalPed = "\xEE\x99\x90";              // U+E650
+inline constexpr const char* kGlyphPedalRelease = "\xEE\x99\x95";          // U+E655
+inline constexpr const char* kGlyphWiggleArpeggiatoUp = "\xEE\xAA\xA9";    // U+EAA9
+
+[[nodiscard]] constexpr const char* dynamic_level_glyph(core::DynamicLevel level) noexcept {
+  switch (level) {
+  case core::DynamicLevel::PP:
+    return kGlyphDynamicPP;
+  case core::DynamicLevel::P:
+    return kGlyphDynamicP;
+  case core::DynamicLevel::MP:
+    return kGlyphDynamicMP;
+  case core::DynamicLevel::MF:
+    return kGlyphDynamicMF;
+  case core::DynamicLevel::F:
+    return kGlyphDynamicF;
+  case core::DynamicLevel::FF:
+    return kGlyphDynamicFF;
+  }
+  return kGlyphDynamicMF;
+}
 
 [[nodiscard]] constexpr const char* time_sig_digit_glyph(std::uint8_t digit) noexcept {
   switch (digit) {

@@ -188,6 +188,7 @@ add_library(piano_core STATIC
   src/core/lesson_progress.cpp
   src/core/lesson_engine.cpp
   src/core/lesson_library.cpp
+  src/core/theory_glossary.cpp
   src/core/mxl_archive.cpp
   src/core/musicxml_importer.cpp
 )
@@ -248,6 +249,7 @@ add_library(piano_ui STATIC
   src/ui/etude_view.cpp
   src/ui/curriculum_modal.cpp
   src/ui/import_lesson_modal.cpp
+  src/ui/lesson_brief_view.cpp
   src/ui/lesson_view.cpp
   src/ui/companion_view.cpp
   src/ui/srs_view.cpp
@@ -342,6 +344,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/lesson_score_tests.cpp
     tests/lesson_engine_tests.cpp
     tests/lesson_library_tests.cpp
+    tests/theory_glossary_tests.cpp
     tests/musicxml_importer_tests.cpp
     tests/midi_tests.cpp
   )

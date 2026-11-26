@@ -137,6 +137,8 @@ TEST_CASE("parse_midi1_bytes normalizes NoteOn vel=0 and parses NoteOff and CC 6
     }
     const auto sus_val = *ev_sus;
     REQUIRE(sus_val.is_control_change());
+    REQUIRE(sus_val.is_damper_pedal());
+    REQUIRE_FALSE(sus_val.is_soft_pedal);
     REQUIRE_FALSE(sus_val.is_note_message());
     REQUIRE(sus_val.data1 == 64);
     REQUIRE(sus_val.velocity == 127);
@@ -209,6 +211,7 @@ TEST_CASE("PolyphonicChordGrouper groups rolled chords within window and splits 
     const auto chords = grouper.take_completed_chords();
     REQUIRE(chords.size() == 1);
     REQUIRE(chords[0].notes == std::vector<std::uint8_t>{60, 64, 67});
+    REQUIRE(chords[0].velocities == std::vector<std::uint8_t>{85, 90, 92});
     REQUIRE(chords[0].start_ms == 1000.0);
     REQUIRE(chords[0].from_hardware);
   }

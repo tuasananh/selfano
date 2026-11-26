@@ -1,15 +1,29 @@
 #include "ui/phase2_sandbox.hpp"
 
+#include "core/key_signature.hpp"
 #include "core/pitch.hpp"
+
+#include "midi/chord_grouper.hpp"
+#include "midi/midi_event.hpp"
+#include "midi/midi_scheduler.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/icons.hpp"
+#include "ui/staff_renderer.hpp"
+#include "ui/virtual_piano.hpp"
 #include "ui/widgets.hpp"
 
 #include "imgui.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <format>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace selfano::ui {
 

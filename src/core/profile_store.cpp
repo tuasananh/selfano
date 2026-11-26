@@ -1,12 +1,29 @@
 #include "core/profile_store.hpp"
 
+#include "core/companion_matcher.hpp"
+#include "core/ear_trainer.hpp"
+#include "core/etude_engine.hpp"
+#include "core/flashcard_engine.hpp"
+#include "core/lesson_engine.hpp"
+#include "core/srs_deck.hpp"
+#include "core/weekly_key.hpp"
+
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <nlohmann/json.hpp>
 #include <set>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
 
 namespace selfano::core {
 
@@ -219,6 +236,11 @@ std::string to_json_string(const UserProfile& profile) {
         {"review_repetitions", lp.review_repetitions},
         {"review_due_epoch_day", lp.review_due_epoch_day},
         {"last_practiced_epoch_day", lp.last_practiced_epoch_day},
+        {"brief_read", lp.brief_read},
+        {"skeleton_clean", lp.skeleton_clean},
+        {"phrase_rh_mask", lp.phrase_rh_mask},
+        {"phrase_lh_mask", lp.phrase_lh_mask},
+        {"phrase_both_mask", lp.phrase_both_mask},
     };
   }
   j["lesson_progress"] = std::move(lp_obj);
@@ -402,7 +424,12 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
           !read_double_field(val, "review_ease_factor", lp.review_ease_factor, err) ||
           !read_int_field(val, "review_repetitions", lp.review_repetitions, err) ||
           !read_int_field(val, "review_due_epoch_day", lp.review_due_epoch_day, err) ||
-          !read_int_field(val, "last_practiced_epoch_day", lp.last_practiced_epoch_day, err)) {
+          !read_int_field(val, "last_practiced_epoch_day", lp.last_practiced_epoch_day, err) ||
+          !read_bool_field(val, "brief_read", lp.brief_read, err) ||
+          !read_bool_field(val, "skeleton_clean", lp.skeleton_clean, err) ||
+          !read_int_field(val, "phrase_rh_mask", lp.phrase_rh_mask, err) ||
+          !read_int_field(val, "phrase_lh_mask", lp.phrase_lh_mask, err) ||
+          !read_int_field(val, "phrase_both_mask", lp.phrase_both_mask, err)) {
         return std::unexpected(err);
       }
       st_int = std::clamp(st_int, 0, 3);

@@ -4,7 +4,7 @@
     "tier": 4,
     "order_in_tier": 1,
     "title": "Sonatina in C Major (Op. 36, No. 1 - Mvt. 1 Exposition)",
-    "composer_source": "Muzio Clementi, Op. 36 No. 1",
+    "composer_source": "Study after Muzio Clementi, Op. 36 No. 1",
     "key": {
       "fifths": 0,
       "mode": "major"
@@ -18,8 +18,62 @@
       "summary": "Classic Sonatina exposition teaching tonic-to-dominant modulation (C Major -> D7 -> G Major) over crisp accompaniment.",
       "pattern_tip": "Notice the structural turning point at Bar 9 where F# arrives (D7 = V7/V), shifting the tonal center to G Major.",
       "technique_tip": "Articulate the arpeggio leaps cleanly and keep the Alberti bass rhythmic and feather-light.",
-      "ballade_link": "Internalizes Classical sonata-form key architecture before tackling Chopin's extended modulatory forms."
-    }
+      "ballade_link": "Internalizes Classical sonata-form key architecture before tackling Chopin's extended modulatory forms.",
+      "concept_title": "Secondary Dominants (V7/V) & Sonata-Exposition Modulation",
+      "concept_paragraphs": [
+        "In Classical Sonata Form, an Exposition always does two jobs: Theme 1 establishes the Home Key (C Major), and then a harmonic bridge pivots cleanly into the Dominant Key (G Major) for Theme 2\u2014creating long-range tonal drama.",
+        "Watch Bar 10 like a hawk! When D7 (V7/V) introduces F#, it acts like a magnetic lens zooming into G Major. Note also IV/V in Bar 12: C Major suddenly sounds like the relaxed IV chord inside the new key of G!"
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Primary Theme A in C Major: bold arpeggio statement settling on Tonic C."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Scalar continuation cadencing through Dm/F (ii6) -> G7 -> C."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-12)",
+          "role": "Modulating Bridge: F# enters via D7 (V7/V), shifting center of gravity to G Major."
+        },
+        {
+          "phrase_label": "Phrase D (Bars 13-16)",
+          "role": "Secondary Theme & closing confirmation firmly established in Dominant G."
+        }
+      ],
+      "practice_steps": [
+        "1. Notice how Bars 1-8 stay purely white-key C Major, then Bars 9-16 turn into G Major (with F#).",
+        "2. Keep LH Alberti accompaniment snappy and transparent beneath RH arpeggios.",
+        "3. Isolate Phrase C (Bars 9-12) first so the D7 -> G pivot feels automatic.",
+        "4. Build crisp Classical articulation smoothly up to 108 BPM."
+      ],
+      "audio_examples": [
+        {
+          "label": "Before vs. After Modulation (C Home -> V7/V Pivot -> G Key)",
+          "caption": "C -> F -> G7 -> C | D7 (V7/V) -> G -> C (IV/V) -> G",
+          "chords": [
+            "C",
+            "G7",
+            "C",
+            "D7",
+            "G"
+          ]
+        },
+        {
+          "label": "How D7 (F#) Pulls Ear Away from C",
+          "caption": "Compare C->G (open) with C->D7->G (resolved in G)",
+          "chords": [
+            "C",
+            "D7",
+            "G",
+            "D7",
+            "G"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Allegro con spirito"
   },
   "measures": [
     {
@@ -131,6 +185,12 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "I"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
         }
       ]
     },
@@ -257,6 +317,13 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -648,6 +715,12 @@
           "chord_symbol": "F",
           "roman_numeral": "IV"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -665,6 +738,9 @@
               "midi": 62,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -779,6 +855,13 @@
           "chord_symbol": "C",
           "roman_numeral": "I"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -794,7 +877,7 @@
             {
               "spell": "F4",
               "midi": 65,
-              "finger": 3
+              "finger": 4
             }
           ]
         },
@@ -808,7 +891,7 @@
             {
               "spell": "E4",
               "midi": 64,
-              "finger": 2
+              "finger": 3
             }
           ]
         },
@@ -822,7 +905,7 @@
             {
               "spell": "D4",
               "midi": 62,
-              "finger": 1
+              "finger": 2
             }
           ]
         },
@@ -1183,6 +1266,12 @@
           "chord_symbol": "G",
           "roman_numeral": "V"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
+        }
       ]
     },
     {
@@ -1392,6 +1481,13 @@
           "start_tick": 0,
           "chord_symbol": "D7",
           "roman_numeral": "V7/V"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -1620,6 +1716,9 @@
               "midi": 76,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -1874,6 +1973,12 @@
           "chord_symbol": "G",
           "roman_numeral": "V"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "f"
+        }
       ]
     },
     {
@@ -1891,6 +1996,9 @@
               "midi": 72,
               "finger": 1
             }
+          ],
+          "articulations": [
+            "staccato"
           ]
         },
         {
@@ -2032,6 +2140,13 @@
           "start_tick": 960,
           "chord_symbol": "D7",
           "roman_numeral": "V7/V"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -2256,5 +2371,64 @@
       "start_bar": 12,
       "end_bar": 15
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 480,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1680,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 12,
+      "start_tick": 0,
+      "end_bar": 13,
+      "end_tick": 1680,
+      "treble": true
+    },
+    {
+      "start_bar": 14,
+      "start_tick": 0,
+      "end_bar": 15,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

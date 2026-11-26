@@ -18,8 +18,50 @@
       "summary": "Complete 13-bar Chopin masterpiece in C Minor featuring solemn four-voice chords, Neapolitan/diminished color, and chromatic bass motion.",
       "pattern_tip": "Use Chord Skeleton mode first to memorize the 4-bar harmonic arches: Bars 1-4 (ff), Bars 5-8 (p echo), Bars 9-13 (pp + final cadence).",
       "technique_tip": "Voice the top pinky note slightly louder than the inner chord tones so the melody sings across every chord change.",
-      "ballade_link": "Direct training in Chopin's signature 4-note chord voicing, dotted-8th + 16th inflection, and dark minor-key harmonic drama."
-    }
+      "ballade_link": "Direct training in Chopin's signature 4-note chord voicing, dotted-8th + 16th inflection, and dark minor-key harmonic drama.",
+      "concept_title": "Cantabile Soprano Voicing & Neapolitan / Chromatic Harmony",
+      "concept_paragraphs": [
+        "Chopin's C-minor Prelude proves you don't need fast notes to study conservatory harmony: 13 slow bars trace a solemn progression filled with mode color\u2014including the poignant Neapolitan chord Db (bII) in Bar 2 and secondary twists (C/E, D7, V7/V).",
+        "Technically, every four-note chord demands top-note soprano voicing: transfer gentle arm weight into your RH 5th/4th fingers so the top melody sings like a choir over cushioned inner harmonies."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Noble opening declaration (Cm -> Ab -> Db (bII) -> G7 -> Cm) settling via D7 onto G."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Hushed echo introducing descending chromatic inner lines and sudden C7/G warmth."
+        },
+        {
+          "phrase_label": "Phrase C (Bars 9-13)",
+          "role": "Whispered reprise tapering to a solemn two-bar authentic C-minor cadence."
+        }
+      ],
+      "practice_steps": [
+        "1. Spend your first session entirely in Chord Skeleton / Wait-for-Note absorbing the chord shapes.",
+        "2. Voice the pinky (top voice) clearly above the thumb and inner fingers on every beat.",
+        "3. Isolate Bar 2 (Ab -> Db -> G7 -> Cm) and Bar 3 to hear the Neapolitan Db color cleanly.",
+        "4. Perform slowly at 56 BPM with deep, unforced resonance and crisp chord releases."
+      ],
+      "audio_examples": [
+        {
+          "label": "Bars 1-3 Harmonic Journey (Cm -> Fm -> G7 -> Ab -> Db -> G7 -> Cm)",
+          "caption": "Listen for the sudden tragic drop onto Db (bII) in bar 2",
+          "chords": [
+            "Cm",
+            "Fm",
+            "G7",
+            "Cm",
+            "Ab",
+            "Db",
+            "G7",
+            "Cm"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Largo"
   },
   "measures": [
     {
@@ -52,6 +94,9 @@
               "midi": 72,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -91,8 +136,8 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "B3",
-              "midi": 59,
+              "spell": "D4",
+              "midi": 62,
               "finger": 1
             },
             {
@@ -120,8 +165,8 @@
           "voice": 0,
           "notes": [
             {
-              "spell": "B3",
-              "midi": 59,
+              "spell": "D4",
+              "midi": 62,
               "finger": 1
             },
             {
@@ -270,6 +315,12 @@
           "chord_symbol": "Cm",
           "roman_numeral": "i"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "ff"
+        }
       ]
     },
     {
@@ -331,6 +382,9 @@
               "midi": 77,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "accent"
           ]
         },
         {
@@ -1005,6 +1059,13 @@
           "chord_symbol": "G",
           "roman_numeral": "V"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 480,
+          "end_tick": 1920,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -1032,6 +1093,9 @@
               "midi": 72,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -1239,6 +1303,12 @@
           "start_tick": 1440,
           "chord_symbol": "Cm",
           "roman_numeral": "i"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "p"
         }
       ]
     },
@@ -1710,6 +1780,13 @@
           "chord_symbol": "G",
           "roman_numeral": "V"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
+        }
       ]
     },
     {
@@ -1940,6 +2017,13 @@
           "chord_symbol": "Cm",
           "roman_numeral": "i"
         }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 480,
+          "end_tick": 1920,
+          "kind": "diminuendo"
+        }
       ]
     },
     {
@@ -1967,6 +2051,9 @@
               "midi": 67,
               "finger": 4
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         },
         {
@@ -2164,6 +2251,12 @@
           "start_tick": 1440,
           "chord_symbol": "Cm",
           "roman_numeral": "i"
+        }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "pp"
         }
       ]
     },
@@ -2887,6 +2980,9 @@
               "midi": 72,
               "finger": 5
             }
+          ],
+          "articulations": [
+            "tenuto"
           ]
         }
       ],
@@ -2940,6 +3036,124 @@
       "label": "Phrase C (Bars 9-13)",
       "start_bar": 8,
       "end_bar": 12
+    }
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1440,
+      "treble": true
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1440,
+      "treble": true
+    }
+  ],
+  "pedals": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 0,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 1,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 2,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 3,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 4,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 5,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 6,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 7,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 8,
+      "start_tick": 0,
+      "end_bar": 8,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 9,
+      "start_tick": 0,
+      "end_bar": 9,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 10,
+      "start_tick": 0,
+      "end_bar": 10,
+      "end_tick": 1800
+    },
+    {
+      "start_bar": 11,
+      "start_tick": 0,
+      "end_bar": 11,
+      "end_tick": 1800
     }
   ]
 }

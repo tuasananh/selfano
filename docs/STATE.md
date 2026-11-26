@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-25
-- **Active Phase:** **All Roadmap Phases (0–10) Complete**
-- **Last Completed Phase:** Phase 10 — `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web)
+- **Last Updated:** 2026-11-26
+- **Active Phase:** **Complete (Phases 0–16)** — Conservatory Pedagogy & Reading Upgrade Complete
+- **Last Completed Phase:** Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)
 
 ---
 
@@ -185,6 +185,89 @@
   - Desktop end-to-end verification (`--import-lesson sample.mxl` + relaunch without `--import-lesson`) confirmed persisted `<dir>/lessons/imp_e3fc699c7804a8e5.json` and `profile.json`, rendering crisp `MXL Waltz Study` (`D Major`, `3/4`, `104 BPM`) across Light & Dark themes.
   - Live headless Chromium CDP verification (`http://127.0.0.1:8095/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors**, working `.mxl`/`.musicxml` upload modal (`Save & Open`), crisp WebGL Grand Staff rendering (`MXL Waltz Study`), and full `IDBFS` `/persist/lessons/` + `/persist/profile.json` persistence across `Page.reload({ ignoreCache: true })`.
 
+### Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_score.hpp/.cpp`, `lesson_score_json.cpp` (`std::optional<int> pickup_ticks`, `effective_measure_ticks()`, `bar_number == 0` anacrusis validation & backward-compatible JSON serialization); `musicxml_importer.cpp` (`<measure implicit="yes">` / `number="0"` pickup preservation); `lesson_engine.hpp/.cpp` (fractional pickup count-in alignment, `playhead_global_beat` & `is_mid_bar` pickup support, stateful voice-led `make_voice_led_skeleton_rh` minimizing semitone displacement around `A3..E5` with strictly ascending fingerings `1-3-5`/`1-2-5`/`1-2-3-5`/`1-2-4-5`)
+  - Engraving & UI (`src/ui/`): `staff_renderer.hpp/.cpp`, `staff_primitives.hpp/.cpp`, `lesson_staff_adapter.cpp`, `lesson_view.cpp` (proportional pickup measure widths, `"Pickup"` header label, `effective_measure_ticks` beat tracking, raised harmony/Roman clearance above high-register ledger-line fingerings)
+  - 28-Lesson Curriculum Audit & Urtext Upgrades (`assets/lessons/t*.json`): fixed all ergonomic/fingering anomalies (`<= 9` semitones in Tiers 1–3, `<= 12` in Tiers 4–6, zero same-finger adjacent 1–2 semitone steps); restored authentic Bar 0 pickups & Urtext downbeats on `t5_01` (Op. 28 No. 7), `t5_03` (Op. 28 No. 4 + Bar 4 `Am/E` fix), and `t5_04` (Waltz B. 150); upgraded `t4_02` (BWV 772) and `t6_03` (Ballade No. 1 Op. 23 mm. 1–7 unison octave opening + playable Largo resolution); renamed `t1_03` to *A-Minor Lament (Leading Tone)* and clearly labeled non-Urtext adaptations as `"Study after ..."`
+  - Catch2 Guardrails (`tests/`): expanded `lesson_score_tests.cpp`, `musicxml_importer_tests.cpp`, `lesson_engine_tests.cpp`, and `lesson_library_tests.cpp` (automated span, monotonic chord fingering, same-finger step, ChordSkeleton centroid `<= 5.0` semitones, and pickup checks across all 28 lessons)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **77/77** test cases.
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings and bundled all updated `assets/lessons/`.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all modified C++ files.
+  - Headless Light & Dark screenshots (`t2_05`, `t3_04`, `t5_01`, `t5_02`, `t6_03`) confirmed crisp compact `"Pickup"` engraving, playable voicings, and zero fingering/harmony overlap.
+
+### Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): extended `TheoryLens` in `lesson_score.hpp` + backward-compatible `lesson_score_json.cpp` (`concept_title`, `concept_paragraphs`, `form_map`, `practice_steps`, `audio_examples`); `theory_glossary.hpp/.cpp` (`explain_harmony` decoding diatonic triads/7ths, figured-bass inversions `6`/`6/4`/`6/5`/`4/3`/`4/2`, cadential/pedal `6/4`, secondary dominants/diminished pivots including double-slash `V4/2/iv` & `ii6/5/V`, and Neapolitan `bII6`/`bII`, plus `build_chord_sequence_preview` voice-led synthesis); `TierChapterGuide` loader in `lesson_library.hpp/.cpp`; `brief_read` persistence in `lesson_engine.hpp` & `profile_store.cpp`
+  - Pedagogy Content (`assets/lessons/`): authored `tier_guides.json` (6 concise 2-minute Tier Chapter Guides with playable Hear & Compare examples) and populated rich Lesson Brief fields across all 28 curriculum JSONs (`t1_01`..`t6_04`)
+  - Catch2 Suite (`tests/`): added `theory_glossary_tests.cpp`; expanded `lesson_score_tests.cpp`, `profile_store_tests.cpp`, and `lesson_library_tests.cpp` (asserting non-empty brief & guide fields, valid chord examples, and valid `explain_harmony` results across all 28 lessons and 6 guides)
+  - UI & App Wiring (`src/ui/`, `src/app/`): `lesson_brief_view.hpp/.cpp` (`Learn` view with Concept card, Hear & Compare buttons, Form & Phrase Map, Technique cues, Practice Recipe, and `"Start Practicing ->"` CTA), `curriculum_modal.hpp/.cpp` (Tier `"Chapter Guide"` buttons & readable guide sheet), `staff_renderer.hpp/.cpp` (`StaffHarmonicHitbox` click bounds & hover/underline affordances), `lesson_view.hpp/.cpp` (`Learn | Practice` segmented toggle, one-time `!brief_read` auto-open, clickable Roman-numeral Theory Popover with `"Play Chord & Resolution"`), plus `cli_options`, `lesson_import_controller.cpp`, `profile_sync.cpp`, and `app_controller.cpp`
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **79/79** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings, bundling `assets/lessons/tier_guides.json` (`12819` bytes in VirtualFS) into `selfano.data`.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all modified/created C++ files.
+  - Headless Light & Dark screenshots inspected cleanly across `Learn` Lesson Brief (`t4_01`, `t6_03`), Tier 6 Chapter Guide modal, and clickable Theory Popovers (`t6_03` `bII6` and `t4_02` `V7/V`) with zero clipping or overlap.
+  - Live headless Chromium CDP verification on `web-release` (`http://127.0.0.1:8765/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors**, `tier_guides.json` loaded in Emscripten FS, and crisp 1360x717 WebGL rendering.
+
+### Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_engine.hpp/.cpp` (`LessonPlaybackState::DemoPlaying`, `start_demo()`, `stop_demo()`, `active_demo_midi_notes()`, sample-tight `LessonTickResult::playback_notes` streaming across ties & meters, `LessonConfig::play_other_hand_accomp` emitting timed soft velocity `~64` accompaniment during `RH`/`LH` `SteadyPulse`); `lesson_progress.cpp` (`skeleton_clean`, `phrase_rh_mask`/`phrase_lh_mask`/`phrase_both_mask` bitmask tracking in `apply_run_to_progress`, and pure `suggest_next_practice_step` planner across `Brief -> Skeleton -> Phrase RH/LH/Both -> Ladder 60/80/100% -> Mastered`); `profile_store.cpp` (backward-compatible serialization/deserialization of `skeleton_clean` & phrase bitmasks)
+  - Catch2 Suite (`tests/`): expanded `lesson_engine_tests.cpp` and `profile_store_tests.cpp` covering `DemoPlaying` transport/loop/stop, `play_other_hand_accomp` timing, per-phrase bitmasks, `suggest_next_practice_step` progression, and `profile.json` v1 compatibility
+  - UI & App Wiring (`src/ui/`, `src/app/`): `lesson_view.hpp/.cpp` (`Demo` <-> `Stop Demo` toggle with moving playhead & live Virtual Piano highlights, `Accomp On/Off` pill in `SteadyPulse` `RH`/`LH`, green/accent phrase checkmarks, and compact 4-milestone **Guided Next-Step Strip** with `"Next Step"` auto-config CTA), `app_controller.cpp`, `piano_remote_dispatcher.cpp`, `cli_options.hpp/.cpp` (`schedule_batch` frame-streamed playback with clean `panic_all_notes_off` on stop/toggle)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+  - `ctest --preset native-debug --output-on-failure` passed **82/82** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 13 C++ files.
+  - Headless `--profile` persistence round-trip (`skeleton_clean`, `phrase_rh_mask`, `phrase_lh_mask`, `phrase_both_mask`) and Light & Dark screenshots (`t4_01` Guided Stepper + Phrase A checkmark, `t3_01` `SteadyPulse` `RH` `Accomp On`, `t5_01` `DemoPlaying` playhead + lit Virtual Piano keys) verified zero clipping or overlap.
+
+### Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): `lesson_engine.hpp/.cpp`, `lesson_progress.cpp` (`LessonConfig::custom_bar_range`, `set_custom_bar_range` with clamping and phrase-reset behavior, `LessonTargetStatus::PartialHit` & `LessonTarget::missed_midi` grading `>= 50%` chord tones with zero wrong pitches in `SteadyPulse` as `0.5` accuracy credit while keeping `WaitForNote` strict, `BarDiagnostic`, `TroubleSpot`, `LessonRunSummary::bar_diagnostics`, and pure `find_trouble_spot` preferring contiguous 2-bar seam windows)
+  - Catch2 Suite (`tests/lesson_engine_tests.cpp`): added unit tests covering custom bar-range clamping/looping/phrase-clear, `PartialHit` vs. strict `WaitForNote` grading, and `find_trouble_spot` 1-bar & 2-bar seam detection
+  - UI & App Wiring (`src/ui/`, `src/app/`): `staff_primitives.hpp/.cpp` & `staff_renderer.hpp/.cpp` (`NoteFeedback::Partial` Light/Dark amber palette, stem/notehead amber tinting, collision-free vertical-lane staggered `draw_feedback_badge` pills with `measure_feedback_badge_size`), `lesson_view.hpp/.cpp` (`Bars A-B` micro-range `-`/`+`/`Loop`/`Clear` selector, `Partial` status metric, Post-Run Coach Strip celebrating clean `>= 90%` runs or pinpointing trouble spots with one-click `Drill Bars X-Y at 60% (Loop)`), `cli_options.hpp/.cpp` & `app_controller.cpp` (`--bar-range`, `--simulate-coach`)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic -Werror`.
+  - `ctest --preset native-debug --output-on-failure` passed **85/85** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean on all Phase 14 C++ files.
+  - Headless Light & Dark screenshots inspected (`t4_01 --bar-range 4-5` loop selector & Bars 5–6 rendering, `t1_01 --simulate-coach clean` Clean Run coach strip, `t5_02 --bar-range 0-3 --simulate-coach imperfect` Focus-spot Coach strip + Bar 2 staggered amber `PartialHit` `"Missed ..."` pills + Bars 3–4 misses) with zero overlap or clipping.
+
+### Phase 15 — Expressive Classical Notation & Two-Voice Polyphony
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Pure C++23 core (`src/core/`): extended `lesson_score.hpp/.cpp` & backward-compatible `lesson_score_json.cpp` (`ArticulationFlag`, `DynamicLevel`/`DynamicEvent`, `HairpinKind`/`HairpinSpan`, `SlurSpan`, `PedalSpan`, `LessonMetadata::tempo_marking`, bounds validation); extended `musicxml_importer.cpp` (`<words>`, `<dynamics>`, `<wedge>`, `<pedal>`, `<articulations>`, `<arpeggiate>`, `<slur>`); added forced multi-voice stem direction + `resolve_two_voice_collision` to `staff_layout.hpp/.cpp`; upgraded `lesson_engine.hpp/.cpp` (`build_demo_playback()` and live `DemoPlaying` streaming apply `pp`–`ff` dynamics, hairpins, `~45%` staccato gates, `+16` accent boost, and `~35 ms` arpeggio chord rolls)
+  - Pedagogy Content (`assets/lessons/t1_01.json`..`t6_04.json`): annotated all 28 built-in lessons with tempo markings, dynamics, hairpins, phrase slurs, articulations, and genre-matched damper pedal spans; added true two-voice soprano/alto polyphony (`voice: 1`) in `t6_02.json` Bars 1–4
+  - Catch2 Suite (`tests/`): expanded `lesson_score_tests.cpp`, `musicxml_importer_tests.cpp`, `staff_layout_tests.cpp`, `lesson_engine_tests.cpp`, and `lesson_library_tests.cpp` (per-voice + cross-voice ergonomic span invariants and expressive integrity across all 28 lessons)
+  - UI & SMuFL Engraving (`src/ui/`): expanded `font_loader.cpp` `kSmuflRanges` (`U+E520..E53F`, `U+E650..E65F`, `U+EAA0..EABF`), added glyphs in `smufl_glyphs.hpp`, upgraded `staff_primitives.*`, `staff_renderer.*`, `lesson_staff_adapter.*`, `lesson_view.cpp`, and `staff_showcase.cpp` with tempo headers, centered dynamics + trimmed hairpins, staccato/tenuto/accent marks, arpeggio roll wiggles, tapered Bézier phrase slurs, `Ped. … *` sustain lane, and collision-free two-voice stemming
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic -Werror`.
+  - `ctest --preset native-debug --output-on-failure` passed **89/89** test cases (100%).
+  - `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings, bundling updated `assets/lessons/` into `selfano.data`.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean across all modified C++ files.
+  - Headless Light & Dark screenshots inspected (`t3_01`, `t5_02`, `t6_02`, `t6_03`, `t6_04`, `--tab showcase --showcase-preset classical`) and live headless Chromium CDP verification on `build/web-release` (`http://127.0.0.1:8766/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors** and sharp 1360x717 WebGL rendering.
+
+### Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)
+- **Status:** Complete
+- **Artifacts Created / Modified:**
+  - Lock-Free MIDI & Routing (`src/midi/`, `src/app/`): added `MidiNoteEvent::is_damper_pedal()` (`CC 64` in `midi_event.hpp`), parallel sorted `velocities` vector on `PlayedChord` (`chord_grouper.hpp/.cpp`), and non-blocking `on_damper_pedal` / `on_note_off` forwarding in `app_controller.cpp` (keeping native `libremidi` and WebMIDI `0xB0 64` lock-free SPSC callbacks allocation-free)
+  - Pure C++23 Core (`src/core/`): added `MusicalityMetrics`, `LessonTarget::treble_midi`/`bass_midi`/`sustained_durations`, `LessonEngine::submit_played_notes(notes, velocities, from_hardware)`, `on_note_off`, `on_damper_pedal`, tie-aware sustain duration tracking (`>= 65%` via finger hold or damper pedal), `PedalSpan` release cleanliness (`±240` ticks), melody-over-accompaniment voicing balance (gated on hardware MIDI variance), non-punitive constructive `coach_tip`, and graceful omission of velocity/pedal metrics on virtual/QWERTY input (`lesson_engine.hpp/.cpp`)
+  - Catch2 Suite (`tests/`): expanded `midi_tests.cpp` (`CC 64` damper pedal parsing and `PlayedChord::velocities`) and `lesson_engine_tests.cpp` (hardware voicing balance vs. inverted LH, finger/pedal tie sustain hold vs. early chop, damper pedal lift cleanliness vs. smear, non-punitive mastery equality, and virtual-keyboard fallback)
+  - UI & CLI (`src/ui/`, `src/app/`): added two-row **Musicality Row** inside `LessonView::draw_post_run_coach` (`Voicing`, `Sustain`, `Pedal` pills + constructive tips, cleanly omitted when unavailable) and `--simulate-coach clean|imperfect|virtual` (`cli_options.hpp/.cpp`, `lesson_view.hpp/.cpp`, `app_controller.cpp`)
+- **Verification:**
+  - `cmake --build --preset native-debug` compiled cleanly with **0 warnings** under `-Wall -Wextra -Wpedantic -Werror`.
+  - `ctest --preset native-debug --output-on-failure` passed **90/90** test cases (100%).
+  - `cmake --build --preset web-release` compiled cleanly with **0 warnings**.
+  - `src/core/` purity grep returned 0 matches; `clang-format --dry-run --Werror` clean across all modified C++ files.
+  - Headless Light & Dark screenshots inspected (`t5_02 --bar-range 0-3 --simulate-coach clean`, `t5_02 --bar-range 0-3 --simulate-coach imperfect`, `t1_01 --simulate-coach virtual`) and live headless Chromium CDP verification on `build/web-release` (`http://127.0.0.1:8767/selfano.html`) confirmed **0 console errors, 0 JS/WASM exceptions, 0 HTTP errors** with crisp 1360x717 WebGL rendering.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
@@ -201,11 +284,13 @@
 
 ## Next Concrete Action
 
-- **Phases 7–10 Complete:** All planned Phases 0–10 are implemented and verified on `main`:
-  - **Phase 7:** Core `LessonScore` Model & Classical Grand Staff Engraving (`[x] Complete`)
-  - **Phase 8:** Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI with 6 Starter Lessons (`[x] Complete`)
-  - **Phase 9:** Complete 28-Lesson Classical Curriculum (`[x] Complete`)
-  - **Phase 10:** `.musicxml` & `.mxl` Importer — Desktop & Web (`[x] Complete`)
+- **All Phases (0–16) Complete:**
+  - **Phase 11:** Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons (`[x] Complete`)
+  - **Phase 12:** Music Theory Reading Layer, Tier Guides & Clickable Glossary (`[x] Complete`)
+  - **Phase 13:** Guided Learning Flow, Animated Demo & Play-Along Accompaniment (`[x] Complete`)
+  - **Phase 14:** Custom Trouble-Spot Bar Looping & Post-Run Coach (`[x] Complete`)
+  - **Phase 15:** Expressive Classical Notation & Two-Voice Polyphony (`[x] Complete`)
+  - **Phase 16:** Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) (`[x] Complete`)
 
 ---
 

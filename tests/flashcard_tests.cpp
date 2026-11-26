@@ -1,8 +1,12 @@
 #include "core/flashcard_engine.hpp"
+#include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 #include "core/weekly_key.hpp"
 
 #include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>

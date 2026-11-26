@@ -4,7 +4,7 @@
     "tier": 1,
     "order_in_tier": 2,
     "title": "Parallel & Contrary 5-Finger Motion",
-    "composer_source": "Carl Czerny, Op. 599 No. 11",
+    "composer_source": "Study after Carl Czerny, Op. 599 No. 11",
     "key": {
       "fifths": 0,
       "mode": "major"
@@ -18,8 +18,43 @@
       "summary": "Synchronizes both hands in parallel and contrary 5-finger motion over classic I-IV-V7-I harmony.",
       "pattern_tip": "Mirror your thumbs on C4 and G3 when hands move in contrary motion; read intervals relative to the 5-finger frame.",
       "technique_tip": "Strike each synchronized pair cleanly together with quiet, balanced fingertips.",
-      "ballade_link": "Builds effortless two-hand coordination before independent Baroque and Romantic voices."
-    }
+      "ballade_link": "Builds effortless two-hand coordination before independent Baroque and Romantic voices.",
+      "concept_title": "Parallel vs. Contrary Five-Finger Coordination",
+      "concept_paragraphs": [
+        "Playing two hands together gets dramatically easier when you notice their directional symmetry. In parallel motion both hands rise or fall together; in contrary motion your thumbs mirror outward from the center and inward back home.",
+        "Track the distance between consecutive notes (step, repeat, or skip of a 3rd) instead of reading two separate staves one letter at a time."
+      ],
+      "form_map": [
+        {
+          "phrase_label": "Phrase A (Bars 1-4)",
+          "role": "Mirror opening unfolding into an energetic Dominant seventh (G7) half cadence."
+        },
+        {
+          "phrase_label": "Phrase B (Bars 5-8)",
+          "role": "Parallel and contrary scalar reply cadencing squarely onto C Major (I)."
+        }
+      ],
+      "practice_steps": [
+        "1. Spot which measures move in mirror symmetry (same finger numbers in both hands!).",
+        "2. Run Chord Skeleton mode once to lock in the I - IV - V7 - I harmony shifts.",
+        "3. Practice Hands Together slowly, landing synchronized vertical pairs cleanly together.",
+        "4. Build cleanly from 60% to 100% (84 BPM) keeping arms weight-balanced and tension-free."
+      ],
+      "audio_examples": [
+        {
+          "label": "Classic Cadential Arc (I -> IV -> V -> V7 -> I)",
+          "caption": "C -> F -> G -> G7 -> C",
+          "chords": [
+            "C",
+            "F",
+            "G",
+            "G7",
+            "C"
+          ]
+        }
+      ]
+    },
+    "tempo_marking": "Moderato"
   },
   "measures": [
     {
@@ -146,6 +181,12 @@
           "chord_symbol": "C",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mf"
+        }
       ]
     },
     {
@@ -215,6 +256,13 @@
           "start_tick": 0,
           "chord_symbol": "C",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "crescendo"
         }
       ]
     },
@@ -529,6 +577,12 @@
           "chord_symbol": "C",
           "roman_numeral": "I"
         }
+      ],
+      "dynamics": [
+        {
+          "start_tick": 0,
+          "level": "mp"
+        }
       ]
     },
     {
@@ -617,6 +671,13 @@
           "start_tick": 960,
           "chord_symbol": "C",
           "roman_numeral": "I"
+        }
+      ],
+      "hairpins": [
+        {
+          "start_tick": 0,
+          "end_tick": 1920,
+          "kind": "diminuendo"
         }
       ]
     },
@@ -777,5 +838,36 @@
       "start_bar": 4,
       "end_bar": 7
     }
-  ]
+  ],
+  "slurs": [
+    {
+      "start_bar": 0,
+      "start_tick": 0,
+      "end_bar": 1,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 2,
+      "start_tick": 0,
+      "end_bar": 3,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 4,
+      "start_tick": 0,
+      "end_bar": 5,
+      "end_tick": 960,
+      "treble": true
+    },
+    {
+      "start_bar": 6,
+      "start_tick": 0,
+      "end_bar": 7,
+      "end_tick": 0,
+      "treble": true
+    }
+  ],
+  "pedals": []
 }

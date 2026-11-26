@@ -31,6 +31,12 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 8** | Guided Lessons Engine, Autopilot Stage 3 & Apple HIG UI (6 Starter Lessons) | [phase-8-lesson-engine-and-stage3-ui.md](./phases/phase-8-lesson-engine-and-stage3-ui.md) | `[x] Complete` |
 | **Phase 9** | Complete 28-Lesson Classical Curriculum (*Road to Chopin Ballade No. 1*) | [phase-9-classical-curriculum-28-lessons.md](./phases/phase-9-classical-curriculum-28-lessons.md) | `[x] Complete` |
 | **Phase 10** | `.musicxml` & `.mxl` Importer (`My Books` Track — Desktop & Web) | [phase-10-musicxml-mxl-importer.md](./phases/phase-10-musicxml-mxl-importer.md) | `[x] Complete` |
+| **Phase 11** | Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons | [phase-11-score-ergonomics-pickups-voicing.md](./phases/phase-11-score-ergonomics-pickups-voicing.md) | `[x] Complete` |
+| **Phase 12** | Music Theory Reading Layer, Tier Guides & Clickable Glossary | [phase-12-music-theory-reading-and-glossary.md](./phases/phase-12-music-theory-reading-and-glossary.md) | `[x] Complete` |
+| **Phase 13** | Guided Learning Flow, Animated Demo & Play-Along Accompaniment | [phase-13-guided-flow-demo-accompaniment.md](./phases/phase-13-guided-flow-demo-accompaniment.md) | `[x] Complete` |
+| **Phase 14** | Custom Trouble-Spot Bar Looping & Post-Run Coach | [phase-14-trouble-spot-looping-and-coach.md](./phases/phase-14-trouble-spot-looping-and-coach.md) | `[x] Complete` |
+| **Phase 15** | Expressive Classical Notation & Two-Voice Polyphony | [phase-15-expressive-notation-and-polyphony.md](./phases/phase-15-expressive-notation-and-polyphony.md) | `[x] Complete` |
+| **Phase 16** | Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) | [phase-16-pianistic-musicality-coaching.md](./phases/phase-16-pianistic-musicality-coaching.md) | `[x] Complete` |
 
 ---
 
@@ -48,15 +54,28 @@ Phase 0 (Workflow/Repo)
                                       └─> Phase 8 (LessonEngine + Stage 3 Autopilot + Apple HIG UI + 6 Starters)
                                             ├─> Phase 9 (Complete 28-Lesson Classical Curriculum)
                                             └─> Phase 10 (.musicxml / .mxl Importer — Desktop & Web)
+                                                  └─> Phase 11 (Score Ergonomics, Pickups & Voice-Led Skeletons)
+                                                        ├─> Phase 12 (Theory Reading Layer, Tier Guides & Glossary)
+                                                        ├─> Phase 13 (Guided Flow, Animated Demo & Play-Along Accomp)
+                                                        │     └─> Phase 14 (Trouble-Spot Looping & Post-Run Coach)
+                                                        └─> Phase 15 (Expressive Notation & 2-Voice Polyphony)
+                                                              └─> Phase 16 (Pianistic Coaching: Velocity, Ties & Pedal)
 ```
 
 ---
 
-## Post-MVP (v2 Backlog)
+## Post-MVP (v2 & v3 Backlog)
 
 - **Phases 7–10 (Complete):** Replaced Autopilot Stage 3 with a book-anchored **Guided Lessons & Curriculum** system (tucking Companion Mode under Tools) plus `.musicxml`/`.mxl` importing across Desktop & Web:
   - [Phase 7 — Score Model & Classical Engraving](./phases/phase-7-score-model-and-notation.md)
   - [Phase 8 — Lesson Engine, Stage 3 Autopilot & UI (6 Starters)](./phases/phase-8-lesson-engine-and-stage3-ui.md)
   - [Phase 9 — Complete 28-Lesson Classical Curriculum](./phases/phase-9-classical-curriculum-28-lessons.md)
   - [Phase 10 — `.musicxml` & `.mxl` Importer (Desktop & Web)](./phases/phase-10-musicxml-mxl-importer.md)
+- **Phases 11–16 (Planned — Conservatory Pedagogy & Reading Upgrade):**
+  - [Phase 11 — Score Ergonomics, Anacrusis Support & Voice-Led Chord Skeletons](./phases/phase-11-score-ergonomics-pickups-voicing.md)
+  - [Phase 12 — Music Theory Reading Layer, Tier Guides & Clickable Glossary](./phases/phase-12-music-theory-reading-and-glossary.md)
+  - [Phase 13 — Guided Learning Flow, Animated Demo & Play-Along Accompaniment](./phases/phase-13-guided-flow-demo-accompaniment.md)
+  - [Phase 14 — Custom Trouble-Spot Bar Looping & Post-Run Coach](./phases/phase-14-trouble-spot-looping-and-coach.md)
+  - [Phase 15 — Expressive Classical Notation & Two-Voice Polyphony](./phases/phase-15-expressive-notation-and-polyphony.md)
+  - [Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal)](./phases/phase-16-pianistic-musicality-coaching.md)
 - **Block 2 Hybrid Importer (Future):** Optional `.mid` / MusicXML integration into Stage 2B random sight-reading pool.

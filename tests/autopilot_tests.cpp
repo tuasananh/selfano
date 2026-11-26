@@ -1,6 +1,7 @@
 #include "core/autopilot.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 
 using namespace selfano::core;
 

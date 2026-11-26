@@ -2,6 +2,7 @@
 
 #include "core/ear_trainer.hpp"
 #include "core/key_signature.hpp"
+#include "core/pitch.hpp"
 
 #include "midi/chord_grouper.hpp"
 #include "midi/midi_scheduler.hpp"
@@ -12,6 +13,7 @@
 #include <array>
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
