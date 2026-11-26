@@ -9,6 +9,7 @@
 
 #include "imgui.h"
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <format>

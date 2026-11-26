@@ -1,5 +1,6 @@
 #include "ui/lesson_staff_adapter.hpp"
 
+#include <algorithm>
 #include <format>
 #include <map>
 
