@@ -790,6 +790,22 @@ void AppController::poll_sdl_events(double now_ms) {
               if (click) {
                 audio_synth_.play_metronome_click(accent);
               }
+            } else if (active_practice_stage() == core::AutopilotStage::Stage3Lessons &&
+                       lesson_view_.active_tab() == ui::LessonViewTab::Practice &&
+                       lesson_view_.engine().config().practice_mode ==
+                           core::LessonPracticeMode::SteadyPulse) {
+              bool click = false;
+              bool accent = false;
+              bool stopped = false;
+              lesson_view_.toggle_play_pause(click, accent, &stopped);
+              if (stopped) {
+                for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+                  send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+                }
+              }
+              if (click) {
+                audio_synth_.play_metronome_click(accent);
+              }
             } else {
               trigger_replay_for_active_view(now_ms);
             }

@@ -1373,6 +1373,9 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   if (sys1_start == 0U) {
     opts1.tempo_marking = meta.tempo_marking;
   }
+  if (measures[sys1_start].bar_number > 0U) {
+    opts1.system_start_bar_number = measures[sys1_start].bar_number;
+  }
   auto meter_at_bar = [&](std::size_t target_bar) noexcept {
     core::TimeSignature mtr = meta.time_signature;
     for (std::size_t b = 0; b <= target_bar && b < measures.size(); ++b) {
@@ -1420,6 +1423,10 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
                                                  show_treble, show_bass, nullptr);
     StaffRenderOptions opts2 = opts1;
     opts2.tempo_marking.clear();
+    opts2.system_start_bar_number.reset();
+    if (measures[sys2_start].bar_number > 0U) {
+      opts2.system_start_bar_number = measures[sys2_start].bar_number;
+    }
     opts2.playhead_beat.reset();
     opts2.dim_preview = true;
     opts2.show_final_barline = (sys2_end == slice_end);
@@ -1543,6 +1550,9 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     if (!brief_act.preview_playback_notes.empty()) {
       actions.preview_playback_notes = brief_act.preview_playback_notes;
     }
+    if (brief_act.open_tier_guide && meta.tier > 0U) {
+      curriculum_modal_.open_chapter_guide(meta.tier);
+    }
     if (brief_act.start_practicing) {
       start_practicing(profile, actions);
     }
@@ -1556,6 +1566,11 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
 
     std::vector<StaffHarmonicHitbox> hitboxes;
     draw_staff_systems(smufl_font, ui_font, hitboxes);
+    if (show_harmony_ && !hitboxes.empty()) {
+      ScopedFont cf(TypeStyle::Caption);
+      ImGui::TextColored(colors().text_tertiary,
+                         "Tip: click any chord or Roman numeral to hear and explain it");
+    }
 
     const bool can_trigger_hitbox =
         !curriculum_modal_.is_open() && !import_modal_.is_open() && !hitboxes.empty();

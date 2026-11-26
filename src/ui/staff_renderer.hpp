@@ -132,6 +132,7 @@ struct StaffRenderOptions {
   std::optional<core::TimeSignature> time_signature{};
   bool show_fingerings{true};
   bool show_harmony_labels{false};
+  std::optional<std::uint32_t> system_start_bar_number{};
   std::string tempo_marking{};
   std::vector<StaffSlurSpan> slurs{};
   std::vector<StaffPedalSpan> pedals{};

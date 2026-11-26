@@ -267,3 +267,68 @@ TEST_CASE("A compact Ballade system gives adjacent bass events enough width", "[
   frame.render(measures, options, 1900);
   CHECK(frame.size.x == 1900);
 }
+
+TEST_CASE("System-start measure numbers clear tempo and harmony labels and skip pickup bar 0",
+          "[staff_renderer]") {
+  core::LessonLibrary library;
+  REQUIRE(library.load_built_in_from_directory(std::filesystem::path(SELFANO_SOURCE_ASSETS_DIR) /
+                                               "lessons"));
+  const auto* t101 = library.find_lesson("t1_01");
+  REQUIRE(t101 != nullptr);
+  StaffFrame frame;
+
+  SECTION("System 1 and System 2 render measure numbers cleanly without colliding with tempo or "
+          "harmony") {
+    for (std::size_t start : {0U, 4U}) {
+      const auto measures =
+          ui::build_lesson_staff_measures(std::span{t101->measures}.subspan(start, 4U), start,
+                                          t101->meta.time_signature, true, true);
+      ui::StaffRenderOptions options{};
+      options.key = t101->meta.key;
+      options.time_signature = t101->meta.time_signature;
+      options.show_harmony_labels = true;
+      options.system_start_bar_number = t101->measures[start].bar_number;
+      if (start == 0U) {
+        options.tempo_marking = t101->meta.tempo_marking;
+      }
+      frame.render(measures, options, 900.0f);
+
+      const char digit = (start == 0U) ? '1' : '5';
+      const auto bar_nums = frame.glyphs(frame.fonts.ui_font, 10.5f, digit);
+      REQUIRE(bar_nums.size() == 1U);
+      const auto& bn = bar_nums.front();
+      CHECK(bn.min.y >= 0.0f);
+      CHECK(bn.max.y < frame.size.y);
+
+      for (const auto& hb : frame.hits) {
+        const bool overlaps = bn.min.x < hb.max.x && bn.max.x > hb.min.x && bn.min.y < hb.max.y &&
+                              bn.max.y > hb.min.y;
+        CHECK_FALSE(overlaps);
+      }
+
+      if (start == 0U) {
+        const auto tempo_glyphs = frame.glyphs(frame.fonts.ui_font, 13.5f, 'A');
+        REQUIRE_FALSE(tempo_glyphs.empty());
+        CHECK(tempo_glyphs.front().max.y < bn.min.y);
+      }
+    }
+  }
+
+  SECTION("Pickup bar 0 omits the system-start measure number") {
+    const auto* t501 = library.find_lesson("t5_01");
+    REQUIRE(t501 != nullptr);
+    REQUIRE(t501->measures.front().bar_number == 0U);
+    const auto measures = ui::build_lesson_staff_measures(std::span{t501->measures}.first(4U), 0U,
+                                                          t501->meta.time_signature, true, true);
+    ui::StaffRenderOptions options{};
+    options.key = t501->meta.key;
+    options.time_signature = t501->meta.time_signature;
+    options.system_start_bar_number = 0U;
+    frame.render(measures, options, 900.0f);
+    CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '0').empty());
+
+    options.system_start_bar_number.reset();
+    frame.render(measures, options, 900.0f);
+    CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '0').empty());
+  }
+}

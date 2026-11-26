@@ -1138,6 +1138,18 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
   for (auto& label : annotations) {
     place_label(label, 0);
   }
+  if (options.system_start_bar_number.has_value() && *options.system_start_bar_number > 0U &&
+      roman_font != nullptr) {
+    const float num_sz = draw_font_size(10.5f);
+    const std::string num_str = std::to_string(*options.system_start_bar_number);
+    StaffInk bar_num;
+    const float base_y = system_top_y - num_sz - 0.35f * s;
+    const ImU32 num_col = detail::apply_alpha_scale(pal.ink, 0.56f);
+    bar_num.text(roman_font, num_sz, {std::round(system_left_x), std::round(base_y)}, num_col,
+                 num_str.c_str());
+    const float dy = bar_num.clearance(score, true, 0.30f * s);
+    score.append(std::move(bar_num), dy);
+  }
   if (ann_font && !options.tempo_marking.empty()) {
     const float size = draw_font_size(13.5f);
     score.text(ann_font, size, {system_left_x, score.top(system_top_y) - size - 0.45f * s}, pal.ink,

@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-26
-- **Active Phase:** **Phase 20** — Apple HIG Learn Brief, System Measure Numbers & Input Polish (`Phases 0–19 Complete`)
-- **Last Completed Phase:** Phase 19 — Non-Blocking Post-Run Coach & Upgraded Curriculum Browser
+- **Active Phase:** **Phases 0–20 Complete** — Lessons UX, Navigation & Discoverability Complete
+- **Last Completed Phase:** Phase 20 — Apple HIG Learn Brief, System Measure Numbers & Input Polish
 
 ---
 
@@ -303,7 +303,7 @@
   - **Phase 17:** Lesson Navigation Bar, Prev/Next Stepping & Discoverable Curriculum Access ([`docs/phases/phase-17-lesson-navigation-and-curriculum-access.md`](./phases/phase-17-lesson-navigation-and-curriculum-access.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 97/97 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified across `Learn`, `Practice`, and `My Books`)
   - **Phase 18:** Interactive Practice Strip, Visible Lesson Progress & Above-the-Fold Score Fit ([`docs/phases/phase-18-practice-bar-progress-and-viewport.md`](./phases/phase-18-practice-bar-progress-and-viewport.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 98/98 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on `t1_01`, `t6_04`, `--bar-range 2-3`, and `--open-lesson-settings`)
   - **Phase 19:** Non-Blocking Post-Run Coach & Upgraded Curriculum Browser ([`docs/phases/phase-19-post-run-coach-and-curriculum-browser.md`](./phases/phase-19-post-run-coach-and-curriculum-browser.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 98/98 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on imperfect Post-Run Coach, auto-scrolled Curriculum Browser `t3_03`, and `My Books` at `1360x860` & `980x710`)
-  - **Phase 20:** Apple HIG Learn Brief, System Measure Numbers & Input Polish ([`docs/phases/phase-20-lesson-brief-and-score-ergonomics.md`](./phases/phase-20-lesson-brief-and-score-ergonomics.md)) (`[ ] Planned` — **Start here**)
+  - **Phase 20:** Apple HIG Learn Brief, System Measure Numbers & Input Polish ([`docs/phases/phase-20-lesson-brief-and-score-ergonomics.md`](./phases/phase-20-lesson-brief-and-score-ergonomics.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 99/99 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on expanded Learn Brief `t4_01`/`t6_03` and Practice `t1_01`/`t3_01`/`t5_01`/`t6_04`, live headless Chromium CDP on `build/web-release` at `1360x717` & `980x710` passed with 0 console errors, 0 JS/WASM exceptions, and 0 HTTP errors)
   - **Phase 19:** Non-Blocking Post-Run Coach & Upgraded Curriculum Browser ([`docs/phases/phase-19-post-run-coach-and-curriculum-browser.md`](./phases/phase-19-post-run-coach-and-curriculum-browser.md)) (`[ ] Planned`)
   - **Phase 20:** Apple HIG Learn Brief, System Measure Numbers & Input Polish ([`docs/phases/phase-20-lesson-brief-and-score-ergonomics.md`](./phases/phase-20-lesson-brief-and-score-ergonomics.md)) (`[ ] Planned`)
 - **Previously Completed (Phases 0–16 + Post-Phase 16):**

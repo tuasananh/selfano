@@ -9,6 +9,7 @@ namespace selfano::ui {
 
 struct LessonBriefActions {
   bool start_practicing{false};
+  bool open_tier_guide{false};
   std::vector<core::LessonPlaybackNote> preview_playback_notes;
 };
 

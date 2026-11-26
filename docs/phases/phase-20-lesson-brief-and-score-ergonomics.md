@@ -1,6 +1,6 @@
 # Phase 20: Apple HIG Learn Brief, System Measure Numbers & Input Polish
 
-**Status:** `[ ] Planned` (Depends on Phase 17 & Phase 18)  
+**Status:** `[x] Complete` (Depends on Phase 17 & Phase 18)  
 **Goal:** Replace the collapsed raw-ImGui details block on the Learn Brief with scannable Apple HIG cards and a direct Tier Chapter Guide shortcut; add quiet classical system-start measure numbers so bar-range loops map effortlessly to the score; surface a subtle harmony clickability hint; and unify `Space` key transport across Continuous Etudes and Steady-Beat Lessons.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `apple-hig-imgui`, `verification-and-review`
