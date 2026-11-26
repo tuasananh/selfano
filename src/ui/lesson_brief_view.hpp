@@ -13,6 +13,6 @@ struct LessonBriefActions {
 };
 
 [[nodiscard]] LessonBriefActions draw_lesson_brief(const core::LessonScore& score,
-                                                   const core::LessonProgress& prog);
+                                                   bool already_read);
 
 } // namespace selfano::ui

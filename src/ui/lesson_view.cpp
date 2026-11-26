@@ -1398,7 +1398,7 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
   ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
 
   if (active_tab_ == LessonViewTab::Learn) {
-    const auto brief_act = draw_lesson_brief(engine_.score(), prog);
+    const auto brief_act = draw_lesson_brief(engine_.score(), prog.brief_read);
     if (!brief_act.preview_playback_notes.empty()) {
       actions.preview_playback_notes = brief_act.preview_playback_notes;
     }
