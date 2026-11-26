@@ -343,6 +343,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/autopilot_tests.cpp
     tests/profile_store_tests.cpp
     tests/piano_remote_tests.cpp
+    tests/lesson_view_tests.cpp
     tests/lesson_score_tests.cpp
     tests/lesson_engine_tests.cpp
     tests/lesson_library_tests.cpp

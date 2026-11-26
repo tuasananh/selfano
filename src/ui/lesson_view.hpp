@@ -56,8 +56,8 @@ class LessonView {
 public:
   LessonView() = default;
 
-  void load_lesson(const core::LessonScore& score, bool brief_already_read = true,
-                   std::optional<core::LessonConfig> cfg = {});
+  void load_lesson(const core::LessonScore& score, const core::LessonProgress& progress);
+  void start_practicing(core::UserProfile& profile, LessonViewActions& actions);
   void set_active_tab(LessonViewTab tab) noexcept;
   [[nodiscard]] LessonViewTab active_tab() const noexcept { return active_tab_; }
   void open_chapter_guide(std::uint8_t tier) noexcept {

@@ -93,22 +93,28 @@ void append_playback_notes(double now_ms, std::span<const core::LessonPlaybackNo
 
 } // namespace
 
-void LessonView::load_lesson(const core::LessonScore& score, bool brief_already_read,
-                             std::optional<core::LessonConfig> cfg) {
-  core::LessonConfig next_cfg = cfg.value_or(engine_.config());
-  const bool switched_lesson = (score.meta.id != engine_.score().meta.id);
-  if (switched_lesson) {
-    next_cfg.phrase_index.reset();
-    next_cfg.custom_bar_range.reset();
-    just_mastered_banner_ = false;
-    show_post_run_coach_ = false;
-    last_run_summary_.reset();
-    active_harmony_explanation_.reset();
-    const bool has_brief = !score.meta.is_imported && !score.meta.theory.concept_title.empty();
-    active_tab_ =
-        (!brief_already_read && has_brief) ? LessonViewTab::Learn : LessonViewTab::Practice;
+void LessonView::load_lesson(const core::LessonScore& score, const core::LessonProgress& progress) {
+  const auto step = core::suggest_next_practice_step(score, progress);
+  just_mastered_banner_ = false;
+  show_post_run_coach_ = false;
+  last_run_summary_.reset();
+  active_harmony_explanation_.reset();
+  active_tab_ = step.open_learn_brief ? LessonViewTab::Learn : LessonViewTab::Practice;
+  engine_.load_score(score, step.target_config);
+}
+
+void LessonView::start_practicing(core::UserProfile& profile, LessonViewActions& actions) {
+  const auto& score = engine_.score();
+  if (!score.meta.id.empty()) {
+    auto& progress = profile.lesson_progress[score.meta.id];
+    if (!progress.brief_read) {
+      progress.brief_read = true;
+      actions.profile_dirty = true;
+      engine_.configure(core::suggest_next_practice_step(score, progress).target_config);
+    }
   }
-  engine_.load_score(score, next_cfg);
+  actions.stop_all_playback = true;
+  set_active_tab(LessonViewTab::Practice);
 }
 
 void LessonView::set_active_tab(LessonViewTab tab) noexcept {
@@ -358,7 +364,7 @@ void LessonView::simulate_completed_run_for_smoke(SmokeCoachSimMode mode,
 bool LessonView::on_played_chord(const midi::PlayedChord& chord, core::UserProfile& profile,
                                  std::int64_t today_epoch_day, bool& out_chime,
                                  bool& out_just_mastered) {
-  if (chord.notes.empty()) {
+  if (active_tab_ != LessonViewTab::Practice || chord.notes.empty()) {
     return false;
   }
   const auto res = engine_.submit_played_notes(chord.notes, chord.velocities, chord.from_hardware);
@@ -384,6 +390,9 @@ void LessonView::update(double dt_ms, double now_ms, core::UserProfile& profile,
 }
 
 void LessonView::toggle_play_pause(bool& out_click, bool& out_accent, bool* out_stopped) {
+  if (active_tab_ == LessonViewTab::Learn) {
+    return;
+  }
   if (engine_.config().practice_mode != core::LessonPracticeMode::SteadyPulse) {
     engine_.set_practice_mode(core::LessonPracticeMode::SteadyPulse);
   }
@@ -574,18 +583,12 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
     int tab_idx = static_cast<int>(active_tab_);
     if (segmented_control("##lv_tab_seg", &tab_idx, kLessonTabs, 168.0f, 32.0f)) {
       const auto next_tab = static_cast<LessonViewTab>(tab_idx);
-      if (active_tab_ == LessonViewTab::Learn && next_tab == LessonViewTab::Practice &&
-          !meta.id.empty()) {
-        auto& lp = profile.lesson_progress[meta.id];
-        if (!lp.brief_read) {
-          lp.brief_read = true;
-          actions.profile_dirty = true;
-        }
-      }
-      if (next_tab == LessonViewTab::Learn) {
+      if (next_tab == LessonViewTab::Practice) {
+        start_practicing(profile, actions);
+      } else {
         actions.stop_all_playback = true;
+        set_active_tab(next_tab);
       }
-      set_active_tab(next_tab);
     }
   }
   if (active_tab_ == LessonViewTab::Practice) {
@@ -1400,14 +1403,7 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
       actions.preview_playback_notes = brief_act.preview_playback_notes;
     }
     if (brief_act.start_practicing) {
-      if (!meta.id.empty()) {
-        auto& lp = profile.lesson_progress[meta.id];
-        if (!lp.brief_read) {
-          lp.brief_read = true;
-          actions.profile_dirty = true;
-        }
-      }
-      set_active_tab(LessonViewTab::Practice);
+      start_practicing(profile, actions);
     }
   } else {
     draw_scaffold_bar(prog, actions);
