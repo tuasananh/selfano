@@ -275,6 +275,14 @@
 - `cmake --build --preset native-debug` and `ctest --preset native-debug --output-on-failure` passed 95/95 cases. The renderer regressions exercise the opening and Upcoming systems of `t1_01`, bass and grand-staff fingering stacks, continued spans, harmony hitboxes, feedback stability, and compact Ballade bass spacing.
 - The `web-release` build passed. Native light and dark screenshots covered `t1_01` and `t6_04`. Chromium checks at 1780×1080 and 980×710 verified vertical and horizontal scrolling and the tonic popover after a Roman-numeral click, with zero console, runtime, or network errors.
 
+### Post-Phase 16 — Guided lesson experience
+
+- The lesson brief puts its first practice action and listening example above the fold. Practice prepares the exercise from saved progress and shows the passage, hand, and playing instruction above the staff. Manual controls live in Practice settings.
+- Finishing a passage offers one action to continue, drill a trouble spot, retry, or advance to the next lesson. Result details include accuracy, available musicality feedback, and enrollment in the retention deck. Loops continue accepting input between repetitions.
+- `cmake --build --preset native-debug` and `ctest --preset native-debug --output-on-failure` passed all 96 test cases. The lesson-view regression covers entry from the brief, returning and imported lessons, demo input isolation, preserving manual settings, and uninterrupted guided-revision loops.
+- `emcmake cmake --preset web-release` and `cmake --build --preset web-release` passed. Formatting checks passed on the changed C++ files and the core source include scan returned zero matches.
+- Native light and dark screenshots covered the opening grand staff. A MusicXML import opened directly in Practice. Chromium checks at 980×710 and 1360×717 covered both themes and piano dock states, with zero console, runtime, or network errors. A QWERTY performance of the opening eight chords earned 100% and advanced to Phrase A for the right hand. Additional checks covered count-in, pause/resume, demo, harmony popover, scrolling, result details, slow bar loops, manual mastery, next lesson, Autopilot lesson entry, and profile reload.
+
 ---
 
 ## Locked Architectural Decisions (Quick Reference)
