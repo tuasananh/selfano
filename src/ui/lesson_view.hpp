@@ -107,6 +107,13 @@ public:
   [[nodiscard]] bool is_revision_mode() const noexcept { return is_revision_mode_; }
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return engine_.completed_runs(); }
   [[nodiscard]] std::uint32_t completed_revisions() const noexcept { return completed_revisions_; }
+  [[nodiscard]] bool is_post_run_coach_visible() const noexcept { return show_post_run_coach_; }
+  [[nodiscard]] std::optional<std::size_t> coach_focus_bar() const noexcept {
+    return coach_focus_bar_;
+  }
+  [[nodiscard]] std::optional<double> last_loop_accuracy() const noexcept {
+    return last_loop_accuracy_;
+  }
 
   [[nodiscard]] core::LessonEngine& mutable_engine() noexcept { return engine_; }
   [[nodiscard]] const core::LessonEngine& engine() const noexcept { return engine_; }
@@ -163,6 +170,8 @@ private:
   std::optional<std::size_t> pending_cli_popover_idx_{};
   std::optional<core::LessonRunSummary> last_run_summary_{};
   bool show_post_run_coach_{false};
+  std::optional<std::size_t> coach_focus_bar_{};
+  std::optional<double> last_loop_accuracy_{};
   bool pending_open_settings_{false};
 };
 

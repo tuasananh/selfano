@@ -171,9 +171,24 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Classical Curriculum");
   }
-  ImGui::SameLine(0.0f, 16.0f * scale);
+  ImGui::SameLine(0.0f, 14.0f * scale);
   static constexpr std::array<std::string_view, 2> kTabs{"Tiers 1-6", "My Books"};
-  segmented_control("##curr_tab_seg", &tab_, kTabs, 210.0f, 30.0f);
+  segmented_control("##curr_tab_seg", &tab_, kTabs, 196.0f, 30.0f);
+
+  const auto built_in_all = library.built_in_lessons();
+  std::size_t built_in_mastered = 0U;
+  for (const auto* l : built_in_all) {
+    if (const auto it = profile.lesson_progress.find(l->meta.id);
+        it != profile.lesson_progress.end() &&
+        it->second.status == core::LessonMasteryStatus::Mastered) {
+      ++built_in_mastered;
+    }
+  }
+  if (!built_in_all.empty()) {
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    status_pill(std::format("{} / {} Mastered", built_in_mastered, built_in_all.size()),
+                built_in_mastered > 0U ? StatusTone::Success : StatusTone::Neutral, IconId::Check);
+  }
 
   const float close_w = 84.0f * scale;
   const float avail_end = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
@@ -182,7 +197,22 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
     open_ = false;
   }
 
-  hairline_separator(10.0f);
+  if (tab_ == 0) {
+    if (scroll_to_active_frames_ > 0 && tier_filter_ != 0) {
+      const auto* active_sc = library.find_lesson(active_lesson_id);
+      if (active_sc != nullptr && !active_sc->meta.is_imported &&
+          active_sc->meta.tier != static_cast<std::uint8_t>(tier_filter_)) {
+        tier_filter_ = 0;
+      }
+    }
+    ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
+    static constexpr std::array<std::string_view, 7> kTierFilters{"All", "T1", "T2", "T3",
+                                                                  "T4",  "T5", "T6"};
+    const float filter_w = std::min(380.0f, ImGui::GetContentRegionAvail().x / scale);
+    segmented_control("##curr_tier_filter", &tier_filter_, kTierFilters, filter_w, 26.0f);
+  }
+
+  hairline_separator(8.0f);
 
   if (ImGui::BeginChild("##curr_scroll", ImVec2(0.0f, 0.0f))) {
     auto draw_lesson_row = [&](const core::LessonScore* lesson) {
@@ -201,32 +231,42 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
       }
       status_pill(mastery_status_label(eff_st), mastery_status_tone(eff_st), IconId::None, true);
 
-      const float open_w = 98.0f * scale;
+      const float actions_w = lesson->meta.is_imported ? (206.0f * scale) : (96.0f * scale);
       const float row_right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-      if (ImGui::GetItemRectMax().x + 12.0f * scale + open_w <= row_right) {
+      if (ImGui::GetItemRectMax().x + 12.0f * scale + actions_w <= row_right) {
         ImGui::SameLine(
             std::max(ImGui::GetCursorPosX() + 8.0f * scale,
-                     ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - open_w));
+                     ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - actions_w));
       }
+      bool sub_hovered = false;
+      bool sub_clicked = false;
       const std::string btn_id =
           std::format("{}##open_{}", is_active ? "Current" : "Open", lesson->meta.id);
       if (pill_button(btn_id.c_str(), is_active ? ButtonTone::SoftAccent : ButtonTone::Primary,
                       IconId::ChevronRight, 28.0f, 88.0f, true)) {
-        actions.select_lesson_id = lesson->meta.id;
+        if (!is_active) {
+          actions.select_lesson_id = lesson->meta.id;
+        }
         open_ = false;
+        sub_clicked = true;
       }
+      sub_hovered |= ImGui::IsItemHovered();
       if (lesson->meta.is_imported) {
         ImGui::SameLine(0.0f, 6.0f * scale);
         const std::string edit_id = std::format("Edit##edit_{}", lesson->meta.id);
-        if (pill_button(edit_id.c_str(), ButtonTone::Secondary, IconId::Edit, 28.0f)) {
+        if (pill_button(edit_id.c_str(), ButtonTone::Secondary, IconId::Edit, 28.0f, 68.0f)) {
           actions.edit_imported_lesson = *lesson;
+          sub_clicked = true;
         }
+        sub_hovered |= ImGui::IsItemHovered();
         ImGui::SameLine(0.0f, 6.0f * scale);
         const std::string del_id = std::format("##del_{}", lesson->meta.id);
         if (icon_button(del_id.c_str(), IconId::Trash, "Delete Imported Score", false, 28.0f,
                         ButtonTone::Destructive)) {
           actions.delete_imported_lesson_id = lesson->meta.id;
+          sub_clicked = true;
         }
+        sub_hovered |= ImGui::IsItemHovered();
       }
 
       {
@@ -249,17 +289,46 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
                            prog.best_accuracy * 100.0);
       }
 
+      const bool card_hovered = ImGui::IsWindowHovered() && !sub_hovered;
+      if (card_hovered) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !sub_clicked) {
+          if (!is_active) {
+            actions.select_lesson_id = lesson->meta.id;
+          }
+          open_ = false;
+        }
+      }
+
       end_card();
+      if (is_active && scroll_to_active_frames_ > 0) {
+        ImGui::SetScrollHereY(0.45f);
+      }
       ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
     };
 
     if (tab_ == 0) {
       for (const auto& tier : library.tiers()) {
+        if (tier_filter_ != 0 && tier.tier != static_cast<std::uint8_t>(tier_filter_)) {
+          continue;
+        }
         const auto tier_lessons = library.lessons_in_tier(tier.tier);
         if (tier_lessons.empty()) {
           continue;
         }
+        std::size_t tier_mastered = 0U;
+        for (const auto* tl : tier_lessons) {
+          if (const auto it = profile.lesson_progress.find(tl->meta.id);
+              it != profile.lesson_progress.end() &&
+              it->second.status == core::LessonMasteryStatus::Mastered) {
+            ++tier_mastered;
+          }
+        }
         section_kicker(tier.title.c_str());
+        ImGui::SameLine(0.0f, 8.0f * scale);
+        status_pill(std::format("{} / {}", tier_mastered, tier_lessons.size()),
+                    tier_mastered == tier_lessons.size() ? StatusTone::Success
+                                                         : StatusTone::Neutral);
         if (library.find_tier_guide(tier.tier) != nullptr) {
           const float guide_w = 132.0f * scale;
           const float end_x = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
@@ -326,6 +395,9 @@ CurriculumModalActions CurriculumModal::draw(const core::LessonLibrary& library,
     }
   }
   ImGui::EndChild();
+  if (scroll_to_active_frames_ > 0) {
+    --scroll_to_active_frames_;
+  }
 
   end_modal_sheet(open_);
   return actions;

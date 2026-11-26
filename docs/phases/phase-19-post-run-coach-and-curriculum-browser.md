@@ -1,6 +1,6 @@
 # Phase 19: Non-Blocking Post-Run Coach & Upgraded Curriculum Browser
 
-**Status:** `[ ] Planned` (Depends on Phase 17 & Phase 18)  
+**Status:** `[x] Complete` (Depends on Phase 17 & Phase 18)  
 **Goal:** Eliminate dead-end waits after finishing a passage by making the Post-Run Coach non-blocking and actionable (inline accuracy `%`, `Try again`, `Dismiss`, play-to-retry in untimed modes, trouble-spot staff focus, and loop-mode accuracy pills), and upgrade the Curriculum & `My Books` browser with Tier filters, mastery counts, active-lesson auto-scroll, full-row clickability, and clipping-free `My Books` actions.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `verification-and-review`
