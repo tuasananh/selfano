@@ -470,8 +470,8 @@ bool AppController::init(const CliOptions& cli_opts) {
   if (main_scale <= 0.0f) {
     main_scale = 1.0f;
   }
-  const int init_w = static_cast<int>(1360 * main_scale);
-  const int init_h = static_cast<int>(860 * main_scale);
+  const int init_w = static_cast<int>(cli_.window_width.value_or(1360) * main_scale);
+  const int init_h = static_cast<int>(cli_.window_height.value_or(860) * main_scale);
   const SDL_WindowFlags window_flags =
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
@@ -603,6 +603,17 @@ bool AppController::init(const CliOptions& cli_opts) {
   }
   if (cli_.open_chapter_guide_tier.has_value()) {
     lesson_view_.open_chapter_guide(*cli_.open_chapter_guide_tier);
+  }
+  if (cli_.open_curriculum) {
+    if (lesson_view_.engine().score().meta.is_imported) {
+      lesson_view_.open_my_books_tab();
+    } else {
+      lesson_view_.open_curriculum_browser();
+    }
+  }
+  if (cli_.open_lesson_settings) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.request_open_settings_popover();
   }
   if (cli_.open_theory_popover_index.has_value()) {
     lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
@@ -742,6 +753,27 @@ void AppController::poll_sdl_events(double now_ms) {
           continue;
         }
       }
+      const bool has_alt_only = (event.key.mod & SDL_KMOD_ALT) != 0 &&
+                                (event.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) == 0;
+      if (!io.WantTextInput && !event.key.repeat && has_alt_only &&
+          active_practice_stage() == core::AutopilotStage::Stage3Lessons &&
+          (event.key.key == SDLK_LEFT || event.key.key == SDLK_RIGHT)) {
+        const std::string& cur_id = lesson_view_.engine().score().meta.id;
+        const auto target_id = (event.key.key == SDLK_LEFT)
+                                   ? lesson_library_.previous_lesson_id(cur_id)
+                                   : lesson_library_.next_lesson_id(cur_id);
+        if (target_id.has_value()) {
+          for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+            send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+          }
+          if (select_active_lesson(*target_id, now_ms, true)) {
+            if (const auto* sc = lesson_library_.find_lesson(*target_id)) {
+              show_hud_toast("Lesson: " + sc->meta.title, now_ms);
+            }
+          }
+        }
+        continue;
+      }
       const bool has_shortcut_mod =
           (event.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)) != 0;
       if (!io.WantTextInput && !has_shortcut_mod) {
@@ -755,6 +787,22 @@ void AppController::poll_sdl_events(double now_ms) {
               bool click = false;
               bool accent = false;
               etude_view_.toggle_play_pause(click, accent);
+              if (click) {
+                audio_synth_.play_metronome_click(accent);
+              }
+            } else if (active_practice_stage() == core::AutopilotStage::Stage3Lessons &&
+                       lesson_view_.active_tab() == ui::LessonViewTab::Practice &&
+                       lesson_view_.engine().config().practice_mode ==
+                           core::LessonPracticeMode::SteadyPulse) {
+              bool click = false;
+              bool accent = false;
+              bool stopped = false;
+              lesson_view_.toggle_play_pause(click, accent, &stopped);
+              if (stopped) {
+                for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+                  send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+                }
+              }
               if (click) {
                 audio_synth_.play_metronome_click(accent);
               }
@@ -937,9 +985,15 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
       }
     }
     if (lv_act.select_lesson_id.has_value()) {
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
       lesson_view_.set_revision_context(false);
       (void)select_active_lesson(*lv_act.select_lesson_id, now_ms, true);
     } else if (lv_act.next_lesson_id.has_value()) {
+      for (const auto& act : playback_scheduler_.panic_all_notes_off()) {
+        send_outbound_note_logged(act.note, 0, act.channel, false, now_ms);
+      }
       lesson_view_.set_revision_context(false);
       (void)select_active_lesson(*lv_act.next_lesson_id, now_ms, true);
     }

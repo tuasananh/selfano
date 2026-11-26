@@ -325,11 +325,8 @@ void Phase2Sandbox::draw(ImFont* smufl_font, ImFont* ui_font,
   opts.light_paper_theme = light_paper_theme_;
 
   const float canvas_w = std::max(500.0f, ImGui::GetContentRegionAvail().x);
-  const float canvas_h = compute_staff_canvas_height(opts);
-  const ImVec2 canvas_origin = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton("##phase2_staff", ImVec2(canvas_w, canvas_h));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, canvas_origin, canvas_w, measures,
-               opts);
+
+  draw_staff_canvas("##phase2_staff", smufl_font, ui_font, canvas_w, measures, opts);
 
   ImGui::Spacing();
 

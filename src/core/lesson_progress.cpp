@@ -17,6 +17,47 @@
 
 namespace selfano::core {
 
+namespace {
+
+[[nodiscard]] bool score_has_parseable_harmony(const LessonScore& score) noexcept {
+  for (const auto& m : score.measures) {
+    for (const auto& ha : m.harmony) {
+      if (parse_chord_symbol(ha.chord_symbol).has_value()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+[[nodiscard]] std::pair<bool, bool> phrase_hand_presence(const LessonScore& score,
+                                                         const LessonPhrase& phrase) noexcept {
+  bool has_treble = false;
+  bool has_bass = false;
+  if (score.measures.empty()) {
+    return {false, false};
+  }
+  const std::size_t s_bar = phrase.start_bar;
+  const std::size_t e_bar = std::min(score.measures.size() - 1U, phrase.end_bar);
+  for (std::size_t b = s_bar; b <= e_bar && b < score.measures.size(); ++b) {
+    for (const auto& ev : score.measures[b].treble_events) {
+      if (!ev.is_rest && !ev.notes.empty()) {
+        has_treble = true;
+        break;
+      }
+    }
+    for (const auto& ev : score.measures[b].bass_events) {
+      if (!ev.is_rest && !ev.notes.empty()) {
+        has_bass = true;
+        break;
+      }
+    }
+  }
+  return {has_treble, has_bass};
+}
+
+} // namespace
+
 double compute_ladder_bpm(double target_bpm, TempoLadderStep step, double custom_bpm) noexcept {
   const double safe_target = std::clamp(target_bpm, 36.0, 220.0);
   switch (step) {
@@ -214,18 +255,7 @@ GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
     return step;
   }
 
-  bool has_harmony = false;
-  for (const auto& m : score.measures) {
-    for (const auto& ha : m.harmony) {
-      if (parse_chord_symbol(ha.chord_symbol).has_value()) {
-        has_harmony = true;
-        break;
-      }
-    }
-    if (has_harmony) {
-      break;
-    }
-  }
+  const bool has_harmony = score_has_parseable_harmony(score);
   if (!prog.skeleton_clean && has_harmony) {
     step.milestone_index = 1;
     step.label = "Chord Skeleton Map";
@@ -239,24 +269,7 @@ GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
   const auto phrases = effective_phrases(score);
   const std::size_t phrase_count = std::min<std::size_t>(phrases.size(), 32U);
   for (std::size_t i = 0; i < phrase_count; ++i) {
-    bool has_treble = false;
-    bool has_bass = false;
-    const std::size_t s_bar = phrases[i].start_bar;
-    const std::size_t e_bar = std::min(score.measures.size() - 1U, phrases[i].end_bar);
-    for (std::size_t b = s_bar; b <= e_bar && b < score.measures.size(); ++b) {
-      for (const auto& ev : score.measures[b].treble_events) {
-        if (!ev.is_rest && !ev.notes.empty()) {
-          has_treble = true;
-          break;
-        }
-      }
-      for (const auto& ev : score.measures[b].bass_events) {
-        if (!ev.is_rest && !ev.notes.empty()) {
-          has_bass = true;
-          break;
-        }
-      }
-    }
+    const auto [has_treble, has_bass] = phrase_hand_presence(score, phrases[i]);
 
     const auto bit = static_cast<std::uint32_t>(1U << i);
     const char letter = static_cast<char>('A' + static_cast<int>(i % 26U));
@@ -306,6 +319,82 @@ GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
   step.target_config.hand_mode = LessonHandMode::HandsTogether;
   step.target_config.tempo_step = TempoLadderStep::Slow60;
   return step;
+}
+
+bool is_phrase_cleared(const LessonScore& score, const LessonProgress& prog,
+                       std::size_t phrase_idx) noexcept {
+  if (phrase_idx >= 32U) {
+    return false;
+  }
+  const auto bit = static_cast<std::uint32_t>(1U << phrase_idx);
+  if ((prog.phrase_both_mask & bit) != 0U) {
+    return true;
+  }
+  const auto phrases = effective_phrases(score);
+  if (phrase_idx >= phrases.size() || score.measures.empty()) {
+    return false;
+  }
+  const auto [has_tr, has_bs] = phrase_hand_presence(score, phrases[phrase_idx]);
+  if (!has_tr && !has_bs) {
+    return true;
+  }
+  if (!has_bs && has_tr) {
+    return (prog.phrase_rh_mask & bit) != 0U;
+  }
+  if (!has_tr && has_bs) {
+    return (prog.phrase_lh_mask & bit) != 0U;
+  }
+  return false;
+}
+
+LessonProgressSummary summarize_lesson_progress(const LessonScore& score,
+                                                const LessonProgress& prog) {
+  LessonProgressSummary summary{};
+  const bool brief_applicable = !score.meta.is_imported && !score.meta.theory.concept_title.empty();
+  summary.brief_done = prog.brief_read || !brief_applicable;
+  summary.skeleton_applicable = score_has_parseable_harmony(score);
+  summary.skeleton_done = summary.skeleton_applicable && prog.skeleton_clean;
+
+  const auto phrases = effective_phrases(score);
+  summary.phrases_total = std::min<std::size_t>(phrases.size(), 32U);
+  for (std::size_t i = 0; i < summary.phrases_total; ++i) {
+    if (is_phrase_cleared(score, prog, i)) {
+      ++summary.phrases_cleared;
+    }
+  }
+
+  if (prog.status == LessonMasteryStatus::Mastered || prog.ladder_100_clean) {
+    summary.ladder_cleared = 3U;
+  } else if (prog.ladder_80_clean) {
+    summary.ladder_cleared = 2U;
+  } else if (prog.ladder_60_clean) {
+    summary.ladder_cleared = 1U;
+  } else {
+    summary.ladder_cleared = 0U;
+  }
+
+  const auto next_step = suggest_next_practice_step(score, prog);
+  summary.milestone_index = static_cast<std::uint8_t>(std::clamp(next_step.milestone_index, 0, 4));
+  switch (summary.milestone_index) {
+  case 4U:
+    summary.milestone_label = "Mastered";
+    break;
+  case 0U:
+    summary.milestone_label = "Step 1/4 \xC2\xB7 Brief";
+    break;
+  case 1U:
+    summary.milestone_label = "Step 2/4 \xC2\xB7 Chord shapes";
+    break;
+  case 2U:
+    summary.milestone_label = std::format("Step 3/4 \xC2\xB7 Phrases {}/{}",
+                                          summary.phrases_cleared, summary.phrases_total);
+    break;
+  case 3U:
+  default:
+    summary.milestone_label = std::format("Step 4/4 \xC2\xB7 Tempo {}/3", summary.ladder_cleared);
+    break;
+  }
+  return summary;
 }
 
 std::optional<TroubleSpot> find_trouble_spot(const LessonRunSummary& summary) {

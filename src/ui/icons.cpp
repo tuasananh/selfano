@@ -273,6 +273,12 @@ void draw_icon(ImDrawList* dl, IconId icon, ImVec2 c, float size, ImU32 col, flo
     break;
   }
 
+  case IconId::ChevronLeft: {
+    dl->AddLine(ImVec2(c.x + r * 0.24f, c.y - r * 0.52f), ImVec2(c.x - r * 0.32f, c.y), col, s);
+    dl->AddLine(ImVec2(c.x - r * 0.32f, c.y), ImVec2(c.x + r * 0.24f, c.y + r * 0.52f), col, s);
+    break;
+  }
+
   case IconId::ChevronRight: {
     dl->AddLine(ImVec2(c.x - r * 0.24f, c.y - r * 0.52f), ImVec2(c.x + r * 0.32f, c.y), col, s);
     dl->AddLine(ImVec2(c.x + r * 0.32f, c.y), ImVec2(c.x - r * 0.24f, c.y + r * 0.52f), col, s);

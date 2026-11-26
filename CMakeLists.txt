@@ -233,6 +233,7 @@ add_library(piano_ui STATIC
   src/ui/design_system.cpp
   src/ui/icons.cpp
   src/ui/widgets.cpp
+  src/ui/staff_ink.cpp
   src/ui/staff_primitives.cpp
   src/ui/staff_renderer.cpp
   src/ui/lesson_staff_adapter.cpp
@@ -332,6 +333,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/key_signature_tests.cpp
     tests/theory_tests.cpp
     tests/staff_layout_tests.cpp
+    tests/staff_renderer_tests.cpp
     tests/warmup_tests.cpp
     tests/flashcard_tests.cpp
     tests/etude_tests.cpp
@@ -341,6 +343,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/autopilot_tests.cpp
     tests/profile_store_tests.cpp
     tests/piano_remote_tests.cpp
+    tests/lesson_view_tests.cpp
     tests/lesson_score_tests.cpp
     tests/lesson_engine_tests.cpp
     tests/lesson_library_tests.cpp
@@ -355,6 +358,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     PRIVATE
       piano_core
       piano_midi
+      piano_ui
       miniz
       Catch2::Catch2WithMain
       selfano_warnings

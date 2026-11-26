@@ -40,6 +40,14 @@ struct TierChapterGuide {
   bool operator==(const TierChapterGuide&) const = default;
 };
 
+struct LessonPosition {
+  std::size_t index{0}; // 1-based for display; 0 when not found
+  std::size_t total{0};
+  bool is_imported{false};
+
+  bool operator==(const LessonPosition&) const = default;
+};
+
 class LessonLibrary {
 public:
   [[nodiscard]] std::expected<void, std::string>
@@ -67,7 +75,9 @@ public:
   [[nodiscard]] std::vector<const LessonScore*> lessons_in_tier(std::uint8_t tier) const;
 
   [[nodiscard]] const LessonScore* find_lesson(std::string_view id) const noexcept;
+  [[nodiscard]] std::optional<std::string> previous_lesson_id(std::string_view current_id) const;
   [[nodiscard]] std::optional<std::string> next_lesson_id(std::string_view current_id) const;
+  [[nodiscard]] LessonPosition lesson_position(std::string_view current_id) const;
 
 private:
   std::vector<CurriculumTierInfo> tiers_;

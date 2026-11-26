@@ -11,13 +11,14 @@
 namespace selfano::ui {
 
 enum class ButtonTone : std::uint8_t {
-  Primary = 0,     // Solid Apple Blue
-  Success = 1,     // Solid Apple Emerald
-  Secondary = 2,   // Subtle elevated gray control fill
-  SoftAccent = 3,  // Soft translucent blue tint
-  Ghost = 4,       // Transparent until hovered
-  Destructive = 5, // Soft coral tint
-  Warning = 6,     // Soft amber tint
+  Primary = 0,          // Solid Apple Blue
+  Success = 1,          // Solid Apple Emerald
+  Secondary = 2,        // Subtle elevated gray control fill
+  SoftAccent = 3,       // Soft translucent blue tint
+  Ghost = 4,            // Transparent until hovered
+  Destructive = 5,      // Soft coral tint
+  Warning = 6,          // Soft amber tint
+  DestructiveGhost = 7, // Destructive text and icon with a transparent resting background
 };
 
 enum class StatusTone : std::uint8_t {

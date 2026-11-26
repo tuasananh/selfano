@@ -30,6 +30,7 @@ enum class IconId : std::uint8_t {
   VolumeOn,
   VolumeOff,
   Check,
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   Plus,

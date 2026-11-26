@@ -176,6 +176,14 @@ void AppController::execute_piano_remote_action(core::PianoRemoteAction action, 
                          : "Etude Playing",
                      now_ms);
     } else if (stage == S::Stage3Lessons) {
+      if (lesson_view_.active_tab() == ui::LessonViewTab::Learn) {
+        ui::LessonViewActions actions;
+        lesson_view_.start_practicing(profile_, actions);
+        panic_and_schedule_playback({}, now_ms);
+        if (actions.profile_dirty) {
+          persist_profile_now();
+        }
+      }
       bool click = false;
       bool accent = false;
       bool stopped = false;

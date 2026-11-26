@@ -186,11 +186,9 @@ ShellChromeActions draw_sidebar(const SidebarViewState& state,
       ImGui::OpenPopup("##midi_audio_popover");
     }
 
-    if (ImGui::BeginPopup("##midi_audio_popover")) {
-      actions.midi_popover_actions = draw_midi_audio_popover(
-          midi_engine, audio_synth, chord_grouper, midi_bar_state, qwerty_base_octave, now_ms);
-      ImGui::EndPopup();
-    }
+    actions.midi_popover_actions =
+        draw_midi_audio_popover("##midi_audio_popover", midi_engine, audio_synth, chord_grouper,
+                                midi_bar_state, qwerty_base_octave, now_ms);
 
     ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
 
@@ -286,11 +284,9 @@ ShellChromeActions draw_focus_mode_strip(bool show_piano_dock, midi::MidiEngine&
   if (pill_button("Audio & MIDI##ws_midi_btn", ButtonTone::Secondary, IconId::MidiPlug, 30.0f)) {
     ImGui::OpenPopup("##ws_midi_pop");
   }
-  if (ImGui::BeginPopup("##ws_midi_pop")) {
-    actions.midi_popover_actions = draw_midi_audio_popover(
-        midi_engine, audio_synth, chord_grouper, midi_bar_state, qwerty_base_octave, now_ms);
-    ImGui::EndPopup();
-  }
+  actions.midi_popover_actions =
+      draw_midi_audio_popover("##ws_midi_pop", midi_engine, audio_synth, chord_grouper,
+                              midi_bar_state, qwerty_base_octave, now_ms);
   ImGui::SameLine(0.0f, 8.0f * scale);
   if (icon_button("##ws_piano_tog", IconId::Piano,
                   show_piano_dock ? "Hide Piano Dock" : "Show Piano Dock", show_piano_dock, 30.0f,

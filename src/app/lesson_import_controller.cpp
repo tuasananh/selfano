@@ -23,8 +23,8 @@ bool AppController::select_active_lesson(std::string_view lesson_id, double now_
   }
   profile_.active_lesson_id = score->meta.id;
   const auto prog_it = profile_.lesson_progress.find(score->meta.id);
-  const bool brief_read = (prog_it != profile_.lesson_progress.end()) && prog_it->second.brief_read;
-  lesson_view_.load_lesson(*score, brief_read);
+  lesson_view_.load_lesson(
+      *score, prog_it == profile_.lesson_progress.end() ? core::LessonProgress{} : prog_it->second);
   lesson_view_.set_revision_context(false);
   sync_weekly_key_to_active_lesson(now_ms);
   if (persist) {

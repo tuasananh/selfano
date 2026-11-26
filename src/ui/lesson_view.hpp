@@ -56,8 +56,8 @@ class LessonView {
 public:
   LessonView() = default;
 
-  void load_lesson(const core::LessonScore& score, bool brief_already_read = true,
-                   std::optional<core::LessonConfig> cfg = {});
+  void load_lesson(const core::LessonScore& score, const core::LessonProgress& progress);
+  void start_practicing(core::UserProfile& profile, LessonViewActions& actions);
   void set_active_tab(LessonViewTab tab) noexcept;
   [[nodiscard]] LessonViewTab active_tab() const noexcept { return active_tab_; }
   void open_chapter_guide(std::uint8_t tier) noexcept {
@@ -107,6 +107,13 @@ public:
   [[nodiscard]] bool is_revision_mode() const noexcept { return is_revision_mode_; }
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return engine_.completed_runs(); }
   [[nodiscard]] std::uint32_t completed_revisions() const noexcept { return completed_revisions_; }
+  [[nodiscard]] bool is_post_run_coach_visible() const noexcept { return show_post_run_coach_; }
+  [[nodiscard]] std::optional<std::size_t> coach_focus_bar() const noexcept {
+    return coach_focus_bar_;
+  }
+  [[nodiscard]] std::optional<double> last_loop_accuracy() const noexcept {
+    return last_loop_accuracy_;
+  }
 
   [[nodiscard]] core::LessonEngine& mutable_engine() noexcept { return engine_; }
   [[nodiscard]] const core::LessonEngine& engine() const noexcept { return engine_; }
@@ -122,22 +129,25 @@ public:
 
   void open_curriculum_browser() noexcept { curriculum_modal_.open(); }
   void open_my_books_tab() noexcept { curriculum_modal_.open_my_books(); }
+  void request_open_settings_popover() noexcept { pending_open_settings_ = true; }
   void open_import_preview(core::MusicXmlImportResult result);
   void open_edit_imported_lesson(const core::LessonScore& score);
   void set_import_error(std::string message);
-  void dismiss_mastery_banner() noexcept { just_mastered_banner_ = false; }
 
 private:
   void finalize_completed_run(core::UserProfile& profile, std::int64_t today_epoch_day,
                               bool& out_chime, bool& out_just_mastered);
-  void draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
-                      LessonViewActions& actions);
-  void draw_scaffold_bar(const core::LessonProgress& prog, LessonViewActions& actions);
-  void draw_guided_stepper(const core::LessonProgress& prog, LessonViewActions& actions);
-  void draw_post_run_coach(const core::LessonProgress& prog, LessonViewActions& actions);
-  void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
-                           LessonViewActions& actions);
-  void draw_status_strip() const;
+  void draw_top_strip(const core::LessonLibrary& library, const core::LessonProgress& prog,
+                      core::UserProfile& profile, std::int64_t today_epoch_day,
+                      LessonViewActions& actions, bool& out_open_settings);
+  void draw_practice_settings(const core::LessonProgress& prog, LessonViewActions& actions);
+  void draw_practice_prompt(const core::LessonProgress& prog, LessonViewActions& actions,
+                            bool& out_open_settings);
+  [[nodiscard]] std::string passage_label() const;
+  void draw_result(const core::LessonLibrary& library, const core::LessonProgress& progress,
+                   LessonViewActions& actions);
+  void draw_review_enrollment(const core::LessonProgress& progress,
+                              LessonViewActions& actions) const;
   void draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
                           std::vector<StaffHarmonicHitbox>& out_hitboxes) const;
   void draw_harmony_popover(LessonViewActions& actions);
@@ -160,6 +170,9 @@ private:
   std::optional<std::size_t> pending_cli_popover_idx_{};
   std::optional<core::LessonRunSummary> last_run_summary_{};
   bool show_post_run_coach_{false};
+  std::optional<std::size_t> coach_focus_bar_{};
+  std::optional<double> last_loop_accuracy_{};
+  bool pending_open_settings_{false};
 };
 
 } // namespace selfano::ui

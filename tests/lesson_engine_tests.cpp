@@ -1132,3 +1132,97 @@ TEST_CASE(
   REQUIRE(virt.musicality.sustain_available);
   REQUIRE(virt.musicality.sustain_hold_rate >= 0.75);
 }
+
+TEST_CASE("summarize_lesson_progress tracks brief, skeleton, phrases, ladder, and mastery",
+          "[lesson_engine]") {
+  auto score = make_sample_lesson();
+  score.meta.theory.concept_title = "Sample Concept";
+
+  LessonProgress prog{};
+  // 1. New (unread brief)
+  {
+    const auto s = summarize_lesson_progress(score, prog);
+    CHECK_FALSE(s.brief_done);
+    CHECK(s.skeleton_applicable);
+    CHECK_FALSE(s.skeleton_done);
+    CHECK(s.phrases_cleared == 0U);
+    CHECK(s.phrases_total == 2U);
+    CHECK(s.ladder_cleared == 0U);
+    CHECK(s.milestone_index == 0U);
+    CHECK(s.milestone_label == "Step 1/4 · Brief");
+  }
+
+  // 2. Brief read -> ChordSkeleton pending
+  prog.brief_read = true;
+  {
+    const auto s = summarize_lesson_progress(score, prog);
+    CHECK(s.brief_done);
+    CHECK_FALSE(s.skeleton_done);
+    CHECK(s.milestone_index == 1U);
+    CHECK(s.milestone_label == "Step 2/4 · Chord shapes");
+  }
+
+  // 3. Skeleton clean -> Phrases 0/2 -> 1/2 -> 2/2
+  prog.skeleton_clean = true;
+  {
+    const auto s = summarize_lesson_progress(score, prog);
+    CHECK(s.skeleton_done);
+    CHECK(s.phrases_cleared == 0U);
+    CHECK(s.milestone_index == 2U);
+    CHECK(s.milestone_label == "Step 3/4 · Phrases 0/2");
+  }
+
+  prog.phrase_both_mask = 1U; // Phrase 0 cleared
+  {
+    const auto s = summarize_lesson_progress(score, prog);
+    CHECK(s.phrases_cleared == 1U);
+    CHECK(s.milestone_index == 2U);
+    CHECK(s.milestone_label == "Step 3/4 · Phrases 1/2");
+  }
+
+  // Solo-hand phrase check: make Phrase 1 treble-only and clear via RH bit
+  score.measures[1].bass_events.clear();
+  prog.phrase_rh_mask = 2U;
+  {
+    const auto s = summarize_lesson_progress(score, prog);
+    CHECK(s.phrases_cleared == 2U);
+    CHECK(s.ladder_cleared == 0U);
+    CHECK(s.milestone_index == 3U);
+    CHECK(s.milestone_label == "Step 4/4 · Tempo 0/3");
+  }
+
+  // 4. Tempo ladder 60% -> 80% -> 100% / Mastered
+  prog.ladder_60_clean = true;
+  CHECK(summarize_lesson_progress(score, prog).ladder_cleared == 1U);
+  CHECK(summarize_lesson_progress(score, prog).milestone_label == "Step 4/4 · Tempo 1/3");
+
+  prog.ladder_80_clean = true;
+  CHECK(summarize_lesson_progress(score, prog).ladder_cleared == 2U);
+  CHECK(summarize_lesson_progress(score, prog).milestone_label == "Step 4/4 · Tempo 2/3");
+
+  prog.ladder_100_clean = true;
+  prog.status = LessonMasteryStatus::Mastered;
+  {
+    const auto s = summarize_lesson_progress(score, prog);
+    CHECK(s.ladder_cleared == 3U);
+    CHECK(s.milestone_index == 4U);
+    CHECK(s.milestone_label == "Mastered");
+  }
+
+  // 5. Imported score without harmony skips brief and skeleton cleanly
+  LessonScore imported = make_sample_lesson();
+  imported.meta.is_imported = true;
+  imported.meta.theory.concept_title.clear();
+  for (auto& m : imported.measures) {
+    m.harmony.clear();
+  }
+  {
+    const auto s = summarize_lesson_progress(imported, LessonProgress{});
+    CHECK(s.brief_done);
+    CHECK_FALSE(s.skeleton_applicable);
+    CHECK_FALSE(s.skeleton_done);
+    CHECK(s.phrases_cleared == 0U);
+    CHECK(s.phrases_total == 2U);
+    CHECK(s.milestone_index == 2U);
+  }
+}

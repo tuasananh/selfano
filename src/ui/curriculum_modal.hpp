@@ -26,6 +26,13 @@ public:
   void open() noexcept {
     open_ = true;
     active_guide_tier_.reset();
+    scroll_to_active_frames_ = 2;
+  }
+  void open_for_lesson(bool is_imported) noexcept {
+    open_ = true;
+    tab_ = is_imported ? 1 : 0;
+    active_guide_tier_.reset();
+    scroll_to_active_frames_ = 2;
   }
   void open_chapter_guide(std::uint8_t tier) noexcept {
     open_ = true;
@@ -36,6 +43,7 @@ public:
     open_ = true;
     tab_ = 1;
     active_guide_tier_.reset();
+    scroll_to_active_frames_ = 2;
   }
   void close() noexcept {
     open_ = false;
@@ -51,7 +59,9 @@ public:
 
 private:
   bool open_{false};
-  int tab_{0}; // 0 = Tiers 1-6, 1 = My Books
+  int tab_{0};         // 0 = Tiers 1-6, 1 = My Books
+  int tier_filter_{0}; // 0 = All, 1..6 = T1..T6
+  int scroll_to_active_frames_{0};
   std::optional<std::uint8_t> active_guide_tier_{};
 };
 

@@ -74,7 +74,6 @@ void StaffShowcase::rebuild_measures() {
   options_.tempo_marking.clear();
   options_.slurs.clear();
   options_.pedals.clear();
-  options_.reserve_pedal_lane = false;
   const auto key = options_.key;
 
   if (preset_ == ShowcasePreset::Phase1Overview) {
@@ -547,7 +546,6 @@ void StaffShowcase::rebuild_measures() {
     }};
     options_.slurs = slice_system_slurs(slurs, 0, 3, measures_, true, true);
     options_.pedals = slice_system_pedals(pedals, 0, 3, measures_);
-    options_.reserve_pedal_lane = true;
     return;
   }
 
@@ -712,12 +710,8 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
 
   const ImVec2 avail = ImGui::GetContentRegionAvail();
   const float canvas_w = std::max(320.0f, avail.x);
-  const float canvas_h = compute_staff_canvas_height(options_);
-  const ImVec2 origin = ImGui::GetCursorScreenPos();
 
-  ImGui::InvisibleButton("##StaffCanvas", ImVec2(canvas_w, canvas_h));
-  ImDrawList* draw_list = ImGui::GetWindowDrawList();
-  render_staff(draw_list, smufl_font, ui_font, origin, canvas_w, measures_, options_);
+  draw_staff_canvas("##StaffCanvas", smufl_font, ui_font, canvas_w, measures_, options_);
 
   ImGui::Spacing();
   ImGui::TextDisabled(

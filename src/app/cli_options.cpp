@@ -178,6 +178,21 @@ CliOptions parse_cli(int argc, char* argv[]) {
       } else if (mode == "virtual") {
         opts.simulate_coach = SmokeCoachMode::Virtual;
       }
+    } else if (arg == "--window-size" && i + 1 < argc) {
+      const std::string_view spec = argv[++i];
+      const std::size_t sep = spec.find('x');
+      if (sep != std::string_view::npos) {
+        const auto w = parse_strict_int(spec.substr(0, sep));
+        const auto h = parse_strict_int(spec.substr(sep + 1));
+        if (w.has_value() && h.has_value()) {
+          opts.window_width = std::clamp(*w, 640, 3840);
+          opts.window_height = std::clamp(*h, 480, 2160);
+        }
+      }
+    } else if (arg == "--open-curriculum") {
+      opts.open_curriculum = true;
+    } else if (arg == "--open-lesson-settings") {
+      opts.open_lesson_settings = true;
     }
   }
   return opts;

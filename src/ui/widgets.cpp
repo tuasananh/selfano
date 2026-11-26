@@ -205,6 +205,10 @@ bool pill_button(const char* id_and_label, ButtonTone tone, IconId icon, float h
     bg_hover = ImVec4(c.danger.x, c.danger.y, c.danger.z, is_dark_theme() ? 0.30f : 0.22f);
     fg = c.danger_text;
     break;
+  case ButtonTone::DestructiveGhost:
+    bg_hover = c.danger_soft;
+    fg = c.danger_text;
+    break;
   case ButtonTone::Warning:
     bg_idle = c.warning_soft;
     bg_hover = ImVec4(c.warning.x, c.warning.y, c.warning.z, is_dark_theme() ? 0.30f : 0.22f);
@@ -274,7 +278,10 @@ bool icon_button(const char* id, IconId icon, const char* tooltip, bool active, 
 
   const float rad = 8.0f * scale;
   ImDrawList* dl = ImGui::GetWindowDrawList();
-  const ImVec4 fill = lerp_color(bg_idle, bg_hover, hover_t);
+  const float style_alpha = ImGui::GetStyle().Alpha;
+  ImVec4 fill = lerp_color(bg_idle, bg_hover, hover_t);
+  fill.w *= style_alpha;
+  fg.w *= style_alpha;
   if (fill.w > 0.005f) {
     dl->AddRectFilled(pos, ImVec2(pos.x + w, pos.y + sz), to_u32(fill), rad);
   }

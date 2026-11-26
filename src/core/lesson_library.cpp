@@ -382,14 +382,63 @@ const LessonScore* LessonLibrary::find_lesson(std::string_view id) const noexcep
   return nullptr;
 }
 
+std::optional<std::string> LessonLibrary::previous_lesson_id(std::string_view current_id) const {
+  auto find_prev =
+      [current_id](const std::vector<const LessonScore*>& track) -> std::optional<std::string> {
+    for (std::size_t i = 0; i < track.size(); ++i) {
+      if (track[i]->meta.id == current_id) {
+        if (i > 0U) {
+          return track[i - 1U]->meta.id;
+        }
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  };
+  if (auto prev = find_prev(built_in_lessons()); prev.has_value()) {
+    return prev;
+  }
+  return find_prev(imported_lessons());
+}
+
 std::optional<std::string> LessonLibrary::next_lesson_id(std::string_view current_id) const {
+  auto find_next =
+      [current_id](const std::vector<const LessonScore*>& track) -> std::optional<std::string> {
+    for (std::size_t i = 0; i + 1U < track.size(); ++i) {
+      if (track[i]->meta.id == current_id) {
+        return track[i + 1U]->meta.id;
+      }
+    }
+    return std::nullopt;
+  };
+  if (auto next = find_next(built_in_lessons()); next.has_value()) {
+    return next;
+  }
+  return find_next(imported_lessons());
+}
+
+LessonPosition LessonLibrary::lesson_position(std::string_view current_id) const {
   const auto built_in = built_in_lessons();
-  for (std::size_t i = 0; i + 1U < built_in.size(); ++i) {
+  for (std::size_t i = 0; i < built_in.size(); ++i) {
     if (built_in[i]->meta.id == current_id) {
-      return built_in[i + 1U]->meta.id;
+      return LessonPosition{
+          .index = i + 1U,
+          .total = built_in.size(),
+          .is_imported = false,
+      };
     }
   }
-  return std::nullopt;
+  const auto imported = imported_lessons();
+  for (std::size_t i = 0; i < imported.size(); ++i) {
+    if (imported[i]->meta.id == current_id) {
+      return LessonPosition{
+          .index = i + 1U,
+          .total = imported.size(),
+          .is_imported = true,
+      };
+    }
+  }
+  return LessonPosition{};
 }
 
 } // namespace selfano::core

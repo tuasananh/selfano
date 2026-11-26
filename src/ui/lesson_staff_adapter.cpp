@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <format>
 #include <map>
 #include <span>
 #include <string>
@@ -105,9 +104,8 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       StaffChord chord{};
       chord.tick_offset = tick;
       chord.beat_offset = static_cast<float>(tick) / beat_ticks_f;
-      if (tick == 0) {
-        chord.annotation =
-            (lm.bar_number == 0U) ? std::string("Pickup") : std::format("Bar {}", lm.bar_number);
+      if (tick == 0 && lm.bar_number == 0U) {
+        chord.annotation = "Pickup";
       }
 
       NoteFeedback fb = NoteFeedback::Neutral;
@@ -137,11 +135,7 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
             continue;
           }
           const NoteDuration dur = to_staff_note_duration(ev->duration.base);
-          if (!chord_dur_set && ev->voice == 0U) {
-            chord.duration = dur;
-            chord.dotted = ev->duration.dotted;
-            chord_dur_set = true;
-          } else if (!chord_dur_set) {
+          if (!chord_dur_set) {
             chord.duration = dur;
             chord.dotted = ev->duration.dotted;
             chord_dur_set = true;

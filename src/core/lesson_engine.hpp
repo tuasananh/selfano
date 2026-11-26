@@ -205,6 +205,19 @@ struct GuidedPracticeStep {
   bool operator==(const GuidedPracticeStep&) const = default;
 };
 
+struct LessonProgressSummary {
+  bool brief_done{false};
+  bool skeleton_applicable{false};
+  bool skeleton_done{false};
+  std::size_t phrases_cleared{0};
+  std::size_t phrases_total{0};
+  std::size_t ladder_cleared{0};   // 0..3 (60% / 80% / 100%)
+  std::uint8_t milestone_index{0}; // 0..4 matching suggest_next_practice_step
+  std::string milestone_label{};
+
+  bool operator==(const LessonProgressSummary&) const = default;
+};
+
 struct LessonProgressUpdateResult {
   bool just_mastered{false};
   SrsRating suggested_rating{SrsRating::Good};
@@ -241,6 +254,12 @@ plan_stage3_session(const std::map<std::string, LessonProgress>& progress_map,
 
 [[nodiscard]] GuidedPracticeStep suggest_next_practice_step(const LessonScore& score,
                                                             const LessonProgress& prog);
+
+[[nodiscard]] bool is_phrase_cleared(const LessonScore& score, const LessonProgress& prog,
+                                     std::size_t phrase_idx) noexcept;
+
+[[nodiscard]] LessonProgressSummary summarize_lesson_progress(const LessonScore& score,
+                                                              const LessonProgress& prog);
 
 [[nodiscard]] std::optional<TroubleSpot> find_trouble_spot(const LessonRunSummary& summary);
 

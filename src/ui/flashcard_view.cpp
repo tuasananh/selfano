@@ -287,11 +287,8 @@ void FlashcardView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   opts.light_paper_theme = light_paper_theme_;
 
   const float canvas_w = std::max(460.0f, ImGui::GetContentRegionAvail().x);
-  const float canvas_h = compute_staff_canvas_height(opts);
-  const ImVec2 canvas_origin = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton("##flashcard_staff", ImVec2(canvas_w, canvas_h));
-  render_staff(ImGui::GetWindowDrawList(), smufl_font, ui_font, canvas_origin, canvas_w, measures,
-               opts);
+
+  draw_staff_canvas("##flashcard_staff", smufl_font, ui_font, canvas_w, measures, opts);
 
   ImGui::Dummy(ImVec2(0.0f, 12.0f * scale));
 

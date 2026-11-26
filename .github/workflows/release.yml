@@ -92,17 +92,20 @@ jobs:
     name: Build Desktop (${{ matrix.name }})
     needs: [prepare]
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: linux-x64
             os: ubuntu-24.04
+            container: gcc:16.2.0-trixie
             platform: linux
             arch: x64
             run_tests: true
           - name: linux-arm64
             os: ubuntu-24.04-arm
+            container: gcc:16.2.0-trixie
             platform: linux
             arch: arm64
             run_tests: true
@@ -128,16 +131,7 @@ jobs:
 
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ninja-build pkg-config \
-            libasound2-dev libpipewire-0.3-dev libpulse-dev \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev \
-            libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
-            libwayland-dev wayland-protocols \
-            libegl-dev libgl-dev libgbm-dev libdrm-dev \
-            libdbus-1-dev libudev-dev libibus-1.0-dev
+        uses: ./.github/actions/setup-linux-build
 
       - name: Install macOS build dependencies
         if: matrix.platform == 'macos'
@@ -164,14 +158,18 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .fetchcontent
-          key: fetchcontent-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('CMakeLists.txt') }}
+          key: fetchcontent-${{ runner.os }}-${{ runner.arch }}${{ matrix.container && '-release-container' || '' }}-${{ hashFiles('CMakeLists.txt') }}
 
       - name: Configure (Linux)
         if: matrix.platform == 'linux'
+        # Keep the GCC runtime in the binary for distributions with an older libstdc++.
         run: |
           cmake --preset native-release \
             -DSELFANO_WARNINGS_AS_ERRORS=ON \
-            -DFETCHCONTENT_BASE_DIR="${{ github.workspace }}/.fetchcontent" \
+            -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/.fetchcontent" \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
