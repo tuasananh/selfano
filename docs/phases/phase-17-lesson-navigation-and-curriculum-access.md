@@ -1,6 +1,6 @@
 # Phase 17: Lesson Navigation Bar, Prev/Next Stepping & Discoverable Curriculum Access
 
-**Status:** `[ ] Planned` (Depends on Post-Phase 16 Guided lesson experience)  
+**Status:** `[x] Complete` (Depends on Post-Phase 16 Guided lesson experience)  
 **Goal:** Replace the hidden title-chevron dropdown in `LessonView` with a clear, self-explanatory single-row lesson navigation bar featuring an explicit **All Lessons** curriculum button, direct **Previous / Next** lesson stepping across both the 28-lesson curriculum and `My Books`, inline lesson metadata, and an always-visible **Brief | Practice** tab switcher.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `verification-and-review`

@@ -122,6 +122,7 @@ public:
 
   void open_curriculum_browser() noexcept { curriculum_modal_.open(); }
   void open_my_books_tab() noexcept { curriculum_modal_.open_my_books(); }
+  void request_open_settings_popover() noexcept { pending_open_settings_ = true; }
   void open_import_preview(core::MusicXmlImportResult result);
   void open_edit_imported_lesson(const core::LessonScore& score);
   void set_import_error(std::string message);
@@ -129,8 +130,9 @@ public:
 private:
   void finalize_completed_run(core::UserProfile& profile, std::int64_t today_epoch_day,
                               bool& out_chime, bool& out_just_mastered);
-  void draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
-                      LessonViewActions& actions);
+  void draw_top_strip(const core::LessonLibrary& library, const core::LessonProgress& prog,
+                      core::UserProfile& profile, std::int64_t today_epoch_day,
+                      LessonViewActions& actions, bool& out_open_settings);
   void draw_practice_settings(const core::LessonProgress& prog, LessonViewActions& actions);
   void draw_practice_prompt(LessonViewActions& actions);
   [[nodiscard]] std::string passage_label() const;
@@ -160,6 +162,7 @@ private:
   std::optional<std::size_t> pending_cli_popover_idx_{};
   std::optional<core::LessonRunSummary> last_run_summary_{};
   bool show_post_run_coach_{false};
+  bool pending_open_settings_{false};
 };
 
 } // namespace selfano::ui

@@ -77,4 +77,32 @@ TEST_CASE("Lessons prepare the exercise from progress and only score practice in
     view.load_lesson(imported, {});
     CHECK(view.active_tab() == ui::LessonViewTab::Practice);
   }
+  SECTION("Prev and Next lesson stepping switches scores and preserves tab semantics") {
+    const auto nxt_id = library.next_lesson_id("t1_01");
+    REQUIRE(nxt_id.has_value());
+    CHECK(*nxt_id == "t1_02");
+    const auto* nxt = library.find_lesson(*nxt_id);
+    REQUIRE(nxt != nullptr);
+
+    view.load_lesson(*nxt, profile.lesson_progress[*nxt_id]);
+    CHECK(view.engine().score().meta.id == "t1_02");
+    CHECK(view.active_tab() == ui::LessonViewTab::Learn);
+
+    ui::LessonViewActions actions{};
+    view.start_practicing(profile, actions);
+    CHECK(view.active_tab() == ui::LessonViewTab::Practice);
+    CHECK(profile.lesson_progress["t1_02"].brief_read);
+
+    const auto prev_id = library.previous_lesson_id("t1_02");
+    REQUIRE(prev_id.has_value());
+    CHECK(*prev_id == "t1_01");
+    view.load_lesson(*score, profile.lesson_progress["t1_01"]);
+    CHECK(view.engine().score().meta.id == "t1_01");
+    CHECK(view.active_tab() == ui::LessonViewTab::Learn);
+
+    view.set_active_tab(ui::LessonViewTab::Practice);
+    CHECK(view.active_tab() == ui::LessonViewTab::Practice);
+    view.set_active_tab(ui::LessonViewTab::Learn);
+    CHECK(view.active_tab() == ui::LessonViewTab::Learn);
+  }
 }

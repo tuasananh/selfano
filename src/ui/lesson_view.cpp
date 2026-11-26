@@ -102,6 +102,34 @@ void append_playback_notes(double now_ms, std::span<const core::LessonPlaybackNo
   }
 }
 
+[[nodiscard]] const char* mastery_label(core::LessonMasteryStatus st) noexcept {
+  switch (st) {
+  case core::LessonMasteryStatus::New:
+    return "New";
+  case core::LessonMasteryStatus::Learning:
+    return "Learning";
+  case core::LessonMasteryStatus::Mastered:
+    return "Mastered";
+  case core::LessonMasteryStatus::NeedsReview:
+    return "Needs Review";
+  }
+  return "New";
+}
+
+[[nodiscard]] StatusTone mastery_tone(core::LessonMasteryStatus st) noexcept {
+  switch (st) {
+  case core::LessonMasteryStatus::New:
+    return StatusTone::Neutral;
+  case core::LessonMasteryStatus::Learning:
+    return StatusTone::Accent;
+  case core::LessonMasteryStatus::Mastered:
+    return StatusTone::Success;
+  case core::LessonMasteryStatus::NeedsReview:
+    return StatusTone::Warning;
+  }
+  return StatusTone::Neutral;
+}
+
 } // namespace
 
 void LessonView::load_lesson(const core::LessonScore& score, const core::LessonProgress& progress) {
@@ -561,107 +589,165 @@ void LessonView::set_import_error(std::string message) {
   curriculum_modal_.open_my_books();
 }
 
-void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_epoch_day,
-                                LessonViewActions& actions) {
+void LessonView::draw_top_strip(const core::LessonLibrary& library,
+                                const core::LessonProgress& prog, core::UserProfile& profile,
+                                std::int64_t today_epoch_day, LessonViewActions& actions,
+                                bool& out_open_settings) {
+  const auto& c = colors();
   const auto& meta = engine_.score().meta;
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const bool practice = active_tab_ == LessonViewTab::Practice;
-  bool open_menu = false;
-  bool open_settings = false;
-  if (ImGui::BeginTable("##lesson_navigation", practice ? 2 : 1,
-                        ImGuiTableFlags_SizingStretchProp)) {
-    ImGui::TableSetupColumn("Title", ImGuiTableColumnFlags_WidthStretch);
-    if (practice) {
-      ImGui::TableSetupColumn("Settings", ImGuiTableColumnFlags_WidthFixed, 150.0f * scale);
-    }
-    ImGui::TableNextColumn();
-    open_menu = icon_button("##lesson_menu", IconId::ChevronDown, "Lesson menu");
-    ImGui::SameLine();
-    {
-      ScopedFont title(TypeStyle::Title);
-      ImGui::AlignTextToFramePadding();
-      ImGui::TextWrapped("%s", meta.title.empty() ? "Guided lessons" : meta.title.c_str());
-      open_menu |= ImGui::IsItemClicked();
-      if (ImGui::IsItemHovered()) {
-        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-      }
-    }
-    if (practice) {
-      ImGui::TableNextColumn();
-      open_settings = pill_button("Practice settings", ButtonTone::Secondary, IconId::Sliders);
-    }
-    ImGui::EndTable();
-  }
-  if (open_menu) {
-    ImGui::OpenPopup("##lesson_menu_pop");
-  }
-  if (ImGui::BeginPopup("##lesson_menu_pop")) {
-    ImGui::TextDisabled("Tier %u · %s · %d/%d", meta.tier, core::format_key_name(meta.key).c_str(),
-                        meta.time_signature.numerator, meta.time_signature.denominator);
-    if (!meta.is_imported && practice && ImGui::MenuItem("Lesson brief")) {
-      set_active_tab(LessonViewTab::Learn);
-      actions.stop_all_playback = true;
-    }
-    if (ImGui::MenuItem("Change lesson")) {
+  const float avail_w = ImGui::GetContentRegionAvail().x;
+
+  const auto pos = library.lesson_position(meta.id);
+  const auto prev_id = library.previous_lesson_id(meta.id);
+  const auto next_id = library.next_lesson_id(meta.id);
+  const std::string all_label =
+      (pos.total > 0U)
+          ? (pos.is_imported
+                 ? std::format("My Books \xC2\xB7 {}/{}##lv_all", pos.index, pos.total)
+                 : std::format("All Lessons \xC2\xB7 {}/{}##lv_all", pos.index, pos.total))
+          : std::string("All Lessons##lv_all");
+
+  if (pill_button(all_label.c_str(), ButtonTone::Secondary, IconId::Layers, 30.0f, 0.0f, true)) {
+    if (meta.is_imported) {
+      curriculum_modal_.open_my_books();
+    } else {
       curriculum_modal_.open();
     }
-    ImGui::EndPopup();
+  }
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip("Browse all lessons and My Books");
   }
 
-  if (open_settings) {
-    ImGui::OpenPopup("##lesson_settings_pop");
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  std::string prev_tip = "No previous lesson in this track";
+  if (prev_id.has_value()) {
+    if (const auto* prev_score = library.find_lesson(*prev_id)) {
+      prev_tip = std::format("Previous: {} (Alt+Left)", prev_score->meta.title);
+    } else {
+      prev_tip = "Previous lesson (Alt+Left)";
+    }
   }
-  const auto viewport = ImGui::GetMainViewport()->WorkSize;
-  const float width = std::min(350.0f * scale, viewport.x - 16.0f * scale);
-  ImGui::SetNextWindowSizeConstraints({width, 0.0f}, {width, viewport.y * 0.83f});
-  if (ImGui::BeginPopup("##lesson_settings_pop")) {
-    auto& progress = profile.lesson_progress[meta.id];
-    draw_practice_settings(progress, actions);
-    if (ImGui::CollapsingHeader("Display and preferences")) {
-      if (settings_toggle_row("Finger numbers", "##fing",
-                              &profile.preferences.lesson_show_fingerings)) {
-        show_fingerings_ = profile.preferences.lesson_show_fingerings;
-        actions.profile_dirty = true;
-      }
-      if (settings_toggle_row("Chord and Roman numeral labels", "##harm",
-                              &profile.preferences.lesson_show_harmony)) {
-        show_harmony_ = profile.preferences.lesson_show_harmony;
-        actions.profile_dirty = true;
-      }
-      if (settings_toggle_row("Light staff paper", "##paper",
-                              &profile.preferences.light_paper_staff)) {
-        light_paper_theme_ = profile.preferences.light_paper_staff;
-        actions.profile_dirty = true;
-      }
-      if (settings_toggle_row("Use lesson key as weekly key", "##sync",
-                              &profile.preferences.sync_weekly_key_to_lesson)) {
-        actions.weekly_key_sync_requested = profile.preferences.sync_weekly_key_to_lesson;
-        actions.profile_dirty = true;
-      }
+  ImGui::BeginDisabled(!prev_id.has_value());
+  if (icon_button("##lv_prev", IconId::ChevronLeft, prev_tip.c_str(), false, 30.0f,
+                  ButtonTone::Secondary) &&
+      prev_id.has_value()) {
+    actions.select_lesson_id = *prev_id;
+    actions.stop_all_playback = true;
+  }
+  ImGui::EndDisabled();
+
+  ImGui::SameLine(0.0f, 4.0f * scale);
+  std::string next_tip = "Last lesson in this track";
+  if (next_id.has_value()) {
+    if (const auto* next_score = library.find_lesson(*next_id)) {
+      next_tip = std::format("Next: {} (Alt+Right)", next_score->meta.title);
+    } else {
+      next_tip = "Next lesson (Alt+Right)";
     }
-    if (settings_toggle_row("Metronome", "##met", &metronome_enabled_, nullptr, "F#7")) {
-      profile.preferences.metronome_enabled = metronome_enabled_;
-      actions.profile_dirty = true;
+  }
+  ImGui::BeginDisabled(!next_id.has_value());
+  if (icon_button("##lv_next", IconId::ChevronRight, next_tip.c_str(), false, 30.0f,
+                  ButtonTone::Secondary) &&
+      next_id.has_value()) {
+    actions.select_lesson_id = *next_id;
+    actions.stop_all_playback = true;
+  }
+  ImGui::EndDisabled();
+
+  const bool show_tab_seg = !meta.is_imported;
+  const float seg_w = show_tab_seg ? 148.0f : 0.0f;
+  const bool compact_settings = avail_w < 780.0f * scale;
+  const char* settings_label =
+      compact_settings ? "Settings##lv_settings" : "Practice settings##lv_settings";
+  const float settings_w = practice ? (compact_settings ? 102.0f : 152.0f) : 0.0f;
+  const float right_w =
+      (show_tab_seg ? seg_w * scale : 0.0f) +
+      (practice ? ((show_tab_seg ? 8.0f * scale : 0.0f) + settings_w * scale) : 0.0f);
+
+  if (right_w > 0.0f) {
+    const float rem = ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x;
+    const float row_end_x = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+    const float cur_right = ImGui::GetItemRectMax().x;
+    if (cur_right + 12.0f * scale + right_w <= row_end_x) {
+      ImGui::SameLine(0.0f, std::max(8.0f * scale, row_end_x - cur_right - right_w));
+    } else if (rem > right_w + 16.0f * scale) {
+      ImGui::SameLine();
+    } else {
+      ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
     }
-    if (ImGui::CollapsingHeader("Lesson progress")) {
-      draw_review_enrollment(progress, actions);
-      if (progress.status != core::LessonMasteryStatus::Mastered &&
-          pill_button("Mark lesson as mastered", ButtonTone::Secondary, IconId::Check)) {
-        progress.status = core::LessonMasteryStatus::Mastered;
-        progress.ladder_100_clean = true;
-        if (progress.review_due_epoch_day == 0) {
-          core::rate_guided_revision(progress, core::SrsRating::Good, today_epoch_day);
+
+    if (show_tab_seg) {
+      int tab_idx = (active_tab_ == LessonViewTab::Learn) ? 0 : 1;
+      static constexpr std::array<std::string_view, 2> kLessonTabs{"Brief", "Practice"};
+      if (segmented_control("##lv_tab_seg", &tab_idx, kLessonTabs, seg_w, 30.0f)) {
+        if (tab_idx == 0) {
+          set_active_tab(LessonViewTab::Learn);
+          actions.stop_all_playback = true;
+        } else {
+          start_practicing(profile, actions);
         }
-        reset_phrase();
-        just_mastered_banner_ = true;
-        show_post_run_coach_ = true;
-        last_run_summary_.reset();
-        actions.stop_all_playback = true;
-        actions.profile_dirty = true;
-        ImGui::CloseCurrentPopup();
+      }
+      if (practice) {
+        ImGui::SameLine(0.0f, 8.0f * scale);
       }
     }
-    ImGui::EndPopup();
+    if (practice) {
+      if (pill_button(settings_label, ButtonTone::Secondary, IconId::Sliders, 30.0f)) {
+        out_open_settings = true;
+      }
+    }
+  }
+
+  ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
+
+  const char* title_str = meta.title.empty() ? "Guided lessons" : meta.title.c_str();
+  const std::string meta_str =
+      meta.is_imported
+          ? std::format("My Books \xC2\xB7 {} \xC2\xB7 {}/{}", core::format_key_name(meta.key),
+                        meta.time_signature.numerator, meta.time_signature.denominator)
+          : std::format("Tier {} \xC2\xB7 {} \xC2\xB7 {}/{}", meta.tier,
+                        core::format_key_name(meta.key), meta.time_signature.numerator,
+                        meta.time_signature.denominator);
+
+  float title_w = 0.0f;
+  {
+    ScopedFont tf(TypeStyle::Title2);
+    title_w = ImGui::CalcTextSize(title_str).x;
+  }
+  float meta_w = 0.0f;
+  {
+    ScopedFont sf(TypeStyle::Subheadline);
+    meta_w = ImGui::CalcTextSize(meta_str.c_str()).x;
+  }
+  const auto eff_st = core::effective_mastery_status(prog, today_epoch_day);
+  const float pills_est_w = (96.0f + (is_revision_mode_ ? 116.0f : 0.0f)) * scale;
+  const bool inline_meta =
+      (title_w + 12.0f * scale + meta_w + 10.0f * scale + pills_est_w) <= avail_w;
+
+  {
+    ScopedFont tf(TypeStyle::Title2);
+    if (inline_meta) {
+      ImGui::AlignTextToFramePadding();
+    }
+    ImGui::TextWrapped("%s", title_str);
+  }
+  if (inline_meta) {
+    ImGui::SameLine(0.0f, 12.0f * scale);
+  }
+  {
+    ScopedFont sf(TypeStyle::Subheadline);
+    if (inline_meta) {
+      ImGui::AlignTextToFramePadding();
+    }
+    ImGui::TextColored(c.text_secondary, "%s", meta_str.c_str());
+  }
+  ImGui::SameLine(0.0f, 8.0f * scale);
+  status_pill(mastery_label(eff_st), mastery_tone(eff_st), IconId::None, true);
+  if (is_revision_mode_) {
+    ImGui::SameLine(0.0f, 6.0f * scale);
+    status_pill("Guided Revision", StatusTone::Warning);
   }
 }
 
@@ -1247,8 +1333,10 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
   const core::LessonProgress prog =
       (prog_it != profile.lesson_progress.end()) ? prog_it->second : core::LessonProgress{};
 
-  draw_top_strip(profile, today_epoch_day, actions);
-  ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
+  bool open_settings = pending_open_settings_;
+  pending_open_settings_ = false;
+  draw_top_strip(library, prog, profile, today_epoch_day, actions, open_settings);
+  ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
 
   if (active_tab_ == LessonViewTab::Learn) {
     const auto brief_act = draw_lesson_brief(engine_.score(), prog.brief_read);
@@ -1298,6 +1386,62 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     draw_harmony_popover(actions);
   }
 
+  if (open_settings) {
+    ImGui::OpenPopup("##lesson_settings_pop");
+  }
+  const auto viewport = ImGui::GetMainViewport()->WorkSize;
+  const float settings_w = std::min(350.0f * scale, viewport.x - 16.0f * scale);
+  ImGui::SetNextWindowSizeConstraints({settings_w, 0.0f}, {settings_w, viewport.y * 0.83f});
+  if (ImGui::BeginPopup("##lesson_settings_pop")) {
+    auto& progress = profile.lesson_progress[meta.id];
+    draw_practice_settings(progress, actions);
+    if (ImGui::CollapsingHeader("Display and preferences")) {
+      if (settings_toggle_row("Finger numbers", "##fing",
+                              &profile.preferences.lesson_show_fingerings)) {
+        show_fingerings_ = profile.preferences.lesson_show_fingerings;
+        actions.profile_dirty = true;
+      }
+      if (settings_toggle_row("Chord and Roman numeral labels", "##harm",
+                              &profile.preferences.lesson_show_harmony)) {
+        show_harmony_ = profile.preferences.lesson_show_harmony;
+        actions.profile_dirty = true;
+      }
+      if (settings_toggle_row("Light staff paper", "##paper",
+                              &profile.preferences.light_paper_staff)) {
+        light_paper_theme_ = profile.preferences.light_paper_staff;
+        actions.profile_dirty = true;
+      }
+      if (settings_toggle_row("Use lesson key as weekly key", "##sync",
+                              &profile.preferences.sync_weekly_key_to_lesson)) {
+        actions.weekly_key_sync_requested = profile.preferences.sync_weekly_key_to_lesson;
+        actions.profile_dirty = true;
+      }
+    }
+    if (settings_toggle_row("Metronome", "##met", &metronome_enabled_, nullptr, "F#7")) {
+      profile.preferences.metronome_enabled = metronome_enabled_;
+      actions.profile_dirty = true;
+    }
+    if (ImGui::CollapsingHeader("Lesson progress")) {
+      draw_review_enrollment(progress, actions);
+      if (progress.status != core::LessonMasteryStatus::Mastered &&
+          pill_button("Mark lesson as mastered", ButtonTone::Secondary, IconId::Check)) {
+        progress.status = core::LessonMasteryStatus::Mastered;
+        progress.ladder_100_clean = true;
+        if (progress.review_due_epoch_day == 0) {
+          core::rate_guided_revision(progress, core::SrsRating::Good, today_epoch_day);
+        }
+        reset_phrase();
+        just_mastered_banner_ = true;
+        show_post_run_coach_ = true;
+        last_run_summary_.reset();
+        actions.stop_all_playback = true;
+        actions.profile_dirty = true;
+        ImGui::CloseCurrentPopup();
+      }
+    }
+    ImGui::EndPopup();
+  }
+
   const auto cm_act =
       curriculum_modal_.draw(library, profile, meta.id, today_epoch_day,
                              import_modal_.mutable_error(), import_modal_.is_open());
@@ -1322,6 +1466,34 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     curriculum_modal_.close();
   }
   return actions;
+}
+
+[[nodiscard]] const char* mastery_label(core::LessonMasteryStatus st) noexcept {
+  switch (st) {
+  case core::LessonMasteryStatus::New:
+    return "New";
+  case core::LessonMasteryStatus::Learning:
+    return "Learning";
+  case core::LessonMasteryStatus::Mastered:
+    return "Mastered";
+  case core::LessonMasteryStatus::NeedsReview:
+    return "Needs Review";
+  }
+  return "New";
+}
+
+[[nodiscard]] StatusTone mastery_tone(core::LessonMasteryStatus st) noexcept {
+  switch (st) {
+  case core::LessonMasteryStatus::New:
+    return StatusTone::Neutral;
+  case core::LessonMasteryStatus::Learning:
+    return StatusTone::Accent;
+  case core::LessonMasteryStatus::Mastered:
+    return StatusTone::Success;
+  case core::LessonMasteryStatus::NeedsReview:
+    return StatusTone::Warning;
+  }
+  return StatusTone::Neutral;
 }
 
 } // namespace selfano::ui

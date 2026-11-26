@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-26
-- **Active Phase:** **Phases 17–20 Planned** — Lessons UX, Navigation & Discoverability (Phases 0–16 Complete)
-- **Last Completed Phase:** Phase 16 — Pianistic Musicality Coaching (Velocity Voicing, Sustain & Pedal) + Post-Phase 16 Guided Lesson Experience
+- **Active Phase:** **Phase 18** — Interactive Practice Strip, Visible Lesson Progress & Above-the-Fold Score Fit (`Phases 0–17 Complete`)
+- **Last Completed Phase:** Phase 17 — Lesson Navigation Bar, Prev/Next Stepping & Discoverable Curriculum Access
 
 ---
 
@@ -300,8 +300,8 @@
 ## Next Concrete Action
 
 - **Execute Phases 17–20 (Lessons UX, Navigation & Discoverability):**
-  - **Phase 17:** Lesson Navigation Bar, Prev/Next Stepping & Discoverable Curriculum Access ([`docs/phases/phase-17-lesson-navigation-and-curriculum-access.md`](./phases/phase-17-lesson-navigation-and-curriculum-access.md)) (`[ ] Planned` — **Start here**)
-  - **Phase 18:** Interactive Practice Strip, Visible Lesson Progress & Above-the-Fold Score Fit ([`docs/phases/phase-18-practice-bar-progress-and-viewport.md`](./phases/phase-18-practice-bar-progress-and-viewport.md)) (`[ ] Planned`)
+  - **Phase 17:** Lesson Navigation Bar, Prev/Next Stepping & Discoverable Curriculum Access ([`docs/phases/phase-17-lesson-navigation-and-curriculum-access.md`](./phases/phase-17-lesson-navigation-and-curriculum-access.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 97/97 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified across `Learn`, `Practice`, and `My Books`)
+  - **Phase 18:** Interactive Practice Strip, Visible Lesson Progress & Above-the-Fold Score Fit ([`docs/phases/phase-18-practice-bar-progress-and-viewport.md`](./phases/phase-18-practice-bar-progress-and-viewport.md)) (`[ ] Planned` — **Start here**)
   - **Phase 19:** Non-Blocking Post-Run Coach & Upgraded Curriculum Browser ([`docs/phases/phase-19-post-run-coach-and-curriculum-browser.md`](./phases/phase-19-post-run-coach-and-curriculum-browser.md)) (`[ ] Planned`)
   - **Phase 20:** Apple HIG Learn Brief, System Measure Numbers & Input Polish ([`docs/phases/phase-20-lesson-brief-and-score-ergonomics.md`](./phases/phase-20-lesson-brief-and-score-ergonomics.md)) (`[ ] Planned`)
 - **Previously Completed (Phases 0–16 + Post-Phase 16):**

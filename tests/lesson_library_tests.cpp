@@ -380,3 +380,78 @@ TEST_CASE("LessonLibrary My Books CRUD saves, reloads, updates, and deletes impo
 
   std::filesystem::remove_all(temp_dir, ec);
 }
+
+TEST_CASE("LessonLibrary sequential previous/next stepping and positions", "[lesson_library]") {
+  LessonLibrary lib;
+  REQUIRE(lib.load_built_in_from_directory(source_lessons_dir()).has_value());
+
+  SECTION("Built-in 28-lesson track boundaries and reverse round-trip") {
+    CHECK_FALSE(lib.previous_lesson_id("t1_01").has_value());
+    CHECK(lib.lesson_position("t1_01") ==
+          LessonPosition{.index = 1U, .total = 28U, .is_imported = false});
+
+    CHECK_FALSE(lib.next_lesson_id("t6_04").has_value());
+    CHECK(lib.lesson_position("t6_04") ==
+          LessonPosition{.index = 28U, .total = 28U, .is_imported = false});
+
+    std::string cur = "t6_04";
+    std::size_t hops = 0U;
+    while (const auto prev = lib.previous_lesson_id(cur)) {
+      const auto round_trip_next = lib.next_lesson_id(*prev);
+      REQUIRE(round_trip_next.has_value());
+      CHECK(*round_trip_next == cur);
+      cur = *prev;
+      ++hops;
+    }
+    CHECK(hops == 27U);
+    CHECK(cur == "t1_01");
+
+    const auto mid_pos = lib.lesson_position("t3_01");
+    CHECK(mid_pos == LessonPosition{.index = 11U, .total = 28U, .is_imported = false});
+  }
+
+  SECTION("Single and multi-item My Books track never bleeds into built-ins") {
+    const auto* base = lib.find_lesson("t1_01");
+    REQUIRE(base != nullptr);
+
+    auto make_imp = [&](std::string id, std::string title) {
+      LessonScore s = *base;
+      s.meta.id = std::move(id);
+      s.meta.title = std::move(title);
+      s.meta.is_imported = true;
+      s.meta.tier = 0U;
+      return s;
+    };
+
+    lib.add_or_replace_lesson(make_imp("imp_1", "Book One"));
+    CHECK_FALSE(lib.previous_lesson_id("imp_1").has_value());
+    CHECK_FALSE(lib.next_lesson_id("imp_1").has_value());
+    CHECK(lib.lesson_position("imp_1") ==
+          LessonPosition{.index = 1U, .total = 1U, .is_imported = true});
+    CHECK_FALSE(lib.next_lesson_id("t6_04").has_value());
+
+    lib.add_or_replace_lesson(make_imp("imp_2", "Book Two"));
+    lib.add_or_replace_lesson(make_imp("imp_3", "Book Three"));
+
+    CHECK_FALSE(lib.previous_lesson_id("imp_1").has_value());
+    CHECK(lib.next_lesson_id("imp_1") == std::optional<std::string>{"imp_2"});
+    CHECK(lib.previous_lesson_id("imp_2") == std::optional<std::string>{"imp_1"});
+    CHECK(lib.next_lesson_id("imp_2") == std::optional<std::string>{"imp_3"});
+    CHECK(lib.previous_lesson_id("imp_3") == std::optional<std::string>{"imp_2"});
+    CHECK_FALSE(lib.next_lesson_id("imp_3").has_value());
+
+    CHECK(lib.lesson_position("imp_1") ==
+          LessonPosition{.index = 1U, .total = 3U, .is_imported = true});
+    CHECK(lib.lesson_position("imp_2") ==
+          LessonPosition{.index = 2U, .total = 3U, .is_imported = true});
+    CHECK(lib.lesson_position("imp_3") ==
+          LessonPosition{.index = 3U, .total = 3U, .is_imported = true});
+    CHECK_FALSE(lib.next_lesson_id("t6_04").has_value());
+  }
+
+  SECTION("Unknown ID returns nullopt and zero position") {
+    CHECK_FALSE(lib.previous_lesson_id("does_not_exist").has_value());
+    CHECK_FALSE(lib.next_lesson_id("does_not_exist").has_value());
+    CHECK(lib.lesson_position("does_not_exist") == LessonPosition{});
+  }
+}

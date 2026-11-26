@@ -278,7 +278,10 @@ bool icon_button(const char* id, IconId icon, const char* tooltip, bool active, 
 
   const float rad = 8.0f * scale;
   ImDrawList* dl = ImGui::GetWindowDrawList();
-  const ImVec4 fill = lerp_color(bg_idle, bg_hover, hover_t);
+  const float style_alpha = ImGui::GetStyle().Alpha;
+  ImVec4 fill = lerp_color(bg_idle, bg_hover, hover_t);
+  fill.w *= style_alpha;
+  fg.w *= style_alpha;
   if (fill.w > 0.005f) {
     dl->AddRectFilled(pos, ImVec2(pos.x + w, pos.y + sz), to_u32(fill), rad);
   }

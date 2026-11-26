@@ -48,6 +48,10 @@ struct CliOptions {
   bool start_lesson_demo{false};
   std::optional<std::pair<std::size_t, std::size_t>> bar_range_override;
   std::optional<SmokeCoachMode> simulate_coach;
+  std::optional<int> window_width;
+  std::optional<int> window_height;
+  bool open_curriculum{false};
+  bool open_lesson_settings{false};
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);
