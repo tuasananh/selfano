@@ -19,3 +19,11 @@ Diagnostics:
 
 Index:
   Background: Build
+
+---
+
+If:
+  PathMatch: src/midi/midi_engine_web\.cpp
+
+CompileFlags:
+  CompilationDatabase: build/web-release
