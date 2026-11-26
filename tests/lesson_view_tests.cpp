@@ -48,6 +48,22 @@ TEST_CASE("Lessons prepare the exercise from progress and only score practice in
     view.start_practicing(profile, actions);
     CHECK(view.engine().config() == config);
   }
+  SECTION("Looping a guided revision credits the pass and accepts the next note") {
+    progress.brief_read = true;
+    view.load_lesson(*score, progress);
+    view.set_revision_context(true, score->meta.id);
+    view.mutable_engine().set_loop_phrase(true);
+    const auto count = view.engine().targets().size();
+    REQUIRE(count > 0);
+    bool chime = false, mastered = false;
+    for (std::size_t i = 0; i <= count; ++i) {
+      midi::PlayedChord chord{};
+      chord.notes = view.engine().targets()[i % count].expected_midi;
+      REQUIRE(view.on_played_chord(chord, profile, 1, chime, mastered));
+    }
+    CHECK(view.completed_revisions() == 1);
+    CHECK(view.engine().active_target_index() == 1);
+  }
   SECTION("Returning learner gets the next tempo without starting the clock") {
     progress.ladder_60_clean = true;
     view.load_lesson(*score, progress);

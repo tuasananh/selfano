@@ -125,7 +125,6 @@ public:
   void open_import_preview(core::MusicXmlImportResult result);
   void open_edit_imported_lesson(const core::LessonScore& score);
   void set_import_error(std::string message);
-  void dismiss_mastery_banner() noexcept { just_mastered_banner_ = false; }
 
 private:
   void finalize_completed_run(core::UserProfile& profile, std::int64_t today_epoch_day,
@@ -135,9 +134,10 @@ private:
   void draw_practice_settings(const core::LessonProgress& prog, LessonViewActions& actions);
   void draw_practice_prompt(LessonViewActions& actions);
   [[nodiscard]] std::string passage_label() const;
-  void draw_post_run_coach(const core::LessonProgress& prog, LessonViewActions& actions);
-  void draw_mastery_banner(const core::LessonLibrary& library, const core::LessonProgress& prog,
-                           LessonViewActions& actions);
+  void draw_result(const core::LessonLibrary& library, const core::LessonProgress& progress,
+                   LessonViewActions& actions);
+  void draw_review_enrollment(const core::LessonProgress& progress,
+                              LessonViewActions& actions) const;
   void draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
                           std::vector<StaffHarmonicHitbox>& out_hitboxes) const;
   void draw_harmony_popover(LessonViewActions& actions);

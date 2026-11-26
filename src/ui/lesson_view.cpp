@@ -163,7 +163,7 @@ void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t
   out_chime = true;
   const auto summary = engine_.build_run_summary();
   last_run_summary_ = summary;
-  show_post_run_coach_ = true;
+  show_post_run_coach_ = !engine_.config().loop_phrase;
 
   const auto& id = engine_.score().meta.id;
   if (id.empty()) {
@@ -177,8 +177,8 @@ void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t
     core::rate_guided_revision(prog, upd.suggested_rating, today_epoch_day);
     ++completed_revisions_;
   }
+  just_mastered_banner_ = upd.just_mastered;
   if (upd.just_mastered) {
-    just_mastered_banner_ = true;
     out_just_mastered = true;
   }
 }
@@ -375,7 +375,7 @@ void LessonView::simulate_completed_run_for_smoke(SmokeCoachSimMode mode,
 bool LessonView::on_played_chord(const midi::PlayedChord& chord, core::UserProfile& profile,
                                  std::int64_t today_epoch_day, bool& out_chime,
                                  bool& out_just_mastered) {
-  if (active_tab_ != LessonViewTab::Practice ||
+  if (active_tab_ != LessonViewTab::Practice || show_post_run_coach_ ||
       engine_.playback_state() == core::LessonPlaybackState::DemoPlaying || chord.notes.empty()) {
     return false;
   }
@@ -465,6 +465,7 @@ void LessonView::reset_phrase() noexcept {
 }
 
 std::string LessonView::cycle_phrase() {
+  show_post_run_coach_ = false;
   const auto& phrases = engine_.phrases();
   if (phrases.empty()) {
     return "Full Piece";
@@ -483,6 +484,7 @@ std::string LessonView::cycle_phrase() {
 }
 
 core::LessonPracticeMode LessonView::cycle_mode() {
+  show_post_run_coach_ = false;
   const int next = (static_cast<int>(engine_.config().practice_mode) + 1) % 3;
   const auto m = static_cast<core::LessonPracticeMode>(next);
   engine_.set_practice_mode(m);
@@ -490,6 +492,7 @@ core::LessonPracticeMode LessonView::cycle_mode() {
 }
 
 double LessonView::adjust_bpm(double delta) {
+  show_post_run_coach_ = false;
   const double next = std::clamp(engine_.effective_bpm() + delta, 36.0, 220.0);
   engine_.set_tempo_step(core::TempoLadderStep::Custom, next);
   return engine_.effective_bpm();
@@ -641,7 +644,9 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
       actions.profile_dirty = true;
     }
     if (ImGui::CollapsingHeader("Lesson progress")) {
-      if (pill_button("Mark lesson as mastered", ButtonTone::Secondary, IconId::Check)) {
+      draw_review_enrollment(progress, actions);
+      if (progress.status != core::LessonMasteryStatus::Mastered &&
+          pill_button("Mark lesson as mastered", ButtonTone::Secondary, IconId::Check)) {
         progress.status = core::LessonMasteryStatus::Mastered;
         progress.ladder_100_clean = true;
         if (progress.review_due_epoch_day == 0) {
@@ -649,6 +654,8 @@ void LessonView::draw_top_strip(core::UserProfile& profile, std::int64_t today_e
         }
         reset_phrase();
         just_mastered_banner_ = true;
+        show_post_run_coach_ = true;
+        last_run_summary_.reset();
         actions.stop_all_playback = true;
         actions.profile_dirty = true;
         ImGui::CloseCurrentPopup();
@@ -845,171 +852,137 @@ void LessonView::draw_practice_prompt(LessonViewActions& actions) {
   end_card();
 }
 
-void LessonView::draw_post_run_coach(const core::LessonProgress& prog, LessonViewActions& actions) {
-  if (!show_post_run_coach_ || !last_run_summary_.has_value()) {
-    return;
-  }
-  const auto& c = colors();
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  const auto& sum = *last_run_summary_;
-
-  ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
-  begin_card("##lv_post_run_coach", ImVec2(0.0f, 0.0f), 10.0f, 10.0f, true, true);
-  {
-    const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-    auto pc_wrap = [&](float needed_logical_w, float gap_logical = 8.0f) {
-      const float prev_right = ImGui::GetItemRectMax().x;
-      if (prev_right + gap_logical * scale + needed_logical_w * scale <= row_right) {
-        ImGui::SameLine(0.0f, gap_logical * scale);
-      }
-    };
-
-    if (sum.accuracy >= 0.90) {
-      status_pill(std::format("Clean Run · {:.0f}%", sum.accuracy * 100.0), StatusTone::Success,
-                  IconId::Check);
-      const auto next_step = core::suggest_next_practice_step(engine_.score(), prog);
-      pc_wrap(240.0f, 10.0f);
-      {
-        ScopedFont sf(TypeStyle::Subheadline);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(c.text_secondary, "%s", next_step.rationale.c_str());
-      }
-      pc_wrap(190.0f, 10.0f);
-      const std::string cta = std::format("Try {} ->##lv_coach_next", next_step.label);
-      if (pill_button(cta.c_str(), ButtonTone::Primary, IconId::ChevronRight, 26.0f, 0.0f, true)) {
-        show_post_run_coach_ = false;
-        if (next_step.open_learn_brief) {
-          actions.stop_all_playback = true;
-          set_active_tab(LessonViewTab::Learn);
-        } else {
-          engine_.configure(next_step.target_config);
-          actions.stop_all_playback = true;
-        }
-      }
+void LessonView::draw_result(const core::LessonLibrary& library,
+                             const core::LessonProgress& progress, LessonViewActions& actions) {
+  const auto& score = engine_.score();
+  const auto next = core::suggest_next_practice_step(score, progress);
+  const auto next_lesson =
+      just_mastered_banner_ ? library.next_lesson_id(score.meta.id) : std::nullopt;
+  const bool clean =
+      last_run_summary_ &&
+      last_run_summary_->accuracy >=
+          (last_run_summary_->practice_mode == core::LessonPracticeMode::ChordSkeleton ? 0.85
+                                                                                       : 0.90);
+  const auto spot =
+      last_run_summary_ && !clean ? core::find_trouble_spot(*last_run_summary_) : std::nullopt;
+  std::string heading;
+  std::string action_label;
+  if (next_lesson) {
+    heading = "Lesson mastered!";
+    if (const auto* following = library.find_lesson(*next_lesson)) {
+      heading += std::format(" Up next: {}", following->meta.title);
+    }
+    action_label = "Next lesson";
+  } else if (just_mastered_banner_) {
+    heading = "Lesson mastered! This piece is ready for review.";
+    action_label = "Play again";
+  } else if (clean) {
+    heading =
+        std::format("Passage complete · {:.0f}% accuracy", last_run_summary_->accuracy * 100.0);
+    if (next.open_learn_brief) {
+      action_label = "Read the lesson brief";
+    } else if (next.target_config.phrase_index) {
+      const auto hand = next.target_config.hand_mode;
+      heading += std::format("\nNext up · {} · {}",
+                             engine_.phrases()[*next.target_config.phrase_index].label,
+                             hand == core::LessonHandMode::RightHand  ? "Right hand"
+                             : hand == core::LessonHandMode::LeftHand ? "Left hand"
+                                                                      : "Both hands");
+      action_label = "Practice this phrase";
+    } else if (next.target_config.practice_mode == core::LessonPracticeMode::ChordSkeleton) {
+      action_label = "Practice the chord shapes";
     } else {
-      status_pill(std::format("Coach · {:.0f}%", sum.accuracy * 100.0), StatusTone::Warning,
-                  IconId::Sparkles);
-      const auto spot = core::find_trouble_spot(sum);
-      if (spot.has_value()) {
-        auto fmt_bar_num = [](std::uint32_t bn) -> std::string {
-          return (bn == 0U) ? std::string("Pickup") : std::to_string(bn);
-        };
-        const std::string range_lbl =
-            (spot->start_bar_number == spot->end_bar_number)
-                ? std::format("Bar {}", fmt_bar_num(spot->start_bar_number))
-                : std::format("Bars {}-{}", fmt_bar_num(spot->start_bar_number),
-                              fmt_bar_num(spot->end_bar_number));
-        std::string err_lbl;
-        if (spot->misses > 0U && spot->partial_hits > 0U) {
-          err_lbl = std::format("{} miss, {} partial", spot->misses, spot->partial_hits);
-        } else if (spot->misses > 0U) {
-          err_lbl = std::format("{} {}", spot->misses, spot->misses == 1U ? "miss" : "misses");
-        } else {
-          err_lbl = std::format("{} partial", spot->partial_hits);
-        }
-        pc_wrap(210.0f, 10.0f);
-        {
-          ScopedFont sf(TypeStyle::Subheadline);
-          ImGui::AlignTextToFramePadding();
-          ImGui::TextColored(c.text_primary, "Focus spot: %s (%s)", range_lbl.c_str(),
-                             err_lbl.c_str());
-        }
-        pc_wrap(210.0f, 10.0f);
-        const std::string drill_btn =
-            std::format("Drill {} at 60% (Loop)##lv_coach_drill", range_lbl);
-        if (pill_button(drill_btn.c_str(), ButtonTone::Primary, IconId::Repeat, 26.0f, 0.0f,
-                        true)) {
-          engine_.set_practice_mode(core::LessonPracticeMode::SteadyPulse);
-          engine_.set_custom_bar_range(std::pair{spot->start_bar_index, spot->end_bar_index});
-          engine_.set_tempo_step(core::TempoLadderStep::Slow60);
-          engine_.set_loop_phrase(true);
-          show_post_run_coach_ = false;
-          actions.stop_all_playback = true;
-        }
+      action_label = std::format(
+          "Practice at {:.0f} BPM",
+          core::compute_ladder_bpm(score.meta.target_bpm, next.target_config.tempo_step));
+    }
+  } else if (spot) {
+    heading = "Give this passage another try at a slower tempo.";
+    action_label = std::format("Loop {} at 60%",
+                               format_bar_range(spot->start_bar_number, spot->end_bar_number));
+  } else {
+    heading = "Take another pass through this passage.";
+    action_label = "Try again";
+  }
+
+  begin_card("##lesson_result", {}, 12.0f, 12.0f, true);
+  {
+    ScopedFont title(TypeStyle::Headline);
+    ImGui::TextWrapped("%s", heading.c_str());
+  }
+  if (pill_button(action_label.c_str(), ButtonTone::Primary,
+                  spot ? IconId::Repeat : IconId::Play)) {
+    actions.stop_all_playback = true;
+    if (next_lesson) {
+      actions.next_lesson_id = next_lesson;
+    } else if (just_mastered_banner_ || clean) {
+      if (next.open_learn_brief) {
+        set_active_tab(LessonViewTab::Learn);
       } else {
-        pc_wrap(200.0f, 10.0f);
-        ScopedFont sf(TypeStyle::Subheadline);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(c.text_secondary, "%s",
-                           "Try slowing to 60% or isolating one hand first.");
+        engine_.configure(next.target_config);
+      }
+    } else if (spot) {
+      auto cfg = engine_.config();
+      cfg.practice_mode = core::LessonPracticeMode::SteadyPulse;
+      cfg.custom_bar_range = std::pair{spot->start_bar_index, spot->end_bar_index};
+      cfg.tempo_step = core::TempoLadderStep::Slow60;
+      cfg.loop_phrase = true;
+      engine_.configure(cfg);
+    } else {
+      reset_phrase();
+    }
+    show_post_run_coach_ = false;
+  }
+  if (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x >
+      120.0f * ImGui::GetStyle().FontScaleDpi) {
+    ImGui::SameLine();
+  }
+  if (pill_button("Result details", ButtonTone::Ghost, IconId::ChevronDown)) {
+    ImGui::OpenPopup("##result_details");
+  }
+  const float scale = ImGui::GetStyle().FontScaleDpi;
+  const auto viewport = ImGui::GetMainViewport()->WorkSize;
+  const float width = std::min(340.0f * scale, viewport.x - 16.0f * scale);
+  ImGui::SetNextWindowSizeConstraints({width, 0}, {width, viewport.y * 0.8f});
+  if (ImGui::BeginPopup("##result_details")) {
+    if (last_run_summary_) {
+      const auto& run = *last_run_summary_;
+      section_kicker("ACCURACY");
+      ImGui::TextWrapped("%.0f%% · %u correct · %u partial · %u missed", run.accuracy * 100.0,
+                         run.hits, run.partial_hits, run.misses);
+      const auto& mus = run.musicality;
+      if (mus.voicing_available || mus.sustain_available || mus.pedal_available) {
+        section_kicker("MUSICALITY");
+        if (mus.voicing_available) {
+          ImGui::TextWrapped("Melody voicing · %+.0f velocity", mus.voicing_delta);
+        }
+        if (mus.sustain_available) {
+          ImGui::TextWrapped("Sustain · %.0f%% held", mus.sustain_hold_rate * 100.0);
+        }
+        if (mus.pedal_available) {
+          ImGui::TextWrapped("Pedal · %.0f%% clean changes", mus.pedal_clean_rate * 100.0);
+        }
+        if (!mus.coach_tip.empty()) {
+          ImGui::TextWrapped("%s", mus.coach_tip.c_str());
+        }
       }
     }
-
-    pc_wrap(80.0f, 8.0f);
-    if (pill_button("Dismiss##lv_coach_dis", ButtonTone::Ghost, IconId::None, 26.0f)) {
-      show_post_run_coach_ = false;
+    if (progress.status == core::LessonMasteryStatus::Mastered) {
+      ImGui::TextWrapped("This piece is scheduled for guided revision.");
+      draw_review_enrollment(progress, actions);
     }
-
-    const auto& mus = sum.musicality;
-    if (mus.voicing_available || mus.sustain_available || mus.pedal_available) {
-      {
-        ScopedFont sf(TypeStyle::Caption);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(c.text_tertiary, "Musicality");
-      }
-      if (mus.voicing_available) {
-        pc_wrap(120.0f, 8.0f);
-        status_pill(std::format("Voicing {:+.0f} vel", mus.voicing_delta),
-                    mus.voicing_balanced ? StatusTone::Success : StatusTone::Warning,
-                    mus.voicing_balanced ? IconId::Check : IconId::Sparkles);
-      }
-      if (mus.sustain_available) {
-        pc_wrap(110.0f, 8.0f);
-        status_pill(std::format("Sustain {:.0f}%", mus.sustain_hold_rate * 100.0),
-                    (mus.sustain_hold_rate >= 0.75) ? StatusTone::Success : StatusTone::Warning,
-                    (mus.sustain_hold_rate >= 0.75) ? IconId::Check : IconId::Sparkles);
-      }
-      if (mus.pedal_available) {
-        pc_wrap(120.0f, 8.0f);
-        status_pill(std::format("Pedal {:.0f}% clean", mus.pedal_clean_rate * 100.0),
-                    (mus.pedal_clean_rate >= 0.75) ? StatusTone::Success : StatusTone::Warning,
-                    (mus.pedal_clean_rate >= 0.75) ? IconId::Check : IconId::Sparkles);
-      }
-      if (!mus.coach_tip.empty()) {
-        pc_wrap(240.0f, 10.0f);
-        ScopedFont sf(TypeStyle::Subheadline);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextColored(c.text_secondary, "%s", mus.coach_tip.c_str());
-      }
-    }
+    ImGui::EndPopup();
   }
   end_card();
 }
 
-void LessonView::draw_mastery_banner(const core::LessonLibrary& library,
-                                     const core::LessonProgress& prog, LessonViewActions& actions) {
-  if (!just_mastered_banner_ &&
-      !(prog.status == core::LessonMasteryStatus::Mastered && !prog.added_to_srs)) {
-    return;
+void LessonView::draw_review_enrollment(const core::LessonProgress& progress,
+                                        LessonViewActions& actions) const {
+  if (progress.status == core::LessonMasteryStatus::Mastered && !progress.added_to_srs &&
+      pill_button("Add to retention deck", ButtonTone::Secondary, IconId::Layers, 28.0f)) {
+    actions.add_to_srs_requested = true;
+    actions.add_to_srs_lesson_id = engine_.score().meta.id;
   }
-  const float scale = ImGui::GetStyle().FontScaleDpi;
-  const auto& meta = engine_.score().meta;
-
-  ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
-  begin_card("##lv_mastered_banner", ImVec2(0.0f, 0.0f), 12.0f, 12.0f, true, true);
-  status_pill("Piece Mastered!", StatusTone::Success, IconId::Check);
-  ImGui::SameLine(0.0f, 10.0f * scale);
-  {
-    ScopedFont bf(TypeStyle::Body);
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("Scheduled for Stage 3 Guided Revision.");
-  }
-  if (!prog.added_to_srs) {
-    ImGui::SameLine(0.0f, 12.0f * scale);
-    if (pill_button("Add to Memory SRS (Stage 4A)##lv_add_srs", ButtonTone::Primary, IconId::Layers,
-                    28.0f)) {
-      actions.add_to_srs_requested = true;
-      actions.add_to_srs_lesson_id = meta.id;
-    }
-  }
-  if (const auto next_id = library.next_lesson_id(meta.id); next_id.has_value()) {
-    ImGui::SameLine(0.0f, 8.0f * scale);
-    if (pill_button("Next Lesson##lv_next", ButtonTone::Success, IconId::ChevronRight, 28.0f)) {
-      actions.next_lesson_id = *next_id;
-      just_mastered_banner_ = false;
-    }
-  }
-  end_card();
 }
 
 void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
@@ -1268,12 +1241,11 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
       start_practicing(profile, actions);
     }
   } else {
-    if (show_post_run_coach_ && last_run_summary_.has_value()) {
-      draw_post_run_coach(prog, actions);
+    if (show_post_run_coach_) {
+      draw_result(library, prog, actions);
     } else {
       draw_practice_prompt(actions);
     }
-    draw_mastery_banner(library, prog, actions);
     ImGui::Dummy(ImVec2(0.0f, 4.0f * scale));
 
     std::vector<StaffHarmonicHitbox> hitboxes;
