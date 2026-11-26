@@ -332,6 +332,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/key_signature_tests.cpp
     tests/theory_tests.cpp
     tests/staff_layout_tests.cpp
+    tests/staff_renderer_tests.cpp
     tests/warmup_tests.cpp
     tests/flashcard_tests.cpp
     tests/etude_tests.cpp
@@ -355,6 +356,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     PRIVATE
       piano_core
       piano_midi
+      piano_ui
       miniz
       Catch2::Catch2WithMain
       selfano_warnings

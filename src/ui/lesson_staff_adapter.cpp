@@ -135,11 +135,7 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
             continue;
           }
           const NoteDuration dur = to_staff_note_duration(ev->duration.base);
-          if (!chord_dur_set && ev->voice == 0U) {
-            chord.duration = dur;
-            chord.dotted = ev->duration.dotted;
-            chord_dur_set = true;
-          } else if (!chord_dur_set) {
+          if (!chord_dur_set) {
             chord.duration = dur;
             chord.dotted = ev->duration.dotted;
             chord_dur_set = true;

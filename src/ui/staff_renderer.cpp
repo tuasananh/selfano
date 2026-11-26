@@ -133,15 +133,16 @@ struct ClefSlot {
         continue;
       }
 
+      const StaffNote& rhythm_note = *clef_notes.front();
       ClefSlot slot{};
       slot.chord_idx = c;
       slot.chord_x = chord_x;
       slot.start_tick = start_tick;
       slot.is_rest = false;
-      slot.duration = clef_notes[0]->duration.value_or(chord.duration);
-      slot.dotted = clef_notes[0]->dotted || chord.dotted;
+      slot.duration = rhythm_note.duration.value_or(chord.duration);
+      slot.dotted = rhythm_note.duration.has_value() ? rhythm_note.dotted : chord.dotted;
       slot.voice = v;
-      slot.articulations = clef_notes[0]->articulations;
+      slot.articulations = rhythm_note.articulations;
       slot.notes = std::move(clef_notes);
 
       std::vector<core::ChordNoteLayoutInput> inputs;
