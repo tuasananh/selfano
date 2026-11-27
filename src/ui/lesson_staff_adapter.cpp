@@ -115,6 +115,7 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
           fb = it->second.feedback;
           played_lbl = it->second.played_label;
           chord.is_active_cursor = it->second.is_active_cursor;
+          chord.memory_revealed = it->second.memory_revealed;
         }
       }
 

@@ -17,6 +17,7 @@ struct LessonTargetVisualState {
   NoteFeedback feedback{NoteFeedback::Neutral};
   std::string played_label{};
   bool is_active_cursor{false};
+  bool memory_revealed{false};
 };
 
 using LessonFeedbackMap = std::map<std::pair<std::size_t, int>, LessonTargetVisualState>;
