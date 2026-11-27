@@ -170,6 +170,17 @@ CliOptions parse_cli(int argc, char* argv[]) {
       } else if (tx == "block") {
         opts.practice_transform_override = core::PracticeTransform::HandBlocking;
       }
+    } else if (arg == "--memory-fade" && i + 1 < argc) {
+      const std::string_view mf = argv[++i];
+      if (mf == "score") {
+        opts.memory_fade_override = core::MemoryFadeLevel::FullScore;
+      } else if (mf == "harmony") {
+        opts.memory_fade_override = core::MemoryFadeLevel::HarmonyMapOnly;
+      } else if (mf == "blank") {
+        opts.memory_fade_override = core::MemoryFadeLevel::BlankMemory;
+      }
+    } else if (arg == "--seed-srs-lesson" && i + 1 < argc) {
+      opts.seed_srs_lesson_id = argv[++i];
     } else if (arg == "--start-demo") {
       opts.start_lesson_demo = true;
     } else if (arg == "--bar-range" && i + 1 < argc) {

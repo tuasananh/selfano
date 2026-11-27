@@ -141,6 +141,8 @@ void LessonView::load_lesson(const core::LessonScore& score, const core::LessonP
   coach_focus_bar_.reset();
   last_loop_accuracy_.reset();
   trouble_spot_saved_for_run_ = false;
+  linked_srs_card_id_.clear();
+  pending_memory_srs_review_.reset();
   last_run_summary_.reset();
   active_harmony_explanation_.reset();
   active_tab_ = step.open_learn_brief ? LessonViewTab::Learn : LessonViewTab::Practice;
@@ -155,6 +157,8 @@ void LessonView::launch_trouble_spot_drill(const core::LessonScore& score,
   coach_focus_bar_.reset();
   last_loop_accuracy_.reset();
   trouble_spot_saved_for_run_ = false;
+  linked_srs_card_id_.clear();
+  pending_memory_srs_review_.reset();
   last_run_summary_.reset();
   active_harmony_explanation_.reset();
   active_tab_ = LessonViewTab::Practice;
@@ -172,6 +176,28 @@ void LessonView::launch_trouble_spot_drill(const core::LessonScore& score,
   } else {
     cfg.tempo_step = core::TempoLadderStep::Slow60;
   }
+  engine_.load_score(score, cfg);
+}
+
+void LessonView::launch_memory_recall(const core::LessonScore& score,
+                                      const core::LessonProgress& /*progress*/,
+                                      core::MemoryFadeLevel level, std::string linked_srs_card_id) {
+  just_mastered_banner_ = false;
+  show_post_run_coach_ = false;
+  coach_focus_bar_.reset();
+  last_loop_accuracy_.reset();
+  trouble_spot_saved_for_run_ = false;
+  linked_srs_card_id_ = std::move(linked_srs_card_id);
+  pending_memory_srs_review_.reset();
+  last_run_summary_.reset();
+  active_harmony_explanation_.reset();
+  active_tab_ = LessonViewTab::Practice;
+
+  core::LessonConfig cfg{};
+  cfg.practice_mode = core::LessonPracticeMode::WaitForNote;
+  cfg.hand_mode = core::LessonHandMode::HandsTogether;
+  cfg.tempo_step = core::TempoLadderStep::Target100;
+  cfg.memory_fade = level;
   engine_.load_score(score, cfg);
 }
 
@@ -260,6 +286,13 @@ void LessonView::finalize_completed_run(core::UserProfile& profile, std::int64_t
   auto& prog = profile.lesson_progress[id];
   const auto upd =
       core::apply_run_to_progress(prog, summary, engine_.score().meta.target_bpm, today_epoch_day);
+
+  if (summary.memory_fade != core::MemoryFadeLevel::FullScore && !linked_srs_card_id_.empty()) {
+    const std::uint32_t peeks =
+        engine_.config().loop_phrase ? engine_.last_loop_peek_count() : summary.memory_peek_count;
+    pending_memory_srs_review_ = {linked_srs_card_id_,
+                                  core::suggest_memory_srs_rating(run_acc, peeks)};
+  }
 
   if (is_revision_mode_ && id == revision_lesson_id_) {
     core::rate_guided_revision(prog, upd.suggested_rating, today_epoch_day);
@@ -645,9 +678,13 @@ LessonView::virtual_piano_highlights(const std::array<bool, 128>& held_notes) co
   const std::size_t idx = engine_.active_target_index();
   if (idx < targets.size()) {
     const auto& tgt = targets[idx];
-    for (const auto m : tgt.expected_midi) {
-      if (m < 128U) {
-        hi.target[m] = true;
+    const bool hide_target =
+        (engine_.config().memory_fade != core::MemoryFadeLevel::FullScore) && !tgt.memory_peeked;
+    if (!hide_target) {
+      for (const auto m : tgt.expected_midi) {
+        if (m < 128U) {
+          hi.target[m] = true;
+        }
       }
     }
     if (tgt.status == core::LessonTargetStatus::Missed) {
@@ -964,11 +1001,19 @@ void LessonView::draw_practice_settings(const core::LessonProgress& progress,
     if (segmented_control("##speed_lab", &tx_idx, kSpeedLabLabels, 318.0f, 28.0f)) {
       engine_.set_practice_transform(static_cast<core::PracticeTransform>(tx_idx));
     }
+    section_kicker("MEMORY FADE");
+    static constexpr std::array<std::string_view, 3> kMemoryFadeLabels{"Score", "Chords Only",
+                                                                       "Memory"};
+    int mf_idx = static_cast<int>(cfg.memory_fade);
+    if (segmented_control("##memory_fade", &mf_idx, kMemoryFadeLabels, 318.0f, 28.0f)) {
+      engine_.set_memory_fade(static_cast<core::MemoryFadeLevel>(mf_idx));
+    }
   }
   if (previous.practice_mode != cfg.practice_mode || previous.hand_mode != cfg.hand_mode ||
       previous.phrase_index != cfg.phrase_index ||
       previous.custom_bar_range != cfg.custom_bar_range ||
-      previous.practice_transform != cfg.practice_transform) {
+      previous.practice_transform != cfg.practice_transform ||
+      previous.memory_fade != cfg.memory_fade) {
     actions.stop_all_playback = true;
     last_loop_accuracy_.reset();
   }
@@ -1132,6 +1177,21 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
       ImGui::SetTooltip("Click to return to Straight notation");
     }
   }
+  if (cfg.practice_mode != core::LessonPracticeMode::ChordSkeleton &&
+      cfg.memory_fade != core::MemoryFadeLevel::FullScore) {
+    const char* mf_name =
+        (cfg.memory_fade == core::MemoryFadeLevel::HarmonyMapOnly) ? "Chords Only" : "Memory";
+    const std::string mf_lbl = std::format("Memory: {}  \xC3\x97##chip_mem_fade", mf_name);
+    place_chip_inline(168.0f * scale);
+    if (pill_button(mf_lbl.c_str(), ButtonTone::Warning, IconId::Eye, 24.0f, 0.0f, true)) {
+      engine_.set_memory_fade(core::MemoryFadeLevel::FullScore);
+      reset_phrase();
+      actions.stop_all_playback = true;
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("Click to reveal full sheet music");
+    }
+  }
   if (cfg.loop_phrase && last_loop_accuracy_.has_value()) {
     place_chip_inline(124.0f * scale);
     status_pill(std::format("Last loop: {:.0f}%", *last_loop_accuracy_ * 100.0),
@@ -1224,6 +1284,10 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
     } else if (engine_.active_target_index() < engine_.targets().size() &&
                engine_.targets()[engine_.active_target_index()].pitch_class_match) {
       instruction = "Play the highlighted chord in any octave.";
+    } else if (cfg.memory_fade == core::MemoryFadeLevel::HarmonyMapOnly) {
+      instruction = "Recall from chord symbols; missed notes peek automatically.";
+    } else if (cfg.memory_fade == core::MemoryFadeLevel::BlankMemory) {
+      instruction = "Play from pure memory; missed notes peek automatically.";
     } else {
       instruction = "Play the highlighted notes at your own pace.";
     }
@@ -1322,6 +1386,20 @@ void LessonView::draw_result(const core::LessonLibrary& library,
   if (last_run_summary_.has_value()) {
     status_pill(std::format("{:.0f}% accuracy", last_run_summary_->accuracy * 100.0),
                 clean ? StatusTone::Success : StatusTone::Warning, IconId::None, true);
+    if (last_run_summary_->memory_fade != core::MemoryFadeLevel::FullScore) {
+      const auto rating = core::suggest_memory_srs_rating(last_run_summary_->accuracy,
+                                                          last_run_summary_->memory_peek_count);
+      const char* r_name = (rating == core::SrsRating::Good)   ? "Good"
+                           : (rating == core::SrsRating::Hard) ? "Hard"
+                                                               : "Again";
+      const StatusTone r_tone = (rating == core::SrsRating::Good)   ? StatusTone::Success
+                                : (rating == core::SrsRating::Hard) ? StatusTone::Warning
+                                                                    : StatusTone::Danger;
+      ImGui::SameLine(0.0f, 8.0f * scale);
+      status_pill(
+          std::format("Peeks: {} \xC2\xB7 SRS: {}", last_run_summary_->memory_peek_count, r_name),
+          r_tone);
+    }
     if (spot.has_value()) {
       ImGui::SameLine(0.0f, 8.0f * scale);
       status_pill(std::format("Trouble spot: {}",
@@ -1519,8 +1597,10 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     LessonTargetVisualState vst{};
     if (t.status == core::LessonTargetStatus::Hit) {
       vst.feedback = NoteFeedback::Correct;
+      vst.memory_revealed = true;
     } else if (t.status == core::LessonTargetStatus::PartialHit) {
       vst.feedback = NoteFeedback::Partial;
+      vst.memory_revealed = true;
       if (t.missed_midi.size() <= 2U && !t.missed_midi.empty()) {
         vst.played_label = "Missed " + core::format_midi_list(t.missed_midi, meta.key, ", ");
       } else if (!t.missed_midi.empty()) {
@@ -1528,9 +1608,12 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
       }
     } else if (t.status == core::LessonTargetStatus::Missed) {
       vst.feedback = NoteFeedback::Incorrect;
+      vst.memory_revealed = true;
       if (!t.played_midi.empty()) {
         vst.played_label = core::format_midi_list(t.played_midi, meta.key, "+");
       }
+    } else if (t.memory_peeked) {
+      vst.memory_revealed = true;
     }
     if (ti == engine_.active_target_index() &&
         engine_.config().practice_mode != core::LessonPracticeMode::SteadyPulse) {
@@ -1551,6 +1634,12 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   const float avail_w = std::max(340.0f, ImGui::GetContentRegionAvail().x);
   const bool has_sys2 = (sys1_end + 1U <= slice_end);
 
+  const auto mem_fade = engine_.config().memory_fade;
+  const bool eff_show_harmony =
+      (mem_fade == core::MemoryFadeLevel::HarmonyMapOnly)
+          ? true
+          : ((mem_fade == core::MemoryFadeLevel::BlankMemory) ? false : show_harmony_);
+
   StaffRenderOptions opts1{};
   opts1.key = meta.key;
   opts1.time_signature = meta.time_signature;
@@ -1558,7 +1647,8 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   opts1.staff_space = 15.0f;
   opts1.light_paper_theme = light_paper_theme_;
   opts1.show_fingerings = show_fingerings_;
-  opts1.show_harmony_labels = show_harmony_;
+  opts1.show_harmony_labels = eff_show_harmony;
+  opts1.memory_fade = mem_fade;
   opts1.show_final_barline = !has_sys2;
   if (sys1_start == 0U) {
     opts1.tempo_marking = meta.tempo_marking;
@@ -1602,7 +1692,7 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
   }
 
   draw_staff_canvas("##lv_sys1", smufl_font, ui_font, avail_w, sm1, opts1,
-                    show_harmony_ ? &out_hitboxes : nullptr);
+                    eff_show_harmony ? &out_hitboxes : nullptr);
 
   if (has_sys2) {
     ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
@@ -1629,7 +1719,7 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     }
 
     draw_staff_canvas("##lv_sys2", smufl_font, ui_font, avail_w, sm2, opts2,
-                      show_harmony_ ? &out_hitboxes : nullptr);
+                      eff_show_harmony ? &out_hitboxes : nullptr);
   }
 }
 
@@ -1938,6 +2028,10 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
   if (const auto saved_score = import_modal_.draw(); saved_score.has_value()) {
     actions.save_imported_lesson = *saved_score;
     curriculum_modal_.close();
+  }
+  if (pending_memory_srs_review_.has_value()) {
+    actions.completed_memory_srs_review = pending_memory_srs_review_;
+    pending_memory_srs_review_.reset();
   }
   return actions;
 }

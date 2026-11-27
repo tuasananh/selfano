@@ -52,6 +52,7 @@ struct LessonViewActions {
   std::vector<core::LessonPlaybackNote> preview_playback_notes{};
   std::optional<std::size_t> launch_trouble_spot_index{};
   std::string hud_toast{};
+  std::optional<std::pair<std::string, core::SrsRating>> completed_memory_srs_review{};
 };
 
 class LessonView {
@@ -62,6 +63,8 @@ public:
   void launch_trouble_spot_drill(const core::LessonScore& score,
                                  const core::LessonProgress& progress,
                                  const core::TroubleSpotCard& card);
+  void launch_memory_recall(const core::LessonScore& score, const core::LessonProgress& progress,
+                            core::MemoryFadeLevel level, std::string linked_srs_card_id = {});
   void start_practicing(core::UserProfile& profile, LessonViewActions& actions);
   void set_active_tab(LessonViewTab tab) noexcept;
   [[nodiscard]] LessonViewTab active_tab() const noexcept { return active_tab_; }
@@ -180,6 +183,8 @@ private:
   std::optional<std::size_t> coach_focus_bar_{};
   std::optional<double> last_loop_accuracy_{};
   bool trouble_spot_saved_for_run_{false};
+  std::string linked_srs_card_id_{};
+  std::optional<std::pair<std::string, core::SrsRating>> pending_memory_srs_review_{};
   bool pending_open_settings_{false};
 };
 

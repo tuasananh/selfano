@@ -297,6 +297,7 @@ void AppController::promote_lesson_to_srs(std::string_view lesson_id, std::int64
   card.section_name = std::format("Tier {} ({} bars)", score->meta.tier, score->measures.size());
   card.chord_roadmap_hint = hint;
   card.due_epoch_day = today_epoch_day + 1;
+  card.lesson_id = score->meta.id;
   if (srs_view_.deck().find_card(card.id) == nullptr) {
     (void)srs_view_.mutable_deck().add_card(std::move(card));
   }
