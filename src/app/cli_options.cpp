@@ -225,6 +225,26 @@ CliOptions parse_cli(int argc, char* argv[]) {
       opts.auto_ramp = true;
     } else if (arg == "--seed-trouble-spot") {
       opts.seed_trouble_spot = true;
+    } else if (arg == "--weekly-key" && i + 1 < argc) {
+      opts.weekly_key_override = argv[++i];
+    } else if (arg == "--warmup-circuit" && i + 1 < argc) {
+      const std::string_view c = argv[++i];
+      if (c == "foundation") {
+        opts.warmup_circuit_override = core::WarmUpCircuitPreset::Foundation;
+      } else if (c == "romantic") {
+        opts.warmup_circuit_override = core::WarmUpCircuitPreset::Romantic;
+      }
+    } else if (arg == "--warmup-station" && i + 1 < argc) {
+      const std::string_view st = argv[++i];
+      if (st == "chromatic") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::ChromaticOnly;
+      } else if (st == "seventh") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::SeventhArpeggiosOnly;
+      } else if (st == "contrary") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::ContraryScaleOnly;
+      } else if (st == "stride") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::LhStrideOnly;
+      }
     }
   }
   return opts;

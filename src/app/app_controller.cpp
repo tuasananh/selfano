@@ -673,6 +673,22 @@ bool AppController::init(const CliOptions& cli_opts) {
     }
     lesson_view_.mutable_engine().set_memory_fade(*cli_.memory_fade_override);
   }
+  if (!cli_.weekly_key_override.empty()) {
+    for (std::size_t ki = 0; ki < core::kWeeklyKeyCycle.size(); ++ki) {
+      if (core::format_key_name(core::weekly_key_at(ki)) == cli_.weekly_key_override) {
+        profile_.weekly_key.key_index = ki;
+        profile_.weekly_key.manual_override = true;
+        apply_weekly_key_to_views(prev_now_ms_);
+        break;
+      }
+    }
+  }
+  if (cli_.warmup_circuit_override.has_value()) {
+    warmup_view_.set_circuit_preset(*cli_.warmup_circuit_override);
+  }
+  if (cli_.warmup_exercise_override.has_value()) {
+    warmup_view_.set_exercise(*cli_.warmup_exercise_override);
+  }
   if (cli_.simulate_coach.has_value()) {
     ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
     if (*cli_.simulate_coach == SmokeCoachMode::Imperfect) {

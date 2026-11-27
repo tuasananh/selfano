@@ -2,6 +2,7 @@
 
 #include "core/autopilot.hpp"
 #include "core/lesson_engine.hpp"
+#include "core/warmup_engine.hpp"
 
 #include "ui/design_system.hpp"
 #include "ui/staff_showcase.hpp"
@@ -57,6 +58,9 @@ struct CliOptions {
   bool open_lesson_settings{false};
   bool auto_ramp{false};
   bool seed_trouble_spot{false};
+  std::string weekly_key_override{};
+  std::optional<core::WarmUpCircuitPreset> warmup_circuit_override;
+  std::optional<core::WarmUpExerciseKind> warmup_exercise_override;
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

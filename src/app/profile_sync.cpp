@@ -68,6 +68,8 @@ void AppController::apply_profile_to_views(double now_ms) {
   apply_weekly_key_to_views(now_ms);
   warmup_view_.set_light_paper_theme(profile_.preferences.light_paper_staff);
   warmup_view_.set_metronome_enabled(profile_.preferences.metronome_enabled);
+  warmup_view_.set_circuit_preset(profile_.preferences.warmup_circuit);
+  warmup_view_.set_show_fingerings(profile_.preferences.warmup_show_fingerings);
   flashcard_view_.set_light_paper_theme(profile_.preferences.light_paper_staff);
   flashcard_view_.mutable_engine().load_telemetry(profile_.flashcard_telemetry);
   etude_view_.apply_preferences(profile_.preferences.metronome_enabled,
@@ -132,6 +134,8 @@ void AppController::sync_profile_from_views() {
   profile_.preferences.chord_window_ms = chord_grouper_.window_ms();
   profile_.preferences.hand_mode = etude_view_.engine().config().hand_mode;
   profile_.preferences.minor_scale_mode = warmup_view_.minor_mode();
+  profile_.preferences.warmup_circuit = warmup_view_.circuit_preset();
+  profile_.preferences.warmup_show_fingerings = warmup_view_.show_fingerings();
   profile_.preferences.metronome_enabled = etude_view_.metronome_enabled();
   profile_.preferences.companion_chime_enabled = companion_view_.chime_enabled();
   profile_.preferences.companion_dwell_ms = companion_view_.matcher().config().min_dwell_ms;
