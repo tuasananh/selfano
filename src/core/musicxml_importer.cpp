@@ -1,6 +1,7 @@
 #include "core/musicxml_importer.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/harmonic_analyzer.hpp"
 #include "core/key_signature.hpp"
 #include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
@@ -1545,6 +1546,30 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   }
 
   build_phrases_from_breaks(ctx.phrase_break_bars, score);
+
+  if (options.auto_analyze_harmony_if_missing) {
+    bool has_any_harmony = false;
+    for (const auto& m : score.measures) {
+      if (!m.harmony.empty()) {
+        has_any_harmony = true;
+        break;
+      }
+    }
+    if (!has_any_harmony) {
+      auto analyzed = analyze_score_harmony(score);
+      std::size_t populated_bars = 0U;
+      for (std::size_t bi = 0; bi < score.measures.size() && bi < analyzed.size(); ++bi) {
+        if (!analyzed[bi].empty()) {
+          score.measures[bi].harmony = std::move(analyzed[bi]);
+          ++populated_bars;
+        }
+      }
+      if (populated_bars > 0U) {
+        result.warnings.push_back(std::format(
+            "Auto-analyzed harmony for {} bars (editable in My Books)", populated_bars));
+      }
+    }
+  }
 
   score.meta.id = generate_imported_lesson_id(score.meta.title, score.measures.size(), xml_text);
   score.meta.theory.summary =

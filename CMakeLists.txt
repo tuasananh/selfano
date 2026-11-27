@@ -190,6 +190,7 @@ add_library(piano_core STATIC
   src/core/practice_transforms.cpp
   src/core/lesson_library.cpp
   src/core/theory_glossary.cpp
+  src/core/harmonic_analyzer.cpp
   src/core/mxl_archive.cpp
   src/core/musicxml_importer.cpp
 )
@@ -350,6 +351,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/practice_transforms_tests.cpp
     tests/lesson_library_tests.cpp
     tests/theory_glossary_tests.cpp
+    tests/harmonic_analyzer_tests.cpp
     tests/musicxml_importer_tests.cpp
     tests/midi_tests.cpp
   )

@@ -1,6 +1,6 @@
 # Phase 27: Automatic Harmonic Analyzer for Imported Scores
 
-**Status:** `[ ] Planned` (Depends on Phase 20 — Track B: Romantic Score & Importer Foundations)  
+**Status:** `[x] Complete` (Depends on Phase 20 — Track B: Romantic Score & Importer Foundations)  
 **Goal:** Build a pure C++23 key-aware **Harmonic Analyzer** that infers bar- and half-bar-level chord symbols and Roman numerals (`i`, `iv`, `V7`, `V7/V`, `vii°7`, `bII6`) automatically when importing `.musicxml`/`.mxl` files—unlocking Selfano's `ChordSkeleton`, clickable Theory Popover, and Memory Fade on *any* classical score from IMSLP or MuseScore.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `verification-and-review`

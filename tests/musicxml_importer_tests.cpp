@@ -714,3 +714,55 @@ TEST_CASE("MusicXmlImporter captures multi-section tempo changes across measures
   CHECK_THAT(sc.measures[1].tempo_changes[0].bpm, Catch::Matchers::WithinAbs(104.0, 1e-6));
   CHECK(sc.measures[1].tempo_changes[0].label == "Moderato");
 }
+
+TEST_CASE("MusicXmlImporter auto-analyzes missing harmony and preserves explicit harmony",
+          "[musicxml_importer][phase27]") {
+  constexpr const char* kHarmonyFreeXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths><mode>major</mode></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+        <clef number="1"><sign>G</sign><line>2</line></clef>
+        <clef number="2"><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <note><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <backup><duration>4</duration></backup>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><voice>5</voice><type>whole</type><staff>2</staff></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <note><chord/><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <note><chord/><pitch><step>F</step><octave>5</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+      <backup><duration>4</duration></backup>
+      <note><pitch><step>G</step><octave>2</octave></pitch><duration>4</duration><voice>5</voice><type>whole</type><staff>2</staff></note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  // 1. Default: auto-analyzes missing harmony and ChordSkeleton mode works
+  const auto res = import_musicxml_string(kHarmonyFreeXml);
+  REQUIRE(res.has_value());
+  REQUIRE(res->score.measures.size() == 2U);
+  REQUIRE_FALSE(res->score.measures[0].harmony.empty());
+  REQUIRE_FALSE(res->score.measures[1].harmony.empty());
+  CHECK(res->score.measures[0].harmony[0].chord_symbol == "C");
+  CHECK(res->score.measures[1].harmony[0].chord_symbol == "G7");
+
+  LessonEngine skel;
+  skel.load_score(res->score, LessonConfig{.practice_mode = LessonPracticeMode::ChordSkeleton});
+  CHECK(skel.targets().size() >= 2U);
+
+  // 2. Opt-out: auto_analyze_harmony_if_missing = false leaves harmony empty
+  MusicXmlImportOptions no_auto{};
+  no_auto.auto_analyze_harmony_if_missing = false;
+  const auto res_off = import_musicxml_string(kHarmonyFreeXml, no_auto);
+  REQUIRE(res_off.has_value());
+  CHECK(res_off->score.measures[0].harmony.empty());
+  CHECK(res_off->score.measures[1].harmony.empty());
+}

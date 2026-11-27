@@ -360,8 +360,8 @@ TEST_CASE("LessonLibrary My Books CRUD saves, reloads, updates, and deletes impo
   LessonScore edited = *found;
   edited.meta.title = "Edited Etude";
   edited.meta.target_bpm = 104.0;
-  edited.measures[0].harmony.push_back(
-      HarmonicAnnotation{.start_tick = 0, .chord_symbol = "C", .roman_numeral = "I"});
+  edited.measures[0].harmony = {
+      HarmonicAnnotation{.start_tick = 0, .chord_symbol = "C", .roman_numeral = "I"}};
   REQUIRE(reloaded.save_imported_lesson(temp_dir, edited).has_value());
 
   LessonLibrary reloaded2;

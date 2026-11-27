@@ -1,6 +1,7 @@
 #include "ui/import_lesson_modal.hpp"
 
 #include "core/chord_symbol.hpp"
+#include "core/harmonic_analyzer.hpp"
 #include "core/key_signature.hpp"
 #include "core/lesson_score.hpp"
 #include "core/musicxml_importer.hpp"
@@ -103,6 +104,25 @@ std::optional<core::LessonScore> ImportLessonModal::draw() {
                     harmony_expanded_ ? ButtonTone::SoftAccent : ButtonTone::Secondary,
                     IconId::Sliders, 28.0f)) {
       harmony_expanded_ = !harmony_expanded_;
+    }
+    ImGui::SameLine(0.0f, 8.0f * scale);
+    if (pill_button("Auto-Detect Harmony##imp_auto_harm", ButtonTone::SoftAccent, IconId::Sliders,
+                    28.0f)) {
+      auto analyzed = core::analyze_score_harmony(draft_);
+      std::size_t populated_bars = 0U;
+      bar_chords_.assign(draft_.measures.size(), std::string{});
+      for (std::size_t bi = 0; bi < draft_.measures.size() && bi < analyzed.size(); ++bi) {
+        draft_.measures[bi].harmony = std::move(analyzed[bi]);
+        if (!draft_.measures[bi].harmony.empty()) {
+          bar_chords_[bi] = draft_.measures[bi].harmony.front().chord_symbol;
+          ++populated_bars;
+        }
+      }
+      std::erase_if(warnings_, [](const std::string& w) {
+        return w.starts_with("Auto-analyzed harmony") || w.starts_with("Auto-detected harmony");
+      });
+      warnings_.push_back(std::format("Auto-detected harmony for {} bars", populated_bars));
+      error_.clear();
     }
 
     if (harmony_expanded_) {
