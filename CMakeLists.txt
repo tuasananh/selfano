@@ -187,6 +187,7 @@ add_library(piano_core STATIC
   src/core/lesson_score_json.cpp
   src/core/lesson_progress.cpp
   src/core/lesson_engine.cpp
+  src/core/practice_transforms.cpp
   src/core/lesson_library.cpp
   src/core/theory_glossary.cpp
   src/core/mxl_archive.cpp
@@ -346,6 +347,7 @@ if(SELFANO_BUILD_TESTS AND NOT EMSCRIPTEN)
     tests/lesson_view_tests.cpp
     tests/lesson_score_tests.cpp
     tests/lesson_engine_tests.cpp
+    tests/practice_transforms_tests.cpp
     tests/lesson_library_tests.cpp
     tests/theory_glossary_tests.cpp
     tests/musicxml_importer_tests.cpp
