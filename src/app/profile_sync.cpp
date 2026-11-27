@@ -297,12 +297,39 @@ void AppController::promote_lesson_to_srs(std::string_view lesson_id, std::int64
   card.section_name = std::format("Tier {} ({} bars)", score->meta.tier, score->measures.size());
   card.chord_roadmap_hint = hint;
   card.due_epoch_day = today_epoch_day + 1;
+  card.lesson_id = score->meta.id;
   if (srs_view_.deck().find_card(card.id) == nullptr) {
     (void)srs_view_.mutable_deck().add_card(std::move(card));
   }
   profile_.lesson_progress[score->meta.id].added_to_srs = true;
   persist_profile_now();
   show_hud_toast("Added to Stage 4A Retention Deck", now_ms);
+}
+
+void AppController::launch_trouble_spot_drill(std::size_t queue_index, double now_ms) {
+  if (queue_index >= profile_.trouble_spot_queue.size()) {
+    return;
+  }
+  const core::TroubleSpotCard card = profile_.trouble_spot_queue[queue_index];
+  const core::LessonScore* score = lesson_library_.find_lesson(card.lesson_id);
+  if (score == nullptr) {
+    return;
+  }
+  cleanup_stage_transitions(now_ms);
+  profile_.active_lesson_id = score->meta.id;
+  const auto it = profile_.lesson_progress.find(score->meta.id);
+  const core::LessonProgress prog =
+      (it != profile_.lesson_progress.end()) ? it->second : core::LessonProgress{};
+  lesson_view_.launch_trouble_spot_drill(*score, prog, card);
+  free_stage_ = core::AutopilotStage::Stage3Lessons;
+  if (app_mode_ != AppMode::Autopilot) {
+    app_mode_ = AppMode::FreePractice;
+  }
+  sync_weekly_key_to_active_lesson(now_ms);
+  persist_profile_now();
+  show_hud_toast(std::format("Trouble-spot drill: {} (Bars {}-{})", score->meta.title,
+                             card.start_bar_index + 1U, card.end_bar_index + 1U),
+                 now_ms);
 }
 
 } // namespace selfano::app

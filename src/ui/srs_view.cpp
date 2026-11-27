@@ -31,6 +31,21 @@ void copy_to_buf(std::span<char> dst, std::string_view src) noexcept {
   dst[n] = '\0';
 }
 
+[[nodiscard]] std::string resolve_linked_lesson_id(const core::SrsCard& card,
+                                                   const core::LessonLibrary* lib) {
+  std::string cand = card.lesson_id;
+  if (cand.empty() && card.id.starts_with("srs_lesson_")) {
+    cand = card.id.substr(std::string_view{"srs_lesson_"}.size());
+  }
+  if (cand.empty()) {
+    return {};
+  }
+  if (lib != nullptr && lib->find_lesson(cand) == nullptr) {
+    return {};
+  }
+  return cand;
+}
+
 } // namespace
 
 SrsView::SrsView() {
@@ -85,7 +100,9 @@ std::optional<std::string> SrsView::rate_active_card(core::SrsRating rating,
   return std::format("Rated {} ({}d)", rating_name, next_d);
 }
 
-void SrsView::draw(std::int64_t today_epoch_day) {
+SrsViewActions SrsView::draw(std::int64_t today_epoch_day,
+                             const core::LessonLibrary* lesson_library) {
+  SrsViewActions actions{};
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
   const auto due = deck_.due_cards(today_epoch_day);
@@ -162,6 +179,16 @@ void SrsView::draw(std::int64_t today_epoch_day) {
       if (peek_chord_hint_) {
         ImGui::SameLine(0.0f, 10.0f * scale);
         status_pill(card.chord_roadmap_hint, StatusTone::Warning);
+      }
+    }
+
+    if (const std::string linked_id = resolve_linked_lesson_id(card, lesson_library);
+        !linked_id.empty()) {
+      ImGui::Spacing();
+      if (pill_button("Recall from Memory (MIDI)##srs_midi_recall", ButtonTone::Primary,
+                      IconId::Play, 34.0f, 224.0f, true)) {
+        actions.launch_memory_lesson_id = linked_id;
+        actions.launch_memory_card_id = card.id;
       }
     }
 
@@ -265,6 +292,14 @@ void SrsView::draw(std::int64_t today_epoch_day) {
       }
 
       ImGui::TableSetColumnIndex(4);
+      if (const std::string row_linked = resolve_linked_lesson_id(card, lesson_library);
+          !row_linked.empty()) {
+        if (pill_button("MIDI##row_midi", ButtonTone::Primary, IconId::Play, 26.0f)) {
+          actions.launch_memory_lesson_id = row_linked;
+          actions.launch_memory_card_id = card.id;
+        }
+        ImGui::SameLine(0.0f, 6.0f * scale);
+      }
       if (pill_button("Review##row_due", ButtonTone::SoftAccent, IconId::None, 26.0f)) {
         core::SrsCard copy = card;
         copy.due_epoch_day = today_epoch_day;
@@ -364,6 +399,7 @@ void SrsView::draw(std::int64_t today_epoch_day) {
     }
     ImGui::EndPopup();
   }
+  return actions;
 }
 
 } // namespace selfano::ui

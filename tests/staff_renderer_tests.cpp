@@ -239,6 +239,58 @@ TEST_CASE("Stacked bass fingerings and continued pedal and slur spans fit the st
   }
 }
 
+TEST_CASE("MemoryFadeLevel hides noteheads without horizontal layout shift and toggles harmony",
+          "[staff_renderer][phase23]") {
+  core::LessonLibrary library;
+  REQUIRE(library.load_built_in_from_directory(std::filesystem::path(SELFANO_SOURCE_ASSETS_DIR) /
+                                               "lessons"));
+  for (const auto id : {"t5_02", "t6_04"}) {
+    const auto* lesson = library.find_lesson(id);
+    REQUIRE(lesson);
+    const auto slice = std::span{lesson->measures}.first(4);
+    auto measures =
+        ui::build_lesson_staff_measures(slice, 0, lesson->meta.time_signature, true, true);
+
+    StaffFrame frame;
+    ui::StaffRenderOptions full_opts{};
+    full_opts.key = lesson->meta.key;
+    full_opts.time_signature = lesson->meta.time_signature;
+    full_opts.view_mode = ui::StaffViewMode::GrandStaff;
+    full_opts.show_harmony_labels = true;
+    full_opts.memory_fade = core::MemoryFadeLevel::FullScore;
+    frame.render(measures, full_opts, 820.0f);
+    const float full_w = frame.size.x;
+    const float size = 4 * full_opts.staff_space * ui::kBravuraEmToPixelHeightScale;
+    const auto full_heads = frame.glyphs(frame.fonts.smufl_font, size, 0xE0A4);
+    REQUIRE_FALSE(full_heads.empty());
+    REQUIRE_FALSE(frame.hits.empty());
+
+    // HarmonyMapOnly: all hidden -> 0 black noteheads, same width, harmony hitboxes intact
+    ui::StaffRenderOptions harm_opts = full_opts;
+    harm_opts.memory_fade = core::MemoryFadeLevel::HarmonyMapOnly;
+    frame.render(measures, harm_opts, 820.0f);
+    CHECK(frame.size.x == full_w);
+    CHECK(frame.glyphs(frame.fonts.smufl_font, size, 0xE0A4).empty());
+    CHECK_FALSE(frame.hits.empty());
+
+    // BlankMemory: all hidden -> 0 black noteheads, same width, 0 harmony hitboxes
+    ui::StaffRenderOptions blank_opts = full_opts;
+    blank_opts.memory_fade = core::MemoryFadeLevel::BlankMemory;
+    frame.render(measures, blank_opts, 820.0f);
+    CHECK(frame.size.x == full_w);
+    CHECK(frame.glyphs(frame.fonts.smufl_font, size, 0xE0A4).empty());
+    CHECK(frame.hits.empty());
+
+    // Peek reveal on first chord: emits notehead(s) with identical width and non-empty heads
+    measures[0].chords[0].memory_revealed = true;
+    frame.render(measures, harm_opts, 820.0f);
+    CHECK(frame.size.x == full_w);
+    const auto peek_heads = frame.glyphs(frame.fonts.smufl_font, size, 0xE0A4);
+    CHECK_FALSE(peek_heads.empty());
+    CHECK(peek_heads.front().min.x == full_heads.front().min.x);
+  }
+}
+
 TEST_CASE("A compact Ballade system gives adjacent bass events enough width", "[staff_renderer]") {
   core::LessonLibrary library;
   REQUIRE(library.load_built_in_from_directory(std::filesystem::path(SELFANO_SOURCE_ASSETS_DIR) /

@@ -157,6 +157,30 @@ CliOptions parse_cli(int argc, char* argv[]) {
       } else if (h == "both") {
         opts.lesson_hand_override = core::LessonHandMode::HandsTogether;
       }
+    } else if (arg == "--practice-transform" && i + 1 < argc) {
+      const std::string_view tx = argv[++i];
+      if (tx == "straight") {
+        opts.practice_transform_override = core::PracticeTransform::Straight;
+      } else if (tx == "long-short") {
+        opts.practice_transform_override = core::PracticeTransform::DottedLongShort;
+      } else if (tx == "short-long") {
+        opts.practice_transform_override = core::PracticeTransform::DottedShortLong;
+      } else if (tx == "burst") {
+        opts.practice_transform_override = core::PracticeTransform::Burst4Plus1;
+      } else if (tx == "block") {
+        opts.practice_transform_override = core::PracticeTransform::HandBlocking;
+      }
+    } else if (arg == "--memory-fade" && i + 1 < argc) {
+      const std::string_view mf = argv[++i];
+      if (mf == "score") {
+        opts.memory_fade_override = core::MemoryFadeLevel::FullScore;
+      } else if (mf == "harmony") {
+        opts.memory_fade_override = core::MemoryFadeLevel::HarmonyMapOnly;
+      } else if (mf == "blank") {
+        opts.memory_fade_override = core::MemoryFadeLevel::BlankMemory;
+      }
+    } else if (arg == "--seed-srs-lesson" && i + 1 < argc) {
+      opts.seed_srs_lesson_id = argv[++i];
     } else if (arg == "--start-demo") {
       opts.start_lesson_demo = true;
     } else if (arg == "--bar-range" && i + 1 < argc) {
@@ -193,6 +217,10 @@ CliOptions parse_cli(int argc, char* argv[]) {
       opts.open_curriculum = true;
     } else if (arg == "--open-lesson-settings") {
       opts.open_lesson_settings = true;
+    } else if (arg == "--auto-ramp") {
+      opts.auto_ramp = true;
+    } else if (arg == "--seed-trouble-spot") {
+      opts.seed_trouble_spot = true;
     }
   }
   return opts;

@@ -285,15 +285,30 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
     const auto beam_groups =
         core::compute_beam_groups(beam_inputs, meter, clef, kNoteheadBlackWidthSpaces, forced_dir);
 
+    const bool memory_hidden_mode = (options.memory_fade != core::MemoryFadeLevel::FullScore);
     for (const auto& bg : beam_groups) {
+      bool all_revealed = !memory_hidden_mode;
+      if (memory_hidden_mode) {
+        all_revealed = true;
+        for (std::size_t k = 0; k < bg.event_indices.size(); ++k) {
+          const auto& sl = slots[bg.event_indices[k]];
+          if (!measure.chords[sl.chord_idx].memory_revealed) {
+            all_revealed = false;
+            break;
+          }
+        }
+      }
+
       ImU32 beam_col = pal.ink;
       bool all_ok = true;
       bool any_partial = false;
       bool any_bad = false;
       for (std::size_t k = 0; k < bg.event_indices.size(); ++k) {
         const std::size_t slot_idx = bg.event_indices[k];
-        slots[slot_idx].beamed_dir = bg.stem_direction;
-        slots[slot_idx].beamed_tip_y_spaces = bg.stem_tip_y_spaces[k];
+        if (!memory_hidden_mode || all_revealed) {
+          slots[slot_idx].beamed_dir = bg.stem_direction;
+          slots[slot_idx].beamed_tip_y_spaces = bg.stem_tip_y_spaces[k];
+        }
         if (slots[slot_idx].stem_color == pal.incorrect) {
           any_bad = true;
         }
@@ -316,15 +331,23 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
       const float bx1 = bg.end_x_spaces * space;
       const float by0 = bottom_y - bg.start_y_spaces * space;
       const float by1 = bottom_y - bg.end_y_spaces * space;
-      detail::draw_beam_quad(ink, bx0, by0, bx1, by1, beam_thick_px, bg.stem_direction, beam_col);
+      StaffInk scratch_beam;
+      StaffInk& beam_target = all_revealed ? ink : scratch_beam;
+      detail::draw_beam_quad(beam_target, bx0, by0, bx1, by1, beam_thick_px, bg.stem_direction,
+                             beam_col);
 
       for (const auto& sb : bg.secondary_beams) {
         const float sx0 = sb.x0_spaces * space;
         const float sx1 = sb.x1_spaces * space;
         const float sy0 = bottom_y - sb.y0_spaces * space;
         const float sy1 = bottom_y - sb.y1_spaces * space;
-        detail::draw_beam_quad(ink, sx0, sy0, sx1, sy1, beam_thick_px * 0.88f, bg.stem_direction,
-                               beam_col);
+        detail::draw_beam_quad(beam_target, sx0, sy0, sx1, sy1, beam_thick_px * 0.88f,
+                               bg.stem_direction, beam_col);
+      }
+      if (!all_revealed) {
+        for (const auto& box : scratch_beam.footprint()) {
+          ink.reserve(box);
+        }
       }
     }
   }
@@ -337,7 +360,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
     float fraction, left, right;
   };
   std::vector<Column> columns;
-  auto measure_column = [&](const ClefSlot& slot, std::size_t first_mark) {
+  auto measure_column = [&](const ClefSlot& slot, const StaffInk& col_ink, std::size_t first_mark) {
     if (!spacing) {
       return;
     }
@@ -346,7 +369,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
                                 measure.chords.size(), measure.chords[slot.chord_idx]);
     const float anchor = m_x0 + pad_left + fraction * usable_w;
     Column column{fraction, 0, 0};
-    for (const auto& box : ink.footprint().subspan(first_mark)) {
+    for (const auto& box : col_ink.footprint().subspan(first_mark)) {
       column.left = std::min(column.left, box.left - anchor);
       column.right = std::max(column.right, box.right - anchor);
     }
@@ -357,13 +380,22 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
       columns.push_back(column);
     }
   };
+  const bool memory_hidden_mode = (options.memory_fade != core::MemoryFadeLevel::FullScore);
   for (std::size_t s_idx = 0; s_idx < slots.size(); ++s_idx) {
     const auto& slot = slots[s_idx];
-    const auto first_mark = ink.footprint().size();
+    const bool slot_visible = !memory_hidden_mode || measure.chords[slot.chord_idx].memory_revealed;
+    StaffInk scratch_slot;
+    StaffInk& slot_ink = slot_visible ? ink : scratch_slot;
+    const auto first_mark = slot_ink.footprint().size();
     if (slot.is_rest) {
-      detail::render_clef_rest(ink, smufl_font, smufl_font_size, slot.chord_x, bottom_y, space,
+      detail::render_clef_rest(slot_ink, smufl_font, smufl_font_size, slot.chord_x, bottom_y, space,
                                clef, slot.rest_dur, slot.rest_dotted, pal);
-      measure_column(slot, first_mark);
+      if (!slot_visible) {
+        for (const auto& box : scratch_slot.footprint()) {
+          ink.reserve(box);
+        }
+      }
+      measure_column(slot, slot_ink, first_mark);
       continue;
     }
 
@@ -379,7 +411,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         slot.chord_x + (layout.max_notehead_x_spaces + kLedgerLineExtensionSpaces) * space;
     for (const int step : layout.ledger_line_steps) {
       const float ly = std::round(core::step_to_y(step, clef, bottom_y, space));
-      ink.line(ImVec2(lx0, ly), ImVec2(lx1, ly), pal.ink, ledger_thickness);
+      slot_ink.line(ImVec2(lx0, ly), ImVec2(lx1, ly), pal.ink, ledger_thickness);
     }
 
     // Stem + unbeamed flag
@@ -404,7 +436,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
                            : (slot.chord_x + stem_thickness * 0.5f);
       sy_start += (stem_dir == core::StemDirection::Up) ? -(kStemAnchorOffsetYSpaces * space)
                                                         : (kStemAnchorOffsetYSpaces * space);
-      ink.line(ImVec2(sx, sy_start), ImVec2(sx, sy_end), slot.stem_color, stem_thickness);
+      slot_ink.line(ImVec2(sx, sy_start), ImVec2(sx, sy_end), slot.stem_color, stem_thickness);
 
       if (!slot.beamed_dir.has_value() &&
           (slot.duration == NoteDuration::Eighth || slot.duration == NoteDuration::Sixteenth)) {
@@ -415,7 +447,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
           flag_glyph =
               (stem_dir == core::StemDirection::Up) ? kGlyphFlag16thUp : kGlyphFlag16thDown;
         }
-        detail::draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(sx, sy_end),
+        detail::draw_smufl_glyph(slot_ink, smufl_font, smufl_font_size, ImVec2(sx, sy_end),
                                  slot.stem_color, flag_glyph);
       }
     }
@@ -449,15 +481,15 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         const float ax =
             acc_right_edge - acc_w - static_cast<float>(nh.accidental_column) * acc_col_stride;
         left_acc_edge = std::min(left_acc_edge, ax);
-        detail::draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(ax, ny), note_color,
+        detail::draw_smufl_glyph(slot_ink, smufl_font, smufl_font_size, ImVec2(ax, ny), note_color,
                                  accidental_glyph(*nh.displayed_accidental));
       }
 
-      detail::draw_smufl_glyph(ink, smufl_font, smufl_font_size, ImVec2(nx, ny), note_color,
+      detail::draw_smufl_glyph(slot_ink, smufl_font, smufl_font_size, ImVec2(nx, ny), note_color,
                                nh_glyph);
 
       if (slot.dotted) {
-        detail::draw_augmentation_dot(ink, smufl_font, smufl_font_size, dot_x, nh.step, clef,
+        detail::draw_augmentation_dot(slot_ink, smufl_font, smufl_font_size, dot_x, nh.step, clef,
                                       bottom_y, space, note_color);
       }
 
@@ -465,7 +497,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         chord_fingers.push_back(src->finger);
       }
 
-      if (src->tie_start || src->tie_stop) {
+      if (slot_visible && (src->tie_start || src->tie_stop)) {
         const auto midi_opt = core::to_midi(src->note);
         out_ties.push_back(core::TieEndpointRef{
             .measure_index = measure_idx,
@@ -482,7 +514,8 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         });
       }
 
-      if ((src->feedback == NoteFeedback::Incorrect || src->feedback == NoteFeedback::Partial) &&
+      if (slot_visible &&
+          (src->feedback == NoteFeedback::Incorrect || src->feedback == NoteFeedback::Partial) &&
           !src->played_label.empty()) {
         const bool is_partial = (src->feedback == NoteFeedback::Partial);
         const std::string badge =
@@ -511,7 +544,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         const float frac =
             (segs <= 1) ? 0.5f : (static_cast<float>(si) / static_cast<float>(segs - 1));
         const float ay = bot_nh_y - frac * span_h + 0.15f * space;
-        detail::draw_smufl_glyph_centered(ink, smufl_font, smufl_font_size * 0.92f,
+        detail::draw_smufl_glyph_centered(slot_ink, smufl_font, smufl_font_size * 0.92f,
                                           ImVec2(arp_x, ay), slot.stem_color,
                                           kGlyphWiggleArpeggiatoUp);
       }
@@ -538,19 +571,19 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
       const float step_dir = art_above ? -0.78f * space : 0.78f * space;
       if (core::has_articulation(slot.articulations, core::ArticulationFlag::Staccato)) {
         detail::draw_smufl_glyph_centered(
-            ink, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
+            slot_ink, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
             art_above ? kGlyphArticStaccatoAbove : kGlyphArticStaccatoBelow);
         cur_ay += step_dir;
       }
       if (core::has_articulation(slot.articulations, core::ArticulationFlag::Tenuto)) {
         detail::draw_smufl_glyph_centered(
-            ink, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
+            slot_ink, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
             art_above ? kGlyphArticTenutoAbove : kGlyphArticTenutoBelow);
         cur_ay += step_dir;
       }
       if (core::has_articulation(slot.articulations, core::ArticulationFlag::Accent)) {
         detail::draw_smufl_glyph_centered(
-            ink, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
+            slot_ink, smufl_font, smufl_font_size, ImVec2(nh_center_x, cur_ay), slot.stem_color,
             art_above ? kGlyphArticAccentAbove : kGlyphArticAccentBelow);
       }
     }
@@ -586,7 +619,7 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
       }
     }
 
-    if (options.show_fingerings && finger_font && !chord_fingers.empty()) {
+    if (slot_visible && options.show_fingerings && finger_font && !chord_fingers.empty()) {
       const bool above = has_multi_voice ? slot.voice == 0U : clef == core::Clef::Treble;
       if (!above) {
         std::reverse(chord_fingers.begin(), chord_fingers.end());
@@ -602,7 +635,18 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
       }
       fingerings.push_back({std::move(stack), clef, above});
     }
-    measure_column(slot, first_mark);
+    if (!slot_visible) {
+      for (const auto& box : scratch_slot.footprint()) {
+        ink.reserve(box);
+      }
+      if (options.memory_fade == core::MemoryFadeLevel::HarmonyMapOnly) {
+        const float mid_y = core::step_to_y(core::staff_middle_step(clef), clef, bottom_y, space);
+        const ImU32 tick_col = detail::apply_alpha_scale(pal.ink, 0.24f);
+        ink.line(ImVec2(std::round(nh_center_x), mid_y - 0.55f * space),
+                 ImVec2(std::round(nh_center_x), mid_y + 0.55f * space), tick_col, 1.5f);
+      }
+    }
+    measure_column(slot, slot_ink, first_mark);
   }
   if (spacing && !columns.empty()) {
     const float gap = 0.3f * space + 1.0f; // allow for glyph origins snapping to pixels
@@ -901,7 +945,9 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
     }
 
     // Harmonic labels (Chord symbol + Roman numeral) above Treble staff
-    if (options.show_harmony_labels && ann_font != nullptr) {
+    const bool draw_harmony =
+        options.show_harmony_labels && (options.memory_fade != core::MemoryFadeLevel::BlankMemory);
+    if (draw_harmony && ann_font != nullptr) {
       const float roman_top_y = system_top_y - s - roman_sz_px;
       const float chord_top_y = roman_top_y - label_gap_px - chord_sz_px;
       for (const auto& hl : measure.harmony_labels) {
@@ -974,13 +1020,15 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
                         options, pal, interactive_harmony, measured);
   }
 
+  const bool memory_hidden_mode = (options.memory_fade != core::MemoryFadeLevel::FullScore);
+
   // Bezier ties across the system
-  if (show_treble && !treble_ties.empty()) {
+  if (!memory_hidden_mode && show_treble && !treble_ties.empty()) {
     for (const auto& span : core::resolve_tie_spans(treble_ties)) {
       detail::draw_tie_curve(treble, span, core::Clef::Treble, treble_bottom_y, s, pal.ink);
     }
   }
-  if (show_bass && !bass_ties.empty()) {
+  if (!memory_hidden_mode && show_bass && !bass_ties.empty()) {
     for (const auto& span : core::resolve_tie_spans(bass_ties)) {
       detail::draw_tie_curve(bass, span, core::Clef::Bass, bass_bottom_y, s, pal.ink);
     }
@@ -1000,6 +1048,9 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
 
   // Phrase slurs
   for (const auto& sl : options.slurs) {
+    if (memory_hidden_mode) {
+      break;
+    }
     if (measures.empty() || (sl.treble ? !show_treble : !show_bass)) {
       continue;
     }
@@ -1055,6 +1106,9 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
   const float dyn_font_sz = smufl_font_size * 0.85f;
 
   for (std::size_t m = 0; m < measures.size(); ++m) {
+    if (memory_hidden_mode) {
+      break;
+    }
     StaffInk expression;
     std::vector<std::pair<float, float>> dyn_boxes;
     const float dyn_y =
@@ -1088,7 +1142,7 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
   }
   StaffInk& score = upper;
   // Pedal lane (Ped. ... *) below bass staff
-  if (!measures.empty() && !options.pedals.empty()) {
+  if (!memory_hidden_mode && !measures.empty() && !options.pedals.empty()) {
     const float ped_y = system_bottom_y + 1.7f * s;
     const float ped_font_sz = smufl_font_size * 0.85f;
     const ImU32 guide_col = detail::apply_alpha_scale(pal.ink, 0.35f);

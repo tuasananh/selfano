@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/lesson_library.hpp"
 #include "core/srs_deck.hpp"
 
 #include <array>
@@ -8,6 +9,11 @@
 #include <string>
 
 namespace selfano::ui {
+
+struct SrsViewActions {
+  std::optional<std::string> launch_memory_lesson_id{};
+  std::optional<std::string> launch_memory_card_id{};
+};
 
 class SrsView {
 public:
@@ -23,7 +29,8 @@ public:
     return peek_chord_hint_;
   }
 
-  void draw(std::int64_t today_epoch_day);
+  [[nodiscard]] SrsViewActions draw(std::int64_t today_epoch_day,
+                                    const core::LessonLibrary* lesson_library = nullptr);
 
 private:
   void clear_form();

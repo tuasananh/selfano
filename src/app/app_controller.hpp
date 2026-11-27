@@ -115,6 +115,7 @@ private:
   void enter_stage3_autopilot_block(std::int64_t today_epoch_day, double now_ms);
   void promote_lesson_to_srs(std::string_view lesson_id, std::int64_t today_epoch_day,
                              double now_ms);
+  void launch_trouble_spot_drill(std::size_t queue_index, double now_ms);
 
   // Lesson selection & MusicXML/.mxl import (lesson_import_controller.cpp)
   bool select_active_lesson(std::string_view lesson_id, double now_ms, bool persist = true);

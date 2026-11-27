@@ -45,6 +45,9 @@ struct CliOptions {
   std::optional<std::size_t> open_theory_popover_index;
   std::optional<core::LessonPracticeMode> lesson_mode_override;
   std::optional<core::LessonHandMode> lesson_hand_override;
+  std::optional<core::PracticeTransform> practice_transform_override;
+  std::optional<core::MemoryFadeLevel> memory_fade_override;
+  std::string seed_srs_lesson_id{};
   bool start_lesson_demo{false};
   std::optional<std::pair<std::size_t, std::size_t>> bar_range_override;
   std::optional<SmokeCoachMode> simulate_coach;
@@ -52,6 +55,8 @@ struct CliOptions {
   std::optional<int> window_height;
   bool open_curriculum{false};
   bool open_lesson_settings{false};
+  bool auto_ramp{false};
+  bool seed_trouble_spot{false};
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);

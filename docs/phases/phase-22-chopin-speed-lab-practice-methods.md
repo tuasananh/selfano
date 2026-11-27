@@ -1,6 +1,6 @@
 # Phase 22: Chopin Speed Lab (Rhythmic Alteration, `4+1` Bursts & Hand Blocking)
 
-**Status:** `[ ] Planned` (Depends on Phase 21 — Track A: Learning Speed Multipliers)  
+**Status:** `[x] Complete` (Depends on Phase 21 — Track A: Learning Speed Multipliers)  
 **Goal:** Equip `LessonEngine` with four conservatory-proven technical practice transforms—**Dotted Long–Short**, **Dotted Short–Long**, **Stop-and-Prepare Bursts (`4+1`)**, and **Hand-Position Blocking**—applicable to any phrase or custom bar loop so learners build relaxed velocity and hand-shift mapping 2–3× faster than linear repetition.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `apple-hig-imgui`, `verification-and-review`
@@ -42,3 +42,10 @@ Linear metronome grinding hits a hard speed ceiling once 8th/16th-note passages 
 2. `emcmake cmake --preset web-release && cmake --build --preset web-release` compiles cleanly with **0 warnings**.
 3. `src/core/` purity check returns 0 matches; `clang-format --dry-run --Werror` clean on all new/modified C++ files.
 4. Headless Light & Dark screenshots on `t2_01` (`block`), `t3_04` (`long-short`), and `t4_02` (`burst`) verify legible notation, clear active transform exit pill, and zero engraving collisions.
+
+**Verification Evidence:**
+- `cmake --build --preset native-debug` compiled cleanly with **0 warnings** under `-Wall -Wextra -Wpedantic`.
+- `ctest --preset native-debug --output-on-failure` passed **106/106** test cases (100%) in `4.65 s`.
+- `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with **0 warnings**.
+- `src/core/` purity grep returned **0** matches; `clang-format --dry-run --Werror` passed cleanly on all modified/created C++ files.
+- Headless Light & Dark screenshots verified on `t2_01 --practice-transform block`, `t3_04 --practice-transform long-short`, and `t4_02 --practice-transform burst`.

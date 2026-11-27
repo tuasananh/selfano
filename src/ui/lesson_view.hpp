@@ -50,6 +50,9 @@ struct LessonViewActions {
   std::optional<core::LessonScore> save_imported_lesson{};
   std::optional<std::string> delete_imported_lesson_id{};
   std::vector<core::LessonPlaybackNote> preview_playback_notes{};
+  std::optional<std::size_t> launch_trouble_spot_index{};
+  std::string hud_toast{};
+  std::optional<std::pair<std::string, core::SrsRating>> completed_memory_srs_review{};
 };
 
 class LessonView {
@@ -57,6 +60,11 @@ public:
   LessonView() = default;
 
   void load_lesson(const core::LessonScore& score, const core::LessonProgress& progress);
+  void launch_trouble_spot_drill(const core::LessonScore& score,
+                                 const core::LessonProgress& progress,
+                                 const core::TroubleSpotCard& card);
+  void launch_memory_recall(const core::LessonScore& score, const core::LessonProgress& progress,
+                            core::MemoryFadeLevel level, std::string linked_srs_card_id = {});
   void start_practicing(core::UserProfile& profile, LessonViewActions& actions);
   void set_active_tab(LessonViewTab tab) noexcept;
   [[nodiscard]] LessonViewTab active_tab() const noexcept { return active_tab_; }
@@ -83,7 +91,8 @@ public:
 
   void update(double dt_ms, double now_ms, core::UserProfile& profile, std::int64_t today_epoch_day,
               bool& out_click, bool& out_accent, bool& out_chime, bool& out_just_mastered,
-              std::vector<midi::ScheduledMidiNote>& out_streamed_playback);
+              std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
+              double* out_tempo_ramp_delta = nullptr);
 
   void toggle_play_pause(bool& out_click, bool& out_accent, bool* out_stopped = nullptr);
   void toggle_demo(double now_ms, std::vector<midi::ScheduledMidiNote>& out_streamed_playback,
@@ -145,6 +154,7 @@ private:
                             bool& out_open_settings);
   [[nodiscard]] std::string passage_label() const;
   void draw_result(const core::LessonLibrary& library, const core::LessonProgress& progress,
+                   core::UserProfile& profile, std::int64_t today_epoch_day,
                    LessonViewActions& actions);
   void draw_review_enrollment(const core::LessonProgress& progress,
                               LessonViewActions& actions) const;
@@ -172,6 +182,9 @@ private:
   bool show_post_run_coach_{false};
   std::optional<std::size_t> coach_focus_bar_{};
   std::optional<double> last_loop_accuracy_{};
+  bool trouble_spot_saved_for_run_{false};
+  std::string linked_srs_card_id_{};
+  std::optional<std::pair<std::string, core::SrsRating>> pending_memory_srs_review_{};
   bool pending_open_settings_{false};
 };
 

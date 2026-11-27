@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/key_signature.hpp"
+#include "core/lesson_engine.hpp"
 #include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
 
@@ -67,6 +68,7 @@ struct StaffChord {
   bool treble_rest_dotted{false};
   bool bass_rest_dotted{false};
   std::optional<int> tick_offset{};
+  bool memory_revealed{false};
 };
 
 struct StaffHarmonicLabel {
@@ -136,6 +138,7 @@ struct StaffRenderOptions {
   std::string tempo_marking{};
   std::vector<StaffSlurSpan> slurs{};
   std::vector<StaffPedalSpan> pedals{};
+  core::MemoryFadeLevel memory_fade{core::MemoryFadeLevel::FullScore};
 };
 
 // Returns the engraved size, which may exceed the preferred width for dense music.

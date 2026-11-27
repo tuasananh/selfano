@@ -625,6 +625,14 @@ bool AppController::init(const CliOptions& cli_opts) {
   if (cli_.lesson_hand_override.has_value()) {
     lesson_view_.mutable_engine().set_hand_mode(*cli_.lesson_hand_override);
   }
+  if (cli_.practice_transform_override.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    if (lesson_view_.engine().config().practice_mode == core::LessonPracticeMode::ChordSkeleton &&
+        !cli_.lesson_mode_override.has_value()) {
+      lesson_view_.mutable_engine().set_practice_mode(core::LessonPracticeMode::WaitForNote);
+    }
+    lesson_view_.mutable_engine().set_practice_transform(*cli_.practice_transform_override);
+  }
   if (cli_.start_lesson_demo) {
     lesson_view_.start_demo_for_smoke(prev_now_ms_, pending_playback_, 550.0);
   }
@@ -632,6 +640,38 @@ bool AppController::init(const CliOptions& cli_opts) {
     lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
     lesson_view_.mutable_engine().set_custom_bar_range(cli_.bar_range_override);
     lesson_view_.mutable_engine().set_loop_phrase(true);
+  }
+  if (cli_.auto_ramp) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    lesson_view_.mutable_engine().set_practice_mode(core::LessonPracticeMode::SteadyPulse);
+    lesson_view_.mutable_engine().set_loop_phrase(true);
+    lesson_view_.mutable_engine().set_auto_tempo_ramp(true);
+  }
+  if (cli_.seed_trouble_spot) {
+    core::enqueue_or_update_trouble_spot(profile_.trouble_spot_queue, "t3_04", 1, 2, 112.0, 67.0,
+                                         boot_epoch_day - 1);
+  }
+  if (!cli_.seed_srs_lesson_id.empty()) {
+    if (const auto* sc = lesson_library_.find_lesson(cli_.seed_srs_lesson_id); sc != nullptr) {
+      core::SrsCard card{};
+      card.id = "srs_lesson_" + sc->meta.id;
+      card.piece_name = sc->meta.title;
+      card.section_name = std::format("Tier {} ({} bars)", sc->meta.tier, sc->measures.size());
+      card.chord_roadmap_hint = "i -> iv -> V7 -> i";
+      card.due_epoch_day = boot_epoch_day;
+      card.lesson_id = sc->meta.id;
+      if (srs_view_.deck().find_card(card.id) == nullptr) {
+        (void)srs_view_.mutable_deck().add_card(std::move(card));
+      }
+    }
+  }
+  if (cli_.memory_fade_override.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    if (lesson_view_.engine().config().practice_mode == core::LessonPracticeMode::ChordSkeleton &&
+        !cli_.lesson_mode_override.has_value()) {
+      lesson_view_.mutable_engine().set_practice_mode(core::LessonPracticeMode::WaitForNote);
+    }
+    lesson_view_.mutable_engine().set_memory_fade(*cli_.memory_fade_override);
   }
   if (cli_.simulate_coach.has_value()) {
     ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
@@ -892,14 +932,24 @@ void AppController::update_active_stage(double dt_ms, double now_ms, std::int64_
       bool accent = false;
       bool chime = false;
       bool just_mastered = false;
+      double tempo_ramp_delta = 0.0;
       std::vector<midi::ScheduledMidiNote> streamed_playback;
       lesson_view_.update(dt_ms, now_ms, profile_, today_epoch_day, click, accent, chime,
-                          just_mastered, streamed_playback);
+                          just_mastered, streamed_playback, &tempo_ramp_delta);
       if (click) {
         audio_synth_.play_metronome_click(accent);
       }
       if (!streamed_playback.empty()) {
         playback_scheduler_.schedule_batch(streamed_playback);
+      }
+      if (tempo_ramp_delta > 0.5) {
+        show_hud_toast(std::format("Tempo ramped +{:.0f} BPM ({:.0f} BPM)", tempo_ramp_delta,
+                                   lesson_view_.engine().effective_bpm()),
+                       now_ms);
+      } else if (tempo_ramp_delta < -0.5) {
+        show_hud_toast(std::format("Tempo eased {:.0f} BPM ({:.0f} BPM)", tempo_ramp_delta,
+                                   lesson_view_.engine().effective_bpm()),
+                       now_ms);
       }
       if (chime) {
         audio_synth_.play_confirmation_chime();
@@ -1003,6 +1053,21 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
     if (lv_act.add_to_srs_requested) {
       promote_lesson_to_srs(lv_act.add_to_srs_lesson_id, today_epoch_day, now_ms);
     }
+    if (lv_act.launch_trouble_spot_index.has_value()) {
+      launch_trouble_spot_drill(*lv_act.launch_trouble_spot_index, now_ms);
+    }
+    if (!lv_act.hud_toast.empty()) {
+      show_hud_toast(lv_act.hud_toast, now_ms);
+    }
+    if (lv_act.completed_memory_srs_review.has_value()) {
+      const auto& [card_id, rating] = *lv_act.completed_memory_srs_review;
+      (void)srs_view_.mutable_deck().review_card_by_id(card_id, rating, today_epoch_day);
+      const char* r_str = (rating == core::SrsRating::Good)   ? "Good"
+                          : (rating == core::SrsRating::Hard) ? "Hard"
+                                                              : "Again";
+      persist_profile_now();
+      show_hud_toast(std::format("Memory Recall verified -> SRS rated {}", r_str), now_ms);
+    }
     if (lv_act.request_import_file_dialog) {
       request_musicxml_file_dialog();
     }
@@ -1024,9 +1089,30 @@ void AppController::draw_stage_body(core::AutopilotStage stage, double now_ms,
     }
     break;
   }
-  case core::AutopilotStage::Stage4ASrs:
-    srs_view_.draw(today_epoch_day);
+  case core::AutopilotStage::Stage4ASrs: {
+    const auto srs_act = srs_view_.draw(today_epoch_day, &lesson_library_);
+    if (srs_act.launch_memory_lesson_id.has_value()) {
+      if (const auto* sc = lesson_library_.find_lesson(*srs_act.launch_memory_lesson_id);
+          sc != nullptr) {
+        cleanup_stage_transitions(now_ms);
+        profile_.active_lesson_id = sc->meta.id;
+        const auto it = profile_.lesson_progress.find(sc->meta.id);
+        const core::LessonProgress prog =
+            (it != profile_.lesson_progress.end()) ? it->second : core::LessonProgress{};
+        const auto lvl = prog.memory_map_clean ? core::MemoryFadeLevel::BlankMemory
+                                               : core::MemoryFadeLevel::HarmonyMapOnly;
+        lesson_view_.launch_memory_recall(*sc, prog, lvl,
+                                          srs_act.launch_memory_card_id.value_or(""));
+        free_stage_ = core::AutopilotStage::Stage3Lessons;
+        if (app_mode_ != AppMode::Autopilot) {
+          app_mode_ = AppMode::FreePractice;
+        }
+        sync_weekly_key_to_active_lesson(now_ms);
+        show_hud_toast("Memory Recall (MIDI): " + sc->meta.title, now_ms);
+      }
+    }
     break;
+  }
   case core::AutopilotStage::Stage4BEarTrainer:
     ear_trainer_view_.draw(fonts_.smufl_font, fonts_.ui_font, now_ms, pending_playback_);
     break;
@@ -1110,6 +1196,8 @@ void AppController::render_ui(double now_ms, std::int64_t today_epoch_day) {
           }
           if (home_actions.start_autopilot) {
             start_autopilot_session(now_ms);
+          } else if (home_actions.open_trouble_spot_index.has_value()) {
+            launch_trouble_spot_drill(*home_actions.open_trouble_spot_index, now_ms);
           } else if (home_actions.open_companion_tool) {
             cleanup_stage_transitions(now_ms);
             app_mode_ = AppMode::CompanionTool;

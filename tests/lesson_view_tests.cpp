@@ -180,4 +180,48 @@ TEST_CASE("Lessons prepare the exercise from progress and only score practice in
     REQUIRE(view.last_loop_accuracy().has_value());
     CHECK(*view.last_loop_accuracy() >= 0.99);
   }
+  SECTION("launch_trouble_spot_drill configures ramp loop on trouble-spot bars") {
+    core::TroubleSpotCard card{};
+    card.lesson_id = score->meta.id;
+    card.start_bar_index = 1U;
+    card.end_bar_index = 2U;
+    card.target_bpm = score->meta.target_bpm;
+    card.current_clean_bpm = 54.0;
+    view.launch_trouble_spot_drill(*score, progress, card);
+    CHECK(view.active_tab() == ui::LessonViewTab::Practice);
+    CHECK(view.engine().config().practice_mode == core::LessonPracticeMode::SteadyPulse);
+    CHECK(view.engine().config().loop_phrase);
+    CHECK(view.engine().config().auto_tempo_ramp);
+    REQUIRE(view.engine().config().custom_bar_range.has_value());
+    CHECK(view.engine().config().custom_bar_range->first == 1U);
+    CHECK(view.engine().config().custom_bar_range->second == 2U);
+    CHECK(view.engine().effective_bpm() == 54.0);
+  }
+  SECTION("launch_memory_recall hides keyboard targets until peeked and emits SRS review") {
+    view.launch_memory_recall(*score, progress, core::MemoryFadeLevel::HarmonyMapOnly,
+                              "srs_lesson_t1_01");
+    CHECK(view.active_tab() == ui::LessonViewTab::Practice);
+    CHECK(view.engine().config().memory_fade == core::MemoryFadeLevel::HarmonyMapOnly);
+    const std::array<bool, 128> no_held{};
+    const auto hi_hidden = view.virtual_piano_highlights(no_held);
+    for (const bool t : hi_hidden.target) {
+      CHECK_FALSE(t);
+    }
+
+    // Wrong note triggers peek -> target keys become visible
+    bool chime = false;
+    bool mastered = false;
+    midi::PlayedChord wrong{};
+    wrong.notes = {21};
+    CHECK_FALSE(view.on_played_chord(wrong, profile, 1, chime, mastered));
+    CHECK(view.engine().memory_peek_count() == 1U);
+    const auto hi_peeked = view.virtual_piano_highlights(no_held);
+    bool any_target_lit = false;
+    for (const bool t : hi_peeked.target) {
+      if (t) {
+        any_target_lit = true;
+      }
+    }
+    CHECK(any_target_lit);
+  }
 }

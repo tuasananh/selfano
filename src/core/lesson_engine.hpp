@@ -2,6 +2,7 @@
 
 #include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
+#include "core/practice_transforms.hpp"
 #include "core/srs_deck.hpp"
 
 #include <cstddef>
@@ -58,6 +59,12 @@ enum class LessonTargetStatus : std::uint8_t {
   PartialHit = 3,
 };
 
+enum class MemoryFadeLevel : std::uint8_t {
+  FullScore = 0,
+  HarmonyMapOnly = 1,
+  BlankMemory = 2,
+};
+
 struct LessonProgress {
   LessonMasteryStatus status{LessonMasteryStatus::New};
   double best_accuracy{0.0};
@@ -76,6 +83,8 @@ struct LessonProgress {
   std::uint32_t phrase_rh_mask{0U};
   std::uint32_t phrase_lh_mask{0U};
   std::uint32_t phrase_both_mask{0U};
+  bool memory_map_clean{false};
+  bool memory_blank_clean{false};
 
   bool operator==(const LessonProgress&) const = default;
 };
@@ -104,6 +113,7 @@ struct LessonTarget {
   LessonTargetStatus status{LessonTargetStatus::Pending};
   std::vector<MidiPitch> played_midi;
   std::vector<MidiPitch> missed_midi{};
+  bool memory_peeked{false};
 
   bool operator==(const LessonTarget&) const = default;
 };
@@ -117,6 +127,10 @@ struct LessonConfig {
   std::optional<std::pair<std::size_t, std::size_t>> custom_bar_range{};
   bool loop_phrase{false};
   bool play_other_hand_accomp{true};
+  bool auto_tempo_ramp{false};
+  double ramp_step_bpm{4.0};
+  PracticeTransform practice_transform{PracticeTransform::Straight};
+  MemoryFadeLevel memory_fade{MemoryFadeLevel::FullScore};
 
   bool operator==(const LessonConfig&) const = default;
 };
@@ -126,6 +140,8 @@ struct LessonTickResult {
   bool metronome_accent{false};
   bool phrase_completed{false};
   bool run_completed{false};
+  double tempo_ramped_delta{0.0};
+  double loop_accuracy{0.0};
   std::vector<LessonPlaybackNote> playback_notes{};
 };
 
@@ -193,6 +209,9 @@ struct LessonRunSummary {
   std::uint32_t partial_hits{0};
   std::vector<BarDiagnostic> bar_diagnostics{};
   MusicalityMetrics musicality{};
+  PracticeTransform practice_transform{PracticeTransform::Straight};
+  MemoryFadeLevel memory_fade{MemoryFadeLevel::FullScore};
+  std::uint32_t memory_peek_count{0U};
 };
 
 struct GuidedPracticeStep {
@@ -245,6 +264,9 @@ struct Stage3SessionPlan {
 apply_run_to_progress(LessonProgress& prog, const LessonRunSummary& run, double target_bpm,
                       std::int64_t today_epoch_day) noexcept;
 
+[[nodiscard]] SrsRating suggest_memory_srs_rating(double accuracy,
+                                                  std::uint32_t peek_count) noexcept;
+
 void rate_guided_revision(LessonProgress& prog, SrsRating rating,
                           std::int64_t today_epoch_day) noexcept;
 
@@ -263,6 +285,42 @@ plan_stage3_session(const std::map<std::string, LessonProgress>& progress_map,
 
 [[nodiscard]] std::optional<TroubleSpot> find_trouble_spot(const LessonRunSummary& summary);
 
+inline constexpr std::size_t kMaxTroubleSpotQueueSize = 16U;
+
+struct TroubleSpotCard {
+  std::string lesson_id{};
+  std::size_t start_bar_index{0};
+  std::size_t end_bar_index{0};
+  double target_bpm{84.0};
+  double current_clean_bpm{0.0};
+  int interval_days{1};
+  double ease_factor{kDefaultEaseFactor};
+  int repetitions{0};
+  std::int64_t due_epoch_day{0};
+
+  bool operator==(const TroubleSpotCard&) const = default;
+};
+
+struct TroubleSpotReviewResult {
+  bool found{false};
+  bool graduated{false};
+  int next_interval_days{0};
+};
+
+void enqueue_or_update_trouble_spot(std::vector<TroubleSpotCard>& queue, std::string_view lesson_id,
+                                    std::size_t start_bar_index, std::size_t end_bar_index,
+                                    double target_bpm, double current_clean_bpm,
+                                    std::int64_t today_epoch_day);
+
+[[nodiscard]] std::vector<std::size_t>
+due_trouble_spot_indices(std::span<const TroubleSpotCard> queue, std::int64_t today_epoch_day);
+
+TroubleSpotReviewResult complete_trouble_spot_review(std::vector<TroubleSpotCard>& queue,
+                                                     std::string_view lesson_id,
+                                                     std::size_t start_bar_index,
+                                                     std::size_t end_bar_index, double accuracy,
+                                                     double bpm, std::int64_t today_epoch_day);
+
 class LessonEngine {
 public:
   LessonEngine() = default;
@@ -276,6 +334,10 @@ public:
   void set_custom_bar_range(std::optional<std::pair<std::size_t, std::size_t>> range);
   void set_loop_phrase(bool loop);
   void set_play_other_hand_accomp(bool enabled) noexcept;
+  void set_auto_tempo_ramp(bool enabled) noexcept;
+  void set_ramp_step_bpm(double step_bpm) noexcept;
+  void set_practice_transform(PracticeTransform transform);
+  void set_memory_fade(MemoryFadeLevel level) noexcept;
 
   LessonTickResult start();
   LessonTickResult start_demo();
@@ -307,6 +369,12 @@ public:
 
   [[nodiscard]] std::size_t slice_start_bar() const noexcept { return slice_start_bar_; }
   [[nodiscard]] std::size_t slice_end_bar() const noexcept { return slice_end_bar_; }
+  [[nodiscard]] std::size_t display_slice_start_bar() const noexcept {
+    return display_slice_start_bar_;
+  }
+  [[nodiscard]] std::size_t display_slice_end_bar() const noexcept {
+    return display_slice_end_bar_;
+  }
   [[nodiscard]] bool is_full_piece_selected() const noexcept {
     return !config_.custom_bar_range.has_value() &&
            (!config_.phrase_index.has_value() || phrases_.size() <= 1U);
@@ -325,6 +393,12 @@ public:
   [[nodiscard]] std::uint32_t miss_count() const noexcept { return misses_; }
   [[nodiscard]] double accuracy() const noexcept;
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return completed_runs_; }
+  [[nodiscard]] int consecutive_clean_loops() const noexcept { return consecutive_clean_loops_; }
+  [[nodiscard]] double last_loop_accuracy() const noexcept { return last_loop_accuracy_; }
+  [[nodiscard]] std::uint32_t memory_peek_count() const noexcept { return memory_peek_count_; }
+  [[nodiscard]] std::uint32_t last_loop_peek_count() const noexcept {
+    return last_loop_peek_count_;
+  }
 
 private:
   struct ScheduledTickNote {
@@ -369,6 +443,9 @@ private:
 
   std::size_t slice_start_bar_{0};
   std::size_t slice_end_bar_{0};
+  std::size_t display_slice_start_bar_{0};
+  std::size_t display_slice_end_bar_{0};
+  std::vector<std::size_t> display_to_source_bar_{};
   int total_slice_ticks_{0};
 
   LessonPlaybackState playback_state_{LessonPlaybackState::Stopped};
@@ -385,6 +462,10 @@ private:
   std::uint32_t partial_hits_{0};
   std::uint32_t misses_{0};
   std::uint32_t completed_runs_{0};
+  int consecutive_clean_loops_{0};
+  double last_loop_accuracy_{0.0};
+  std::uint32_t memory_peek_count_{0U};
+  std::uint32_t last_loop_peek_count_{0U};
 
   // Musicality telemetry (non-punitive)
   std::uint64_t melody_vel_sum_{0};
