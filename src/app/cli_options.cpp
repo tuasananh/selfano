@@ -157,6 +157,19 @@ CliOptions parse_cli(int argc, char* argv[]) {
       } else if (h == "both") {
         opts.lesson_hand_override = core::LessonHandMode::HandsTogether;
       }
+    } else if (arg == "--practice-transform" && i + 1 < argc) {
+      const std::string_view tx = argv[++i];
+      if (tx == "straight") {
+        opts.practice_transform_override = core::PracticeTransform::Straight;
+      } else if (tx == "long-short") {
+        opts.practice_transform_override = core::PracticeTransform::DottedLongShort;
+      } else if (tx == "short-long") {
+        opts.practice_transform_override = core::PracticeTransform::DottedShortLong;
+      } else if (tx == "burst") {
+        opts.practice_transform_override = core::PracticeTransform::Burst4Plus1;
+      } else if (tx == "block") {
+        opts.practice_transform_override = core::PracticeTransform::HandBlocking;
+      }
     } else if (arg == "--start-demo") {
       opts.start_lesson_demo = true;
     } else if (arg == "--bar-range" && i + 1 < argc) {

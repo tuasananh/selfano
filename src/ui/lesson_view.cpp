@@ -63,6 +63,47 @@ void append_playback_notes(double now_ms, std::span<const core::LessonPlaybackNo
   }
 }
 
+[[nodiscard]] const char* transform_short_label(core::PracticeTransform tx) noexcept {
+  switch (tx) {
+  case core::PracticeTransform::Straight:
+    return "Straight";
+  case core::PracticeTransform::DottedLongShort:
+    return "Long\xE2\x80\x93Short";
+  case core::PracticeTransform::DottedShortLong:
+    return "Short\xE2\x80\x93Long";
+  case core::PracticeTransform::Burst4Plus1:
+    return "4+1 Bursts";
+  case core::PracticeTransform::HandBlocking:
+    return "Block Chords";
+  }
+  return "Straight";
+}
+
+[[nodiscard]] core::PracticeTransform suggest_speed_lab_for_spot(const core::LessonScore& score,
+                                                                 const core::TroubleSpot& spot) {
+  std::size_t broken_8th_16th = 0U;
+  std::size_t running_subdiv = 0U;
+  for (std::size_t b = spot.start_bar_index; b <= spot.end_bar_index && b < score.measures.size();
+       ++b) {
+    const auto& m = score.measures[b];
+    for (const auto* evs : {&m.treble_events, &m.bass_events}) {
+      for (const auto& ev : *evs) {
+        if (!ev.is_rest && (ev.duration.base == core::NoteBaseDuration::Eighth ||
+                            ev.duration.base == core::NoteBaseDuration::Sixteenth)) {
+          ++running_subdiv;
+          if (ev.notes.size() == 1U) {
+            ++broken_8th_16th;
+          }
+        }
+      }
+    }
+  }
+  if (broken_8th_16th >= 6U && broken_8th_16th * 2U >= running_subdiv) {
+    return core::PracticeTransform::HandBlocking;
+  }
+  return core::PracticeTransform::DottedLongShort;
+}
+
 [[nodiscard]] const char* mastery_label(core::LessonMasteryStatus st) noexcept {
   switch (st) {
   case core::LessonMasteryStatus::New:
@@ -915,9 +956,19 @@ void LessonView::draw_practice_settings(const core::LessonProgress& progress,
       }
     }
   }
+  if (cfg.practice_mode != core::LessonPracticeMode::ChordSkeleton) {
+    section_kicker("SPEED LAB");
+    static constexpr std::array<std::string_view, 5> kSpeedLabLabels{
+        "Straight", "Long\xE2\x80\x93Short", "Short\xE2\x80\x93Long", "4+1", "Block"};
+    int tx_idx = static_cast<int>(cfg.practice_transform);
+    if (segmented_control("##speed_lab", &tx_idx, kSpeedLabLabels, 318.0f, 28.0f)) {
+      engine_.set_practice_transform(static_cast<core::PracticeTransform>(tx_idx));
+    }
+  }
   if (previous.practice_mode != cfg.practice_mode || previous.hand_mode != cfg.hand_mode ||
       previous.phrase_index != cfg.phrase_index ||
-      previous.custom_bar_range != cfg.custom_bar_range) {
+      previous.custom_bar_range != cfg.custom_bar_range ||
+      previous.practice_transform != cfg.practice_transform) {
     actions.stop_all_playback = true;
     last_loop_accuracy_.reset();
   }
@@ -1067,6 +1118,20 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
             : std::format("Ramping \xC2\xB7 +{:.0f} BPM on 2 clean", cfg.ramp_step_bpm);
     status_pill(ramp_chip, StatusTone::Success);
   }
+  if (cfg.practice_mode != core::LessonPracticeMode::ChordSkeleton &&
+      cfg.practice_transform != core::PracticeTransform::Straight) {
+    const std::string tx_lbl = std::format("Speed Lab: {}  \xC3\x97##chip_speed_lab",
+                                           transform_short_label(cfg.practice_transform));
+    place_chip_inline(165.0f * scale);
+    if (pill_button(tx_lbl.c_str(), ButtonTone::SoftAccent, IconId::Bolt, 24.0f, 0.0f, true)) {
+      engine_.set_practice_transform(core::PracticeTransform::Straight);
+      reset_phrase();
+      actions.stop_all_playback = true;
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("Click to return to Straight notation");
+    }
+  }
   if (cfg.loop_phrase && last_loop_accuracy_.has_value()) {
     place_chip_inline(124.0f * scale);
     status_pill(std::format("Last loop: {:.0f}%", *last_loop_accuracy_ * 100.0),
@@ -1091,13 +1156,14 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
   steps.push_back({"Tempo", summary.ladder_cleared >= 3U, summary.milestone_index == 3U});
 
   float steps_w = 0.0f;
-  {
-    ScopedFont cf(TypeStyle::Caption);
-    for (std::size_t i = 0; i < steps.size(); ++i) {
+  for (std::size_t i = 0; i < steps.size(); ++i) {
+    {
+      ScopedFont cf(steps[i].active ? TypeStyle::Caption : TypeStyle::Subheadline);
       steps_w += ImGui::CalcTextSize(steps[i].name).x;
-      if (i + 1U < steps.size()) {
-        steps_w += ImGui::CalcTextSize(" \xC2\xB7 ").x;
-      }
+    }
+    if (i + 1U < steps.size()) {
+      ScopedFont cf(TypeStyle::Subheadline);
+      steps_w += ImGui::CalcTextSize(" \xC2\xB7 ").x;
     }
   }
   const float cur_x_end = ImGui::GetItemRectMax().x;
@@ -1321,6 +1387,25 @@ void LessonView::draw_result(const core::LessonLibrary& library,
                       format_bar_range(spot->start_bar_number, spot->end_bar_number));
     }
     ImGui::EndDisabled();
+    if (engine_.config().practice_transform == core::PracticeTransform::Straight) {
+      const auto suggested_tx = suggest_speed_lab_for_spot(score, *spot);
+      const std::string tx_btn =
+          std::format("Try {}##coach_speed_lab", transform_short_label(suggested_tx));
+      if (ImGui::GetItemRectMax().x + 8.0f * scale + 148.0f * scale <= row_right) {
+        ImGui::SameLine(0.0f, 8.0f * scale);
+      }
+      if (pill_button(tx_btn.c_str(), ButtonTone::Secondary, IconId::Bolt)) {
+        auto cfg = engine_.config();
+        cfg.practice_mode = core::LessonPracticeMode::WaitForNote;
+        cfg.custom_bar_range = std::pair{spot->start_bar_index, spot->end_bar_index};
+        cfg.loop_phrase = true;
+        cfg.practice_transform = suggested_tx;
+        engine_.configure(cfg);
+        show_post_run_coach_ = false;
+        coach_focus_bar_.reset();
+        actions.stop_all_playback = true;
+      }
+    }
   }
   const bool show_try_again = (action_label != "Try again" && action_label != "Play again");
   if (show_try_again) {
@@ -1403,8 +1488,10 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
       (pb_st == core::LessonPlaybackState::CountIn || pb_st == core::LessonPlaybackState::Playing ||
        pb_st == core::LessonPlaybackState::DemoPlaying);
 
-  const std::size_t slice_start = engine_.slice_start_bar();
-  const std::size_t slice_end = std::min(measures.size() - 1U, engine_.slice_end_bar());
+  const std::size_t slice_start = engine_.display_slice_start_bar();
+  const std::size_t slice_end = std::min(measures.size() - 1U, engine_.display_slice_end_bar());
+  const bool is_straight =
+      (engine_.config().practice_transform == core::PracticeTransform::Straight);
 
   std::size_t active_global_bar = slice_start;
   if (show_post_run_coach_ && coach_focus_bar_.has_value() && *coach_focus_bar_ >= slice_start &&
@@ -1508,9 +1595,11 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
                                                         sys1_end - sys1_start + 1U);
   const auto sm1 = build_lesson_staff_measures(sys1_slice, sys1_start, meter_at_bar(sys1_start),
                                                show_treble, show_bass, &fb_map);
-  opts1.slurs =
-      slice_system_slurs(engine_.score().slurs, sys1_start, sys1_end, sm1, show_treble, show_bass);
-  opts1.pedals = slice_system_pedals(engine_.score().pedals, sys1_start, sys1_end, sm1);
+  if (is_straight) {
+    opts1.slurs = slice_system_slurs(engine_.score().slurs, sys1_start, sys1_end, sm1, show_treble,
+                                     show_bass);
+    opts1.pedals = slice_system_pedals(engine_.score().pedals, sys1_start, sys1_end, sm1);
+  }
 
   draw_staff_canvas("##lv_sys1", smufl_font, ui_font, avail_w, sm1, opts1,
                     show_harmony_ ? &out_hitboxes : nullptr);
@@ -1533,9 +1622,11 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     opts2.playhead_beat.reset();
     opts2.dim_preview = true;
     opts2.show_final_barline = (sys2_end == slice_end);
-    opts2.slurs = slice_system_slurs(engine_.score().slurs, sys2_start, sys2_end, sm2, show_treble,
-                                     show_bass);
-    opts2.pedals = slice_system_pedals(engine_.score().pedals, sys2_start, sys2_end, sm2);
+    if (is_straight) {
+      opts2.slurs = slice_system_slurs(engine_.score().slurs, sys2_start, sys2_end, sm2,
+                                       show_treble, show_bass);
+      opts2.pedals = slice_system_pedals(engine_.score().pedals, sys2_start, sys2_end, sm2);
+    }
 
     draw_staff_canvas("##lv_sys2", smufl_font, ui_font, avail_w, sm2, opts2,
                       show_harmony_ ? &out_hitboxes : nullptr);
@@ -1849,6 +1940,47 @@ LessonViewActions LessonView::draw(ImFont* smufl_font, ImFont* ui_font,
     curriculum_modal_.close();
   }
   return actions;
+}
+
+[[nodiscard]] const char* transform_short_label(core::PracticeTransform tx) noexcept {
+  switch (tx) {
+  case core::PracticeTransform::Straight:
+    return "Straight";
+  case core::PracticeTransform::DottedLongShort:
+    return "Long\xE2\x80\x93Short";
+  case core::PracticeTransform::DottedShortLong:
+    return "Short\xE2\x80\x93Long";
+  case core::PracticeTransform::Burst4Plus1:
+    return "4+1 Bursts";
+  case core::PracticeTransform::HandBlocking:
+    return "Block Chords";
+  }
+  return "Straight";
+}
+
+[[nodiscard]] core::PracticeTransform suggest_speed_lab_for_spot(const core::LessonScore& score,
+                                                                 const core::TroubleSpot& spot) {
+  std::size_t broken_8th_16th = 0U;
+  std::size_t running_subdiv = 0U;
+  for (std::size_t b = spot.start_bar_index; b <= spot.end_bar_index && b < score.measures.size();
+       ++b) {
+    const auto& m = score.measures[b];
+    for (const auto* evs : {&m.treble_events, &m.bass_events}) {
+      for (const auto& ev : *evs) {
+        if (!ev.is_rest && (ev.duration.base == core::NoteBaseDuration::Eighth ||
+                            ev.duration.base == core::NoteBaseDuration::Sixteenth)) {
+          ++running_subdiv;
+          if (ev.notes.size() == 1U) {
+            ++broken_8th_16th;
+          }
+        }
+      }
+    }
+  }
+  if (broken_8th_16th >= 6U && broken_8th_16th * 2U >= running_subdiv) {
+    return core::PracticeTransform::HandBlocking;
+  }
+  return core::PracticeTransform::DottedLongShort;
 }
 
 [[nodiscard]] const char* mastery_label(core::LessonMasteryStatus st) noexcept {

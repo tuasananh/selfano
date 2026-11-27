@@ -625,6 +625,14 @@ bool AppController::init(const CliOptions& cli_opts) {
   if (cli_.lesson_hand_override.has_value()) {
     lesson_view_.mutable_engine().set_hand_mode(*cli_.lesson_hand_override);
   }
+  if (cli_.practice_transform_override.has_value()) {
+    lesson_view_.set_active_tab(ui::LessonViewTab::Practice);
+    if (lesson_view_.engine().config().practice_mode == core::LessonPracticeMode::ChordSkeleton &&
+        !cli_.lesson_mode_override.has_value()) {
+      lesson_view_.mutable_engine().set_practice_mode(core::LessonPracticeMode::WaitForNote);
+    }
+    lesson_view_.mutable_engine().set_practice_transform(*cli_.practice_transform_override);
+  }
   if (cli_.start_lesson_demo) {
     lesson_view_.start_demo_for_smoke(prev_now_ms_, pending_playback_, 550.0);
   }
