@@ -29,6 +29,7 @@ struct SrsCard {
   double ease_factor{kDefaultEaseFactor};
   int repetitions{0};
   std::int64_t due_epoch_day{0};
+  std::string lesson_id{};
 
   bool operator==(const SrsCard&) const = default;
 };

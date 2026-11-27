@@ -605,6 +605,13 @@ void LessonEngine::set_practice_transform(PracticeTransform transform) {
   }
 }
 
+void LessonEngine::set_memory_fade(MemoryFadeLevel level) noexcept {
+  if (config_.memory_fade != level) {
+    config_.memory_fade = level;
+    reset_transport_state();
+  }
+}
+
 void LessonEngine::set_play_other_hand_accomp(bool enabled) noexcept {
   if (config_.play_other_hand_accomp == enabled) {
     return;
@@ -647,6 +654,8 @@ void LessonEngine::reset_transport_state() {
   misses_ = 0;
   consecutive_clean_loops_ = 0;
   last_loop_accuracy_ = 0.0;
+  memory_peek_count_ = 0U;
+  last_loop_peek_count_ = 0U;
   melody_vel_sum_ = 0;
   melody_vel_count_ = 0;
   accomp_vel_sum_ = 0;
@@ -667,6 +676,7 @@ void LessonEngine::reset_transport_state() {
     t.status = LessonTargetStatus::Pending;
     t.played_midi.clear();
     t.missed_midi.clear();
+    t.memory_peeked = false;
   }
 }
 
@@ -1263,6 +1273,10 @@ LessonTickResult LessonEngine::update(double dt_ms) {
     }
     if (static_cast<double>(tgt.global_tick) + hit_window_ticks < elapsed_ticks_) {
       tgt.status = LessonTargetStatus::Missed;
+      if (config_.memory_fade != MemoryFadeLevel::FullScore && !tgt.memory_peeked) {
+        tgt.memory_peeked = true;
+        ++memory_peek_count_;
+      }
       ++misses_;
       ++active_target_index_;
     } else {
@@ -1297,6 +1311,11 @@ LessonTickResult LessonEngine::update(double dt_ms) {
     while (active_target_index_ < targets_.size()) {
       if (targets_[active_target_index_].status == LessonTargetStatus::Pending) {
         targets_[active_target_index_].status = LessonTargetStatus::Missed;
+        if (config_.memory_fade != MemoryFadeLevel::FullScore &&
+            !targets_[active_target_index_].memory_peeked) {
+          targets_[active_target_index_].memory_peeked = true;
+          ++memory_peek_count_;
+        }
         ++misses_;
       }
       ++active_target_index_;
@@ -1356,6 +1375,12 @@ LessonTickResult LessonEngine::update(double dt_ms) {
     }
 
     if (config_.loop_phrase) {
+      last_loop_peek_count_ = 0U;
+      for (const auto& t : targets_) {
+        if (t.memory_peeked) {
+          ++last_loop_peek_count_;
+        }
+      }
       elapsed_ticks_ = std::max(0.0, elapsed_ticks_ - static_cast<double>(total_slice_ticks_));
       const int full_ticks = slice_bar_meters_.front().measure_ticks();
       const int bar0_ticks = slice_bar_ticks_.empty() ? full_ticks : slice_bar_ticks_.front();
@@ -1374,6 +1399,7 @@ LessonTickResult LessonEngine::update(double dt_ms) {
         t.status = LessonTargetStatus::Pending;
         t.played_midi.clear();
         t.missed_midi.clear();
+        t.memory_peeked = false;
       }
     } else {
       elapsed_ticks_ = static_cast<double>(total_slice_ticks_);
@@ -1553,6 +1579,10 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
       }
       if (all_expected && normalized.size() * 2U >= tgt.expected_midi.size()) {
         tgt.status = LessonTargetStatus::PartialHit;
+        if (config_.memory_fade != MemoryFadeLevel::FullScore && !tgt.memory_peeked) {
+          tgt.memory_peeked = true;
+          ++memory_peek_count_;
+        }
         tgt.played_midi = normalized;
         tgt.missed_midi.clear();
         for (const MidiPitch em : tgt.expected_midi) {
@@ -1569,6 +1599,10 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
         res.partial_match = true;
       } else {
         tgt.status = LessonTargetStatus::Missed;
+        if (config_.memory_fade != MemoryFadeLevel::FullScore && !tgt.memory_peeked) {
+          tgt.memory_peeked = true;
+          ++memory_peek_count_;
+        }
         tgt.played_midi = normalized;
         tgt.missed_midi.clear();
         ++misses_;
@@ -1611,10 +1645,17 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
                                 ? 0.0
                                 : static_cast<double>(loop_hits) / static_cast<double>(loop_total);
       if (config_.loop_phrase) {
+        last_loop_peek_count_ = 0U;
+        for (const auto& t : targets_) {
+          if (t.memory_peeked) {
+            ++last_loop_peek_count_;
+          }
+        }
         active_target_index_ = 0;
         for (auto& t : targets_) {
           t.status = LessonTargetStatus::Pending;
           t.played_midi.clear();
+          t.memory_peeked = false;
         }
       } else {
         playback_state_ = LessonPlaybackState::Completed;
@@ -1623,6 +1664,10 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     }
   } else {
     tgt.status = LessonTargetStatus::Missed;
+    if (config_.memory_fade != MemoryFadeLevel::FullScore && !tgt.memory_peeked) {
+      tgt.memory_peeked = true;
+      ++memory_peek_count_;
+    }
     tgt.played_midi = normalized;
     ++misses_;
     res.wrong_note = true;
@@ -1846,6 +1891,8 @@ LessonRunSummary LessonEngine::build_run_summary() const {
       .bar_diagnostics = std::move(diagnostics),
       .musicality = std::move(mus),
       .practice_transform = config_.practice_transform,
+      .memory_fade = config_.memory_fade,
+      .memory_peek_count = memory_peek_count_,
   };
 }
 

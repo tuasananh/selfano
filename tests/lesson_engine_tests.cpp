@@ -1455,3 +1455,98 @@ TEST_CASE("LessonEngine applies PracticeTransform non-destructively and guards M
   CHECK_FALSE(prog.ladder_100_clean);
   CHECK(prog.status != LessonMasteryStatus::Mastered);
 }
+
+TEST_CASE("LessonEngine MemoryFadeLevel tracks peek-on-mistake and computes SM-2 recall rating",
+          "[lesson_engine][phase23]") {
+  LessonScore score = make_sample_lesson();
+  LessonEngine engine;
+
+  SECTION("WaitForNote HarmonyMapOnly increments memory_peek_count once per missed target") {
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::WaitForNote;
+    cfg.hand_mode = LessonHandMode::HandsTogether;
+    cfg.memory_fade = MemoryFadeLevel::HarmonyMapOnly;
+    engine.load_score(score, cfg);
+
+    REQUIRE(engine.targets().size() >= 3U);
+    // Target 0: hit cleanly -> no peek
+    const auto r0 = engine.submit_played_notes(engine.targets()[0].expected_midi);
+    CHECK(r0.matched);
+    CHECK(engine.memory_peek_count() == 0U);
+    CHECK_FALSE(engine.targets()[0].memory_peeked);
+
+    // Target 1: wrong note twice -> peeked once, count == 1
+    const std::array<MidiPitch, 1> wrong{21};
+    const auto w1 = engine.submit_played_notes(wrong);
+    CHECK(w1.wrong_note);
+    CHECK(engine.memory_peek_count() == 1U);
+    CHECK(engine.targets()[1].memory_peeked);
+
+    const auto w2 = engine.submit_played_notes(wrong);
+    CHECK(w2.wrong_note);
+    CHECK(engine.memory_peek_count() == 1U);
+
+    // Now hit Target 1 and complete remaining targets
+    CHECK(engine.submit_played_notes(engine.targets()[1].expected_midi).matched);
+    for (std::size_t i = 2U; i < engine.targets().size(); ++i) {
+      CHECK(engine.submit_played_notes(engine.targets()[i].expected_midi).matched);
+    }
+
+    const auto summary = engine.build_run_summary();
+    CHECK(summary.memory_fade == MemoryFadeLevel::HarmonyMapOnly);
+    CHECK(summary.memory_peek_count == 1U);
+  }
+
+  SECTION("SteadyPulse BlankMemory marks missed beats as peeked") {
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::SteadyPulse;
+    cfg.hand_mode = LessonHandMode::HandsTogether;
+    cfg.memory_fade = MemoryFadeLevel::BlankMemory;
+    engine.load_score(score, cfg);
+
+    (void)engine.start();
+    while (engine.playback_state() == LessonPlaybackState::CountIn) {
+      (void)engine.update(100.0);
+    }
+    // Let the entire piece time out without playing
+    for (int i = 0; i < 200 && engine.playback_state() == LessonPlaybackState::Playing; ++i) {
+      (void)engine.update(100.0);
+    }
+    CHECK(engine.playback_state() == LessonPlaybackState::Completed);
+    CHECK(engine.memory_peek_count() == engine.targets().size());
+    for (const auto& t : engine.targets()) {
+      CHECK(t.memory_peeked);
+    }
+  }
+
+  SECTION("suggest_memory_srs_rating and apply_run_to_progress track memory mastery") {
+    CHECK(suggest_memory_srs_rating(0.95, 0U) == SrsRating::Good);
+    CHECK(suggest_memory_srs_rating(0.92, 0U) == SrsRating::Good);
+    CHECK(suggest_memory_srs_rating(0.95, 1U) == SrsRating::Hard);
+    CHECK(suggest_memory_srs_rating(0.82, 2U) == SrsRating::Hard);
+    CHECK(suggest_memory_srs_rating(0.85, 3U) == SrsRating::Again);
+    CHECK(suggest_memory_srs_rating(0.75, 0U) == SrsRating::Again);
+
+    LessonProgress prog{};
+    LessonRunSummary map_run{};
+    map_run.lesson_id = score.meta.id;
+    map_run.practice_mode = LessonPracticeMode::WaitForNote;
+    map_run.hand_mode = LessonHandMode::HandsTogether;
+    map_run.practice_transform = PracticeTransform::Straight;
+    map_run.memory_fade = MemoryFadeLevel::HarmonyMapOnly;
+    map_run.memory_peek_count = 0U;
+    map_run.is_full_piece = true;
+    map_run.accuracy = 1.0;
+
+    const auto u1 = apply_run_to_progress(prog, map_run, score.meta.target_bpm, 20700);
+    CHECK(u1.suggested_rating == SrsRating::Good);
+    CHECK(prog.memory_map_clean);
+    CHECK_FALSE(prog.memory_blank_clean);
+
+    LessonRunSummary blank_run = map_run;
+    blank_run.memory_fade = MemoryFadeLevel::BlankMemory;
+    const auto u2 = apply_run_to_progress(prog, blank_run, score.meta.target_bpm, 20701);
+    CHECK(u2.suggested_rating == SrsRating::Good);
+    CHECK(prog.memory_blank_clean);
+  }
+}

@@ -157,6 +157,20 @@ LessonProgressUpdateResult apply_run_to_progress(LessonProgress& prog, const Les
     }
   }
 
+  if (run.memory_fade != MemoryFadeLevel::FullScore &&
+      run.practice_transform == PracticeTransform::Straight) {
+    if (run.hand_mode == LessonHandMode::HandsTogether && run.is_full_piece &&
+        run.accuracy >= 0.90 && run.memory_peek_count == 0U) {
+      if (run.memory_fade == MemoryFadeLevel::HarmonyMapOnly) {
+        prog.memory_map_clean = true;
+      } else if (run.memory_fade == MemoryFadeLevel::BlankMemory) {
+        prog.memory_blank_clean = true;
+      }
+    }
+    out.suggested_rating = suggest_memory_srs_rating(run.accuracy, run.memory_peek_count);
+    return out;
+  }
+
   if (run.accuracy >= 0.90 && run.effective_bpm >= target_bpm * 0.90 - 0.5) {
     out.suggested_rating = SrsRating::Good;
   } else if (run.accuracy >= 0.75) {
@@ -165,6 +179,16 @@ LessonProgressUpdateResult apply_run_to_progress(LessonProgress& prog, const Les
     out.suggested_rating = SrsRating::Again;
   }
   return out;
+}
+
+SrsRating suggest_memory_srs_rating(double accuracy, std::uint32_t peek_count) noexcept {
+  if (peek_count == 0U && accuracy >= 0.92) {
+    return SrsRating::Good;
+  }
+  if (peek_count <= 2U && accuracy >= 0.80) {
+    return SrsRating::Hard;
+  }
+  return SrsRating::Again;
 }
 
 void rate_guided_revision(LessonProgress& prog, SrsRating rating,

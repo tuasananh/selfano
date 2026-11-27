@@ -241,6 +241,8 @@ std::string to_json_string(const UserProfile& profile) {
         {"phrase_rh_mask", lp.phrase_rh_mask},
         {"phrase_lh_mask", lp.phrase_lh_mask},
         {"phrase_both_mask", lp.phrase_both_mask},
+        {"memory_map_clean", lp.memory_map_clean},
+        {"memory_blank_clean", lp.memory_blank_clean},
     };
   }
   j["lesson_progress"] = std::move(lp_obj);
@@ -284,6 +286,7 @@ std::string to_json_string(const UserProfile& profile) {
         {"ease_factor", card.ease_factor},
         {"repetitions", card.repetitions},
         {"due_epoch_day", card.due_epoch_day},
+        {"lesson_id", card.lesson_id},
     });
   }
   j["srs_cards"] = std::move(srs_arr);
@@ -445,7 +448,9 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
           !read_bool_field(val, "skeleton_clean", lp.skeleton_clean, err) ||
           !read_int_field(val, "phrase_rh_mask", lp.phrase_rh_mask, err) ||
           !read_int_field(val, "phrase_lh_mask", lp.phrase_lh_mask, err) ||
-          !read_int_field(val, "phrase_both_mask", lp.phrase_both_mask, err)) {
+          !read_int_field(val, "phrase_both_mask", lp.phrase_both_mask, err) ||
+          !read_bool_field(val, "memory_map_clean", lp.memory_map_clean, err) ||
+          !read_bool_field(val, "memory_blank_clean", lp.memory_blank_clean, err)) {
         return std::unexpected(err);
       }
       st_int = std::clamp(st_int, 0, 3);
@@ -539,7 +544,8 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
           !read_int_field(item, "interval_days", card.interval_days, err) ||
           !read_double_field(item, "ease_factor", card.ease_factor, err) ||
           !read_int_field(item, "repetitions", card.repetitions, err) ||
-          !read_int_field(item, "due_epoch_day", card.due_epoch_day, err)) {
+          !read_int_field(item, "due_epoch_day", card.due_epoch_day, err) ||
+          !read_string_field(item, "lesson_id", card.lesson_id, err)) {
         return std::unexpected(err);
       }
       card.ease_factor = std::clamp(card.ease_factor, kMinEaseFactor, kMaxEaseFactor);

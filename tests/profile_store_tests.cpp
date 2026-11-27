@@ -116,7 +116,20 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
       .phrase_rh_mask = 0x3U,
       .phrase_lh_mask = 0x1U,
       .phrase_both_mask = 0x1U,
+      .memory_map_clean = true,
+      .memory_blank_clean = true,
   };
+  profile.srs_cards.push_back(SrsCard{
+      .id = "srs_lesson_t1_01",
+      .piece_name = "C Major",
+      .section_name = "Tier 1",
+      .chord_roadmap_hint = "C -> G7 -> C",
+      .interval_days = 1,
+      .ease_factor = kDefaultEaseFactor,
+      .repetitions = 1,
+      .due_epoch_day = today + 1,
+      .lesson_id = "t1_01",
+  });
   profile.imported_lesson_ids = {"imp_abc123"};
   profile.trouble_spot_queue = {
       TroubleSpotCard{
@@ -162,6 +175,8 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res->lesson_progress.at("t1_01").phrase_rh_mask == 0U);
     REQUIRE(res->lesson_progress.at("t1_01").phrase_lh_mask == 0U);
     REQUIRE(res->lesson_progress.at("t1_01").phrase_both_mask == 0U);
+    REQUIRE_FALSE(res->lesson_progress.at("t1_01").memory_map_clean);
+    REQUIRE_FALSE(res->lesson_progress.at("t1_01").memory_blank_clean);
     REQUIRE(res->imported_lesson_ids.empty());
     REQUIRE(res->trouble_spot_queue.empty());
     REQUIRE(res->repertoire_phrases.empty());

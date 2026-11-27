@@ -59,6 +59,12 @@ enum class LessonTargetStatus : std::uint8_t {
   PartialHit = 3,
 };
 
+enum class MemoryFadeLevel : std::uint8_t {
+  FullScore = 0,
+  HarmonyMapOnly = 1,
+  BlankMemory = 2,
+};
+
 struct LessonProgress {
   LessonMasteryStatus status{LessonMasteryStatus::New};
   double best_accuracy{0.0};
@@ -77,6 +83,8 @@ struct LessonProgress {
   std::uint32_t phrase_rh_mask{0U};
   std::uint32_t phrase_lh_mask{0U};
   std::uint32_t phrase_both_mask{0U};
+  bool memory_map_clean{false};
+  bool memory_blank_clean{false};
 
   bool operator==(const LessonProgress&) const = default;
 };
@@ -105,6 +113,7 @@ struct LessonTarget {
   LessonTargetStatus status{LessonTargetStatus::Pending};
   std::vector<MidiPitch> played_midi;
   std::vector<MidiPitch> missed_midi{};
+  bool memory_peeked{false};
 
   bool operator==(const LessonTarget&) const = default;
 };
@@ -121,6 +130,7 @@ struct LessonConfig {
   bool auto_tempo_ramp{false};
   double ramp_step_bpm{4.0};
   PracticeTransform practice_transform{PracticeTransform::Straight};
+  MemoryFadeLevel memory_fade{MemoryFadeLevel::FullScore};
 
   bool operator==(const LessonConfig&) const = default;
 };
@@ -200,6 +210,8 @@ struct LessonRunSummary {
   std::vector<BarDiagnostic> bar_diagnostics{};
   MusicalityMetrics musicality{};
   PracticeTransform practice_transform{PracticeTransform::Straight};
+  MemoryFadeLevel memory_fade{MemoryFadeLevel::FullScore};
+  std::uint32_t memory_peek_count{0U};
 };
 
 struct GuidedPracticeStep {
@@ -251,6 +263,9 @@ struct Stage3SessionPlan {
 [[nodiscard]] LessonProgressUpdateResult
 apply_run_to_progress(LessonProgress& prog, const LessonRunSummary& run, double target_bpm,
                       std::int64_t today_epoch_day) noexcept;
+
+[[nodiscard]] SrsRating suggest_memory_srs_rating(double accuracy,
+                                                  std::uint32_t peek_count) noexcept;
 
 void rate_guided_revision(LessonProgress& prog, SrsRating rating,
                           std::int64_t today_epoch_day) noexcept;
@@ -322,6 +337,7 @@ public:
   void set_auto_tempo_ramp(bool enabled) noexcept;
   void set_ramp_step_bpm(double step_bpm) noexcept;
   void set_practice_transform(PracticeTransform transform);
+  void set_memory_fade(MemoryFadeLevel level) noexcept;
 
   LessonTickResult start();
   LessonTickResult start_demo();
@@ -379,6 +395,10 @@ public:
   [[nodiscard]] std::uint32_t completed_runs() const noexcept { return completed_runs_; }
   [[nodiscard]] int consecutive_clean_loops() const noexcept { return consecutive_clean_loops_; }
   [[nodiscard]] double last_loop_accuracy() const noexcept { return last_loop_accuracy_; }
+  [[nodiscard]] std::uint32_t memory_peek_count() const noexcept { return memory_peek_count_; }
+  [[nodiscard]] std::uint32_t last_loop_peek_count() const noexcept {
+    return last_loop_peek_count_;
+  }
 
 private:
   struct ScheduledTickNote {
@@ -444,6 +464,8 @@ private:
   std::uint32_t completed_runs_{0};
   int consecutive_clean_loops_{0};
   double last_loop_accuracy_{0.0};
+  std::uint32_t memory_peek_count_{0U};
+  std::uint32_t last_loop_peek_count_{0U};
 
   // Musicality telemetry (non-punitive)
   std::uint64_t melody_vel_sum_{0};
