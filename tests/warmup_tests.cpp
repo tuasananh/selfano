@@ -710,3 +710,35 @@ TEST_CASE("WarmUpEngine generates Chromatic, Dom7/Dim7 Arpeggios, Contrary Motio
     REQUIRE(rom.steps()[58].station == WarmUpStation::LhStrideJumps);
   }
 }
+
+TEST_CASE("WarmUpEngine detects hardware thumb-crossing velocity spikes and omits virtual input",
+          "[warmup][phase29]") {
+  WarmUpEngine engine(WarmUpConfig{
+      .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+      .octaves = 1,
+      .hand = HandSelection::RightOnly,
+      .exercise = WarmUpExerciseKind::ScaleOnly,
+  });
+  REQUIRE(engine.steps().size() == 15U);
+
+  // Play with a thumb-crossing velocity spike on step 3 (F4, finger 1 after E4 finger 3)
+  for (std::size_t i = 0; i < engine.steps().size(); ++i) {
+    const std::uint8_t vel = (i == 3U) ? 105U : static_cast<std::uint8_t>(68U + (i % 3U));
+    const auto res = engine.submit_played_notes(engine.steps()[i].expected_midi,
+                                                std::array<std::uint8_t, 1>{vel}, true);
+    REQUIRE(res.status == WarmUpEvalStatus::Correct);
+  }
+  REQUIRE(engine.last_pass_summary().has_value());
+  REQUIRE(engine.last_pass_summary()->tone_smoothness_available);
+  REQUIRE(engine.last_pass_summary()->thumb_spikes >= 1U);
+  REQUIRE(engine.last_pass_summary()->pitch_accuracy == 1.0); // strictly non-punitive
+
+  // Virtual keyboard (from_hardware = false) omits tone smoothness
+  engine.reset();
+  for (std::size_t i = 0; i < engine.steps().size(); ++i) {
+    (void)engine.submit_played_notes(engine.steps()[i].expected_midi,
+                                     std::array<std::uint8_t, 1>{96U}, false);
+  }
+  REQUIRE(engine.last_pass_summary().has_value());
+  REQUIRE_FALSE(engine.last_pass_summary()->tone_smoothness_available);
+}

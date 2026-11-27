@@ -1882,3 +1882,163 @@ TEST_CASE("RubatoFollow advances expressively without metronome penalties and sk
   CHECK_FALSE(prog.ladder_80_clean);
   CHECK_FALSE(prog.ladder_60_clean);
 }
+
+TEST_CASE("Phase 29: IOI evenness, thumb-crossing spikes, dynamic contrast, and LH melody voicing",
+          "[lesson_engine][phase29]") {
+  auto make_n = [](NoteLetter l, int oct, std::uint8_t finger = 0, bool is_melody = false) {
+    const SpelledNote sp{.letter = l, .accidental = Accidental::Natural, .octave = oct};
+    return LessonNote{
+        .spelled = sp,
+        .midi = to_midi(sp).value(),
+        .finger = finger,
+        .is_melody = is_melody,
+    };
+  };
+
+  SECTION("Explicit is_melody on LH notes overrides treble-top voicing assumption") {
+    LessonScore score{};
+    score.meta.id = "p29_lh_mel";
+    score.meta.title = "LH Melody";
+    score.meta.target_bpm = 80.0;
+    LessonMeasure m{};
+    m.bar_number = 1;
+    m.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::E, 4), make_n(NoteLetter::G, 4)}},
+        {.start_tick = 960,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::F, 4), make_n(NoteLetter::A, 4)}},
+    };
+    m.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::C, 3, 5, true)}},
+        {.start_tick = 960,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::D, 3, 4, true)}},
+    };
+    score.measures.push_back(m);
+
+    LessonEngine engine;
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::WaitForNote;
+    cfg.hand_mode = LessonHandMode::HandsTogether;
+    engine.load_score(score, cfg);
+
+    // LH melody louder (92) than RH accompaniment (60) -> voicing_balanced = true
+    (void)engine.submit_played_notes(std::array<MidiPitch, 3>{48, 64, 67},
+                                     std::array<std::uint8_t, 3>{92, 60, 62}, true);
+    (void)engine.submit_played_notes(std::array<MidiPitch, 3>{50, 65, 69},
+                                     std::array<std::uint8_t, 3>{94, 58, 60}, true);
+    const auto sum = engine.build_run_summary();
+    REQUIRE(sum.musicality.voicing_available);
+    REQUIRE(sum.musicality.voicing_balanced);
+    REQUIRE(sum.musicality.voicing_delta > 25.0);
+  }
+
+  SECTION("IOI evenness, thumb-crossing velocity spikes, and dynamic pp/ff contrast") {
+    LessonScore score{};
+    score.meta.id = "p29_diag";
+    score.meta.title = "Evenness & Dynamics";
+    score.meta.target_bpm = 60.0;
+    LessonMeasure m1{};
+    m1.bar_number = 1;
+    m1.dynamics = {{.start_tick = 0, .level = DynamicLevel::PP}};
+    m1.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Sixteenth},
+         .notes = {make_n(NoteLetter::C, 4, 1)}},
+        {.start_tick = 120,
+         .duration = {.base = NoteBaseDuration::Sixteenth},
+         .notes = {make_n(NoteLetter::D, 4, 2)}},
+        {.start_tick = 240,
+         .duration = {.base = NoteBaseDuration::Sixteenth},
+         .notes = {make_n(NoteLetter::E, 4, 3)}},
+        {.start_tick = 360,
+         .duration = {.base = NoteBaseDuration::Sixteenth},
+         .notes = {make_n(NoteLetter::F, 4, 1)}},
+        {.start_tick = 480,
+         .duration = {.base = NoteBaseDuration::Quarter},
+         .notes = {make_n(NoteLetter::G, 4, 2)}},
+        {.start_tick = 960,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::C, 5, 5)}},
+    };
+    LessonMeasure m2{};
+    m2.bar_number = 2;
+    m2.dynamics = {{.start_tick = 0, .level = DynamicLevel::FF}};
+    m2.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::C, 5, 5)}},
+        {.start_tick = 960,
+         .duration = {.base = NoteBaseDuration::Half},
+         .notes = {make_n(NoteLetter::G, 4, 2)}},
+    };
+    score.measures.push_back(m1);
+    score.measures.push_back(m2);
+
+    LessonEngine engine;
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::SteadyPulse;
+    cfg.hand_mode = LessonHandMode::RightHand;
+    cfg.tempo_step = TempoLadderStep::Target100;
+    engine.load_score(score, cfg);
+
+    // Clean, even 16ths (250ms apart), smooth thumb crossing (vel ~56), clear ff (vel ~104)
+    (void)engine.start();
+    engine.update(4000.0); // finish 4-beat count-in
+    const std::array<MidiPitch, 8> notes{60, 62, 64, 65, 67, 72, 72, 67};
+    const std::array<double, 8> dt_after{250.0,  250.0,  250.0,  250.0,
+                                         1000.0, 2000.0, 2000.0, 2000.0};
+    const std::array<std::uint8_t, 8> clean_vels{55, 57, 56, 58, 56, 60, 102, 106};
+    for (std::size_t i = 0; i < notes.size(); ++i) {
+      (void)engine.submit_played_notes(std::array<MidiPitch, 1>{notes[i]},
+                                       std::array<std::uint8_t, 1>{clean_vels[i]}, true);
+      engine.update(dt_after[i]);
+    }
+    const auto clean_sum = engine.build_run_summary();
+    REQUIRE(clean_sum.musicality.evenness_available);
+    REQUIRE(clean_sum.musicality.ioi_evenness_score >= 0.85);
+    REQUIRE(clean_sum.musicality.vel_smoothness_available);
+    REQUIRE(clean_sum.musicality.thumb_spike_count == 0U);
+    REQUIRE(clean_sum.musicality.dynamics_available);
+    REQUIRE(clean_sum.musicality.dynamic_contrast_ok);
+
+    // Uneven 16ths + thumb-crossing spike (3->1 +28 vel) + flat dynamics -> flagged, non-punitive
+    engine.stop();
+    (void)engine.start();
+    engine.update(4000.0);
+    const std::array<double, 8> uneven_dt{150.0,  350.0,  150.0,  350.0,
+                                          1000.0, 2000.0, 2000.0, 2000.0};
+    const std::array<std::uint8_t, 8> spiky_vels{74, 76, 75, 104, 75, 76, 78, 76};
+    for (std::size_t i = 0; i < notes.size(); ++i) {
+      (void)engine.submit_played_notes(std::array<MidiPitch, 1>{notes[i]},
+                                       std::array<std::uint8_t, 1>{spiky_vels[i]}, true);
+      engine.update(uneven_dt[i]);
+    }
+    const auto rough_sum = engine.build_run_summary();
+    REQUIRE(rough_sum.musicality.evenness_available);
+    REQUIRE(rough_sum.musicality.ioi_evenness_score < 0.70);
+    REQUIRE(rough_sum.musicality.vel_smoothness_available);
+    REQUIRE(rough_sum.musicality.thumb_spike_count >= 1U);
+    REQUIRE(rough_sum.musicality.dynamics_available);
+    REQUIRE_FALSE(rough_sum.musicality.dynamic_contrast_ok);
+    REQUIRE_FALSE(rough_sum.musicality.coach_tip.empty());
+
+    // Virtual keyboard: velocity smoothness & dynamics gracefully omitted
+    engine.stop();
+    (void)engine.start();
+    engine.update(4000.0);
+    for (std::size_t i = 0; i < notes.size(); ++i) {
+      (void)engine.submit_played_notes(std::array<MidiPitch, 1>{notes[i]},
+                                       std::array<std::uint8_t, 1>{96}, false);
+      engine.update(dt_after[i]);
+    }
+    const auto virt_sum = engine.build_run_summary();
+    REQUIRE_FALSE(virt_sum.musicality.voicing_available);
+    REQUIRE_FALSE(virt_sum.musicality.vel_smoothness_available);
+    REQUIRE_FALSE(virt_sum.musicality.dynamics_available);
+  }
+}

@@ -366,6 +366,16 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
                          std::vector<TimeSignature>& out_bar_meters,
                          std::vector<LessonTarget>& out_targets, int& out_total_ticks) {
   int acc_ticks = 0;
+  DynamicLevel running_dyn = DynamicLevel::MF;
+  for (std::size_t b = 0; b < slice_start_bar; ++b) {
+    int last_t = -1;
+    for (const auto& d : practice_measures[b].dynamics) {
+      if (d.start_tick >= last_t) {
+        last_t = d.start_tick;
+        running_dyn = d.level;
+      }
+    }
+  }
   for (std::size_t b = slice_start_bar; b <= slice_end_bar; ++b) {
     const int mticks = effective_measure_ticks(practice_measures[b], bar_meters[b]);
     out_bar_start_ticks.push_back(acc_ticks);
@@ -423,7 +433,9 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         LessonNote note;
         int staff_id{0};
         int total_duration_ticks{480};
+        int event_ticks{480};
         bool arpeggiate{false};
+        bool accented{false};
       };
       std::map<std::pair<int, int>, std::vector<CollectedNote>> tick_notes;
       auto collect = [&](std::span<const LessonEvent> evs, int staff_id) {
@@ -434,6 +446,7 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
           const int ev_ticks = ev.event_ticks();
           const int grace_ord = ev.is_grace ? 0 : 1;
           const bool arp = has_articulation(ev.articulations, ArticulationFlag::Arpeggiate);
+          const bool acc = has_articulation(ev.articulations, ArticulationFlag::Accent);
           for (const auto& n : ev.notes) {
             if (!n.tie_stop) {
               const int full_dur = compute_tied_note_duration_ticks(
@@ -442,7 +455,9 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
                   .note = n,
                   .staff_id = staff_id,
                   .total_duration_ticks = full_dur,
+                  .event_ticks = ev_ticks,
                   .arpeggiate = arp,
+                  .accented = acc,
               });
             }
           }
@@ -466,12 +481,34 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         target.tick_in_bar = tick;
         target.global_tick = acc_ticks + tick;
         target.is_grace = (tick_key.second == 0);
+        target.nominal_duration_ticks = notes.front().event_ticks;
+        DynamicLevel active_dyn = running_dyn;
+        int best_dyn_tick = -1;
+        for (const auto& d : lm.dynamics) {
+          if (d.start_tick <= tick && d.start_tick >= best_dyn_tick) {
+            best_dyn_tick = d.start_tick;
+            active_dyn = d.level;
+          }
+        }
+        target.expected_dynamic = active_dyn;
         for (const auto& cn : notes) {
           if (cn.arpeggiate) {
             target.allow_rolled_chord = true;
           }
+          if (cn.accented) {
+            target.is_accented = true;
+          }
+          if (cn.event_ticks > 0 && cn.event_ticks < target.nominal_duration_ticks) {
+            target.nominal_duration_ticks = cn.event_ticks;
+          }
           target.expected_midi.push_back(cn.note.midi);
           target.expected_spelled.push_back(cn.note.spelled);
+          if (cn.note.finger > 0U) {
+            target.note_fingers.emplace_back(cn.note.midi, cn.note.finger);
+          }
+          if (cn.note.is_melody) {
+            target.melody_midi.push_back(cn.note.midi);
+          }
           if (cn.staff_id == 0) {
             target.treble_midi.push_back(cn.note.midi);
           } else {
@@ -483,6 +520,7 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         }
         target.treble_midi = normalize_midi_set(target.treble_midi);
         target.bass_midi = normalize_midi_set(target.bass_midi);
+        target.melody_midi = normalize_midi_set(target.melody_midi);
         target.expected_midi = normalize_midi_set(target.expected_midi);
         if ((!target.treble_midi.empty() &&
              (target.treble_midi.back() - target.treble_midi.front() > 12)) ||
@@ -493,6 +531,13 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         target.pitch_class_mask = midi_pitch_class_mask(target.expected_midi);
         target.pitch_class_match = false;
         out_targets.push_back(std::move(target));
+      }
+      int end_dyn_t = -1;
+      for (const auto& d : lm.dynamics) {
+        if (d.start_tick >= end_dyn_t) {
+          end_dyn_t = d.start_tick;
+          running_dyn = d.level;
+        }
       }
     }
 
@@ -677,6 +722,22 @@ void LessonEngine::reset_transport_state() {
   accomp_vel_count_ = 0;
   hw_min_vel_ = 255;
   hw_max_vel_ = 0;
+  elapsed_play_ms_ = 0.0;
+  last_ioi_hit_ms_ = -1.0;
+  last_ioi_hit_tick_ = -1;
+  last_ioi_dur_ticks_ = 0;
+  current_ioi_run_.clear();
+  ioi_score_sum_ = 0.0;
+  ioi_run_count_ = 0;
+  vel_rolling_window_.clear();
+  prev_unaccented_finger_ = 0;
+  prev_unaccented_dynamic_ = DynamicLevel::MF;
+  thumb_spike_count_ = 0;
+  vel_smoothness_samples_ = 0;
+  soft_vel_sum_ = 0;
+  soft_vel_count_ = 0;
+  loud_vel_sum_ = 0;
+  loud_vel_count_ = 0;
   active_sustained_.clear();
   sustained_checked_ = 0;
   sustained_held_ = 0;
@@ -1250,6 +1311,8 @@ LessonTickResult LessonEngine::update(double dt_ms) {
     return out;
   }
 
+  elapsed_play_ms_ += dt_ms;
+
   if (config_.practice_mode == LessonPracticeMode::RubatoFollow) {
     rubato_since_last_hit_ms_ += dt_ms;
     const std::size_t local_bar = current_bar_in_slice();
@@ -1514,11 +1577,31 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
         }
         return std::nullopt;
       };
+      double hit_vel_sum = 0.0;
       for (const std::uint8_t v : played_velocities) {
         hw_min_vel_ = std::min(hw_min_vel_, v);
         hw_max_vel_ = std::max(hw_max_vel_, v);
+        hit_vel_sum += static_cast<double>(v);
       }
-      if (!tgt.treble_midi.empty() && !tgt.bass_midi.empty()) {
+      const double mean_hit_vel = hit_vel_sum / static_cast<double>(played_velocities.size());
+
+      if (!tgt.melody_midi.empty() && tgt.expected_midi.size() > tgt.melody_midi.size()) {
+        for (const MidiPitch mp : tgt.melody_midi) {
+          if (const auto mv = lookup_vel(mp); mv.has_value()) {
+            melody_vel_sum_ += *mv;
+            ++melody_vel_count_;
+          }
+        }
+        for (const MidiPitch ep : tgt.expected_midi) {
+          if (std::ranges::find(tgt.melody_midi, ep) != tgt.melody_midi.end()) {
+            continue;
+          }
+          if (const auto av = lookup_vel(ep); av.has_value()) {
+            accomp_vel_sum_ += *av;
+            ++accomp_vel_count_;
+          }
+        }
+      } else if (!tgt.treble_midi.empty() && !tgt.bass_midi.empty()) {
         const MidiPitch mel_pitch = tgt.treble_midi.back();
         if (const auto mv = lookup_vel(mel_pitch); mv.has_value()) {
           melody_vel_sum_ += *mv;
@@ -1555,6 +1638,82 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
           }
         }
       }
+
+      if (!tgt.is_accented) {
+        if (tgt.expected_dynamic != prev_unaccented_dynamic_) {
+          vel_rolling_window_.clear();
+          prev_unaccented_dynamic_ = tgt.expected_dynamic;
+        }
+        std::uint8_t cur_finger = 0U;
+        if (!tgt.note_fingers.empty()) {
+          cur_finger = tgt.note_fingers.back().second;
+        }
+        if (vel_rolling_window_.size() >= 2U) {
+          double sum_w = 0.0;
+          for (const double wv : vel_rolling_window_) {
+            sum_w += wv;
+          }
+          const double rolling_avg = sum_w / static_cast<double>(vel_rolling_window_.size());
+          if (cur_finger == 1U &&
+              (prev_unaccented_finger_ == 3U || prev_unaccented_finger_ == 4U) &&
+              mean_hit_vel > rolling_avg + 18.0) {
+            ++thumb_spike_count_;
+          } else if (tgt.expected_midi.size() == 1U && mean_hit_vel > rolling_avg + 20.0) {
+            ++thumb_spike_count_;
+          }
+        }
+        vel_rolling_window_.push_back(mean_hit_vel);
+        if (vel_rolling_window_.size() > 4U) {
+          vel_rolling_window_.erase(vel_rolling_window_.begin());
+        }
+        prev_unaccented_finger_ = cur_finger;
+        ++vel_smoothness_samples_;
+      }
+
+      if (tgt.expected_dynamic <= DynamicLevel::P) {
+        soft_vel_sum_ += static_cast<std::uint64_t>(std::lround(mean_hit_vel));
+        ++soft_vel_count_;
+      } else if (tgt.expected_dynamic >= DynamicLevel::F) {
+        loud_vel_sum_ += static_cast<std::uint64_t>(std::lround(mean_hit_vel));
+        ++loud_vel_count_;
+      }
+    }
+
+    if (config_.practice_mode == LessonPracticeMode::SteadyPulse &&
+        tgt.nominal_duration_ticks <= 240) {
+      auto flush_ioi_run = [&]() {
+        if (current_ioi_run_.size() >= 3U) {
+          double mean = 0.0;
+          for (const double d : current_ioi_run_) {
+            mean += d;
+          }
+          mean /= static_cast<double>(current_ioi_run_.size());
+          if (mean > 1.0) {
+            double var = 0.0;
+            for (const double d : current_ioi_run_) {
+              const double diff = d - mean;
+              var += diff * diff;
+            }
+            const double cv = std::sqrt(var / static_cast<double>(current_ioi_run_.size())) / mean;
+            ioi_score_sum_ += std::clamp(1.0 - cv * 2.5, 0.0, 1.0);
+            ++ioi_run_count_;
+          }
+        }
+        current_ioi_run_.clear();
+      };
+
+      if (last_ioi_hit_ms_ >= 0.0 && tgt.global_tick - last_ioi_hit_tick_ == last_ioi_dur_ticks_ &&
+          tgt.nominal_duration_ticks == last_ioi_dur_ticks_) {
+        const double ioi = elapsed_play_ms_ - last_ioi_hit_ms_;
+        if (ioi > 10.0) {
+          current_ioi_run_.push_back(ioi);
+        }
+      } else {
+        flush_ioi_run();
+      }
+      last_ioi_hit_ms_ = elapsed_play_ms_;
+      last_ioi_hit_tick_ = tgt.global_tick;
+      last_ioi_dur_ticks_ = tgt.nominal_duration_ticks;
     }
 
     if (config_.practice_mode == LessonPracticeMode::SteadyPulse &&
@@ -2038,9 +2197,55 @@ LessonRunSummary LessonEngine::build_run_summary() const {
     mus.pedal_clean_rate = static_cast<double>(pedal_clean_) / static_cast<double>(pedal_checked_);
   }
 
+  double tot_ioi_score = ioi_score_sum_;
+  std::uint32_t tot_ioi_runs = ioi_run_count_;
+  if (current_ioi_run_.size() >= 3U) {
+    double mean = 0.0;
+    for (const double d : current_ioi_run_) {
+      mean += d;
+    }
+    mean /= static_cast<double>(current_ioi_run_.size());
+    if (mean > 1.0) {
+      double var = 0.0;
+      for (const double d : current_ioi_run_) {
+        const double diff = d - mean;
+        var += diff * diff;
+      }
+      const double cv = std::sqrt(var / static_cast<double>(current_ioi_run_.size())) / mean;
+      tot_ioi_score += std::clamp(1.0 - cv * 2.5, 0.0, 1.0);
+      ++tot_ioi_runs;
+    }
+  }
+  if (tot_ioi_runs > 0U) {
+    mus.evenness_available = true;
+    mus.ioi_evenness_score = tot_ioi_score / static_cast<double>(tot_ioi_runs);
+  }
+  if (hw_max_vel_ > hw_min_vel_ && vel_smoothness_samples_ >= 4U) {
+    mus.vel_smoothness_available = true;
+    mus.thumb_spike_count = thumb_spike_count_;
+    mus.vel_smoothness_samples = vel_smoothness_samples_;
+  }
+  if (hw_max_vel_ > hw_min_vel_ && soft_vel_count_ >= 2U && loud_vel_count_ >= 2U) {
+    mus.dynamics_available = true;
+    mus.soft_avg_velocity =
+        static_cast<double>(soft_vel_sum_) / static_cast<double>(soft_vel_count_);
+    mus.loud_avg_velocity =
+        static_cast<double>(loud_vel_sum_) / static_cast<double>(loud_vel_count_);
+    mus.dynamic_contrast_ok = (mus.loud_avg_velocity - mus.soft_avg_velocity >= 14.0);
+  }
+
   std::vector<std::string> tips;
   if (mus.voicing_available && !mus.voicing_balanced) {
-    tips.push_back("Soften LH accompaniment so the melody sings");
+    tips.push_back("Soften accompaniment so the melody sings");
+  }
+  if (mus.vel_smoothness_available && mus.thumb_spike_count > 0U) {
+    tips.push_back("Lighten thumb crossings to avoid velocity spikes");
+  }
+  if (mus.evenness_available && mus.ioi_evenness_score < 0.78) {
+    tips.push_back("Keep 8th/16th runs rhythmically even");
+  }
+  if (mus.dynamics_available && !mus.dynamic_contrast_ok) {
+    tips.push_back("Widen dynamic contrast between p/pp and f/ff");
   }
   if (mus.sustain_available && mus.sustain_hold_rate < 0.75) {
     tips.push_back("Hold half and tied notes longer");
@@ -2048,7 +2253,8 @@ LessonRunSummary LessonEngine::build_run_summary() const {
   if (mus.pedal_available && mus.pedal_clean_rate < 0.75) {
     tips.push_back("Lift the damper pedal cleanly on chord changes");
   }
-  for (std::size_t i = 0; i < tips.size(); ++i) {
+  const std::size_t tip_limit = std::min<std::size_t>(2U, tips.size());
+  for (std::size_t i = 0; i < tip_limit; ++i) {
     if (i > 0U) {
       mus.coach_tip += " · ";
     }

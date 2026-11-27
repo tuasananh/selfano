@@ -240,6 +240,7 @@ struct LessonNote {
   std::uint8_t finger{0}; // 0 = none, 1..5 = printed fingering
   bool tie_start{false};  // tied forward to matching pitch in same staff
   bool tie_stop{false};   // sustained continuation (excluded from fresh MIDI attacks)
+  bool is_melody{false};  // explicit melody-voice tag (overrides treble-top default)
 
   constexpr bool operator==(const LessonNote&) const = default;
 };

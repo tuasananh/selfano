@@ -148,6 +148,9 @@ struct WarmUpPassSummary {
   bool bpm_increased{false};
   WarmUpPacingMode next_pacing_mode{WarmUpPacingMode::ExploreWait};
   double next_bpm{kDefaultWarmUpBpm};
+  bool tone_smoothness_available{false};
+  double tone_smoothness_ratio{1.0};
+  std::uint32_t thumb_spikes{0};
 };
 
 struct WarmUpTickResult {
@@ -169,6 +172,9 @@ public:
   void skip_transition_now() noexcept;
 
   [[nodiscard]] WarmUpEvalResult submit_played_notes(std::span<const MidiPitch> played_midi);
+  [[nodiscard]] WarmUpEvalResult
+  submit_played_notes(std::span<const MidiPitch> played_midi,
+                      std::span<const std::uint8_t> played_velocities, bool from_hardware);
   [[nodiscard]] WarmUpTickResult update(double dt_ms) noexcept;
 
   [[nodiscard]] const WarmUpConfig& config() const noexcept { return config_; }
@@ -193,6 +199,11 @@ public:
   [[nodiscard]] double current_bpm() const noexcept { return current_bpm_; }
   [[nodiscard]] double pass_accuracy_ratio() const noexcept;
   [[nodiscard]] double pass_evenness_ratio() const noexcept;
+  [[nodiscard]] bool tone_smoothness_available() const noexcept {
+    return hw_max_vel_ > hw_min_vel_ && vel_samples_ >= 4U;
+  }
+  [[nodiscard]] double pass_tone_smoothness_ratio() const noexcept;
+  [[nodiscard]] std::uint32_t pass_thumb_spikes() const noexcept { return thumb_spikes_; }
   [[nodiscard]] std::string_view last_timing_hint() const noexcept { return last_timing_hint_; }
   [[nodiscard]] double transition_remaining_ms() const noexcept;
   [[nodiscard]] int count_in_beat() const noexcept { return count_in_beats_done_; }
@@ -235,6 +246,14 @@ private:
   double pending_next_bpm_{kDefaultWarmUpBpm};
   std::optional<double> best_clean_bpm_{};
   std::optional<WarmUpPassSummary> last_pass_summary_{};
+
+  std::uint8_t hw_min_vel_{255};
+  std::uint8_t hw_max_vel_{0};
+  std::vector<double> vel_rolling_window_;
+  std::uint8_t prev_rh_finger_{0};
+  std::uint8_t prev_lh_finger_{0};
+  std::uint32_t vel_samples_{0};
+  std::uint32_t thumb_spikes_{0};
 };
 
 } // namespace selfano::core

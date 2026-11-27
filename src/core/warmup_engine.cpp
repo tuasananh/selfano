@@ -354,6 +354,13 @@ void WarmUpEngine::reset() {
   phase_state_ = WarmUpPhaseState::Playing;
   count_in_beats_done_ = 0;
   beat_phase_ms_ = 0.0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  vel_rolling_window_.clear();
+  prev_rh_finger_ = 0;
+  prev_lh_finger_ = 0;
+  vel_samples_ = 0;
+  thumb_spikes_ = 0;
   metronome_beat_index_ = 0;
   paused_ = false;
 }
@@ -406,6 +413,13 @@ void WarmUpEngine::begin_pass(WarmUpPacingMode mode, double bpm, bool with_count
   beat_phase_ms_ = 0.0;
   metronome_beat_index_ = 0;
   transition_elapsed_ms_ = 0.0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  vel_rolling_window_.clear();
+  prev_rh_finger_ = 0;
+  prev_lh_finger_ = 0;
+  vel_samples_ = 0;
+  thumb_spikes_ = 0;
   if (with_count_in && mode == WarmUpPacingMode::GuidedPulse) {
     phase_state_ = WarmUpPhaseState::CountIn;
     count_in_beats_done_ = 1;
@@ -416,6 +430,12 @@ void WarmUpEngine::begin_pass(WarmUpPacingMode mode, double bpm, bool with_count
 }
 
 WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> played_midi) {
+  return submit_played_notes(played_midi, {}, false);
+}
+
+WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
+                                                   std::span<const std::uint8_t> played_velocities,
+                                                   bool from_hardware) {
   auto normalized = normalize_midi_set(played_midi);
   if (normalized.empty()) {
     return WarmUpEvalResult{};
@@ -445,6 +465,48 @@ WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> pl
     ++correct_attempts_;
     ++pass_correct_;
     feedback_[idx] = WarmUpStepFeedback::Correct;
+
+    if (from_hardware && played_velocities.size() == played_midi.size() && !step.is_cadence) {
+      double vel_sum = 0.0;
+      for (const std::uint8_t v : played_velocities) {
+        hw_min_vel_ = std::min(hw_min_vel_, v);
+        hw_max_vel_ = std::max(hw_max_vel_, v);
+        vel_sum += static_cast<double>(v);
+      }
+      const double mean_vel = vel_sum / static_cast<double>(played_velocities.size());
+      std::uint8_t rh_f = 0;
+      std::uint8_t lh_f = 0;
+      for (const auto& wn : step.notes) {
+        if (wn.clef == Clef::Treble) {
+          rh_f = wn.finger;
+        } else {
+          lh_f = wn.finger;
+        }
+      }
+      if (vel_rolling_window_.size() >= 2U) {
+        double sum_w = 0.0;
+        for (const double w : vel_rolling_window_) {
+          sum_w += w;
+        }
+        const double avg = sum_w / static_cast<double>(vel_rolling_window_.size());
+        const bool rh_thumb_cross =
+            (rh_f == 1U && (prev_rh_finger_ == 3U || prev_rh_finger_ == 4U));
+        const bool lh_thumb_cross =
+            (lh_f == 1U && (prev_lh_finger_ == 3U || prev_lh_finger_ == 4U));
+        if ((rh_thumb_cross || lh_thumb_cross) && mean_vel > avg + 18.0) {
+          ++thumb_spikes_;
+        } else if (mean_vel > avg + 20.0) {
+          ++thumb_spikes_;
+        }
+      }
+      vel_rolling_window_.push_back(mean_vel);
+      if (vel_rolling_window_.size() > 4U) {
+        vel_rolling_window_.erase(vel_rolling_window_.begin());
+      }
+      prev_rh_finger_ = rh_f;
+      prev_lh_finger_ = lh_f;
+      ++vel_samples_;
+    }
 
     if (pacing_mode_ == WarmUpPacingMode::GuidedPulse && idx > 0) {
       const double beat_ms = 60000.0 / current_bpm_;
@@ -513,6 +575,9 @@ WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> pl
           .bpm_increased = bpm_bumped,
           .next_pacing_mode = next_mode,
           .next_bpm = next_bpm,
+          .tone_smoothness_available = tone_smoothness_available(),
+          .tone_smoothness_ratio = pass_tone_smoothness_ratio(),
+          .thumb_spikes = thumb_spikes_,
       };
       if (config_.auto_continue_passes) {
         phase_state_ = WarmUpPhaseState::PassTransition;
@@ -645,6 +710,15 @@ double WarmUpEngine::pass_evenness_ratio() const noexcept {
   return evenness_sum_ / static_cast<double>(evenness_samples_);
 }
 
+double WarmUpEngine::pass_tone_smoothness_ratio() const noexcept {
+  if (vel_samples_ == 0U) {
+    return 1.0;
+  }
+  const double penalty = static_cast<double>(thumb_spikes_) /
+                         static_cast<double>(std::max<std::uint32_t>(1U, vel_samples_));
+  return std::clamp(1.0 - penalty * 2.0, 0.0, 1.0);
+}
+
 double WarmUpEngine::transition_remaining_ms() const noexcept {
   if (phase_state_ != WarmUpPhaseState::PassTransition) {
     return 0.0;
@@ -678,6 +752,13 @@ void WarmUpEngine::rebuild_steps() {
   transition_elapsed_ms_ = 0.0;
   count_in_beats_done_ = 0;
   beat_phase_ms_ = 0.0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  vel_rolling_window_.clear();
+  prev_rh_finger_ = 0;
+  prev_lh_finger_ = 0;
+  vel_samples_ = 0;
+  thumb_spikes_ = 0;
 
   const bool include_rh =
       (config_.hand == HandSelection::HandsTogether || config_.hand == HandSelection::RightOnly);
