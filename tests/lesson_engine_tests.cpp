@@ -1626,3 +1626,92 @@ TEST_CASE("LessonEngine handles 32nd runs and 2-against-3 polyrhythm in SteadyPu
     CHECK(demo[i].start_ms >= demo[i - 1U].start_ms);
   }
 }
+
+TEST_CASE("Grace notes schedule ahead in demo playback, grade in WaitForNote, and skip safely in "
+          "SteadyPulse",
+          "[lesson_engine][phase25]") {
+  auto make_n = [](NoteLetter l, int oct) {
+    const SpelledNote sp{.letter = l, .accidental = Accidental::Natural, .octave = oct};
+    return LessonNote{.spelled = sp, .midi = to_midi(sp).value()};
+  };
+
+  LessonScore score{};
+  score.meta.id = "grace_engine_test";
+  score.meta.title = "Grace Engine Test";
+  score.meta.target_bpm = 120.0; // 500 ms per beat
+  LessonMeasure m{};
+  m.bar_number = 1;
+  m.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Quarter},
+       .notes = {make_n(NoteLetter::C, 5)}},
+      {.start_tick = 480,
+       .duration = {.base = NoteBaseDuration::Eighth},
+       .notes = {make_n(NoteLetter::F, 5)},
+       .is_grace = true,
+       .grace_slash = true},
+      {.start_tick = 480,
+       .duration = {.base = NoteBaseDuration::Quarter},
+       .notes = {make_n(NoteLetter::E, 5)}},
+  };
+  score.measures.push_back(m);
+
+  // 1. WaitForNote + Demo playback
+  {
+    LessonEngine engine;
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::WaitForNote;
+    cfg.hand_mode = LessonHandMode::RightHand;
+    cfg.tempo_step = TempoLadderStep::Target100;
+    engine.load_score(score, cfg);
+
+    REQUIRE(engine.targets().size() == 3U);
+    CHECK_FALSE(engine.targets()[0].is_grace);
+    CHECK(engine.targets()[1].is_grace);
+    CHECK(engine.targets()[1].tick_in_bar == 480);
+    CHECK_FALSE(engine.targets()[2].is_grace);
+    CHECK(engine.targets()[2].tick_in_bar == 480);
+
+    const auto demo = engine.build_demo_playback();
+    REQUIRE(demo.size() == 3U);
+    // Beat 2 is at 500 ms; grace note is scheduled 65 ms earlier (435 ms) with 65 ms duration
+    CHECK(demo[1].midi == 77); // F5
+    CHECK_THAT(demo[1].start_ms, WithinAbs(435.0, 1e-3));
+    CHECK_THAT(demo[1].duration_ms, WithinAbs(65.0, 1e-3));
+    CHECK(demo[2].midi == 76); // E5
+    CHECK_THAT(demo[2].start_ms, WithinAbs(500.0, 1e-3));
+
+    const auto r0 = engine.submit_played_notes(std::array<MidiPitch, 1>{72});
+    CHECK(r0.matched);
+    const auto r1 = engine.submit_played_notes(std::array<MidiPitch, 1>{77});
+    CHECK(r1.matched);
+    const auto r2 = engine.submit_played_notes(std::array<MidiPitch, 1>{76});
+    CHECK(r2.matched);
+    CHECK(r2.run_completed);
+  }
+
+  // 2. SteadyPulse with grade_grace_notes_in_pulse == false: skipping grace note does not miss
+  {
+    LessonEngine engine;
+    LessonConfig cfg{};
+    cfg.practice_mode = LessonPracticeMode::SteadyPulse;
+    cfg.hand_mode = LessonHandMode::RightHand;
+    cfg.tempo_step = TempoLadderStep::Target100;
+    cfg.grade_grace_notes_in_pulse = false;
+    engine.load_score(score, cfg);
+    engine.start();
+    while (engine.playback_state() == LessonPlaybackState::CountIn) {
+      engine.update(100.0);
+    }
+
+    // Play beat 1 C5 at t = 0
+    CHECK(engine.submit_played_notes(std::array<MidiPitch, 1>{72}).matched);
+    // Advance 500 ms to beat 2, skip the F5 grace note, and play E5 directly
+    engine.update(500.0);
+    const auto r_host = engine.submit_played_notes(std::array<MidiPitch, 1>{76});
+    CHECK(r_host.matched);
+    // Finish the bar
+    engine.update(1600.0);
+    CHECK(engine.build_run_summary().misses == 0U);
+  }
+}

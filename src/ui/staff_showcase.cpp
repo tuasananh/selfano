@@ -574,6 +574,11 @@ void StaffShowcase::rebuild_measures() {
     m1.treble_events = {
         {.start_tick = 0,
          .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Sharp, 4)},
+         .is_grace = true,
+         .grace_slash = true},
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth},
          .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1)},
          .tuplet = trip},
         {.start_tick = 160,
@@ -693,23 +698,30 @@ void StaffShowcase::rebuild_measures() {
          .duration = {.base = D::Half},
          .notes = {ln(core::NoteLetter::A, core::Accidental::Natural, 4, 1)}},
     };
+    m3.clef_changes = {
+        {.start_tick = 0, .clef = core::Clef::Treble, .treble_staff = false},
+    };
     m3.bass_events = {
         {.start_tick = 0,
          .duration = {.base = D::Whole},
-         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 5)}},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 4, 5),
+                   ln(core::NoteLetter::A, core::Accidental::Natural, 4, 2)}},
     };
 
-    // Bar 4: Expressive resolution
+    // Bar 4: Expressive 8va climax resolution
     core::LessonMeasure m4{};
     m4.bar_number = 4;
     m4.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
     m4.dynamics = {{.start_tick = 0, .level = core::DynamicLevel::P}};
+    m4.clef_changes = {
+        {.start_tick = 0, .clef = core::Clef::Bass, .treble_staff = false},
+    };
     m4.treble_events = {
         {.start_tick = 0,
          .duration = {.base = D::Whole},
-         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1),
-                   ln(core::NoteLetter::B, core::Accidental::Flat, 4, 3),
-                   ln(core::NoteLetter::D, core::Accidental::Natural, 5, 5)}},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 5, 1),
+                   ln(core::NoteLetter::B, core::Accidental::Flat, 5, 3),
+                   ln(core::NoteLetter::D, core::Accidental::Natural, 6, 5)}},
     };
     m4.bass_events = {
         {.start_tick = 0,
@@ -719,6 +731,15 @@ void StaffShowcase::rebuild_measures() {
 
     const std::array<core::LessonMeasure, 4> spec{m1, m2, m3, m4};
     measures_ = build_lesson_staff_measures(spec, 0, *options_.time_signature, true, true);
+    const std::array<core::OttavaSpan, 1> ottavas{{
+        {.start_bar = 3,
+         .start_tick = 0,
+         .end_bar = 3,
+         .end_tick = 1920,
+         .treble = true,
+         .octave_shift = 1},
+    }};
+    options_.ottavas = slice_system_ottavas(ottavas, 0, 3, measures_, true, true);
     return;
   }
 

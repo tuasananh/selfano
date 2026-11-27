@@ -114,6 +114,7 @@ struct LessonTarget {
   std::vector<MidiPitch> played_midi;
   std::vector<MidiPitch> missed_midi{};
   bool memory_peeked{false};
+  bool is_grace{false};
 
   bool operator==(const LessonTarget&) const = default;
 };
@@ -131,6 +132,7 @@ struct LessonConfig {
   double ramp_step_bpm{4.0};
   PracticeTransform practice_transform{PracticeTransform::Straight};
   MemoryFadeLevel memory_fade{MemoryFadeLevel::FullScore};
+  bool grade_grace_notes_in_pulse{false};
 
   bool operator==(const LessonConfig&) const = default;
 };

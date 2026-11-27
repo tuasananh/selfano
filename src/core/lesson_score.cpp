@@ -70,20 +70,31 @@ void validate_staff_events(std::uint32_t bar_number, std::string_view staff_name
                                    staff_name, idx, ev.tuplet->actual, ev.tuplet->normal));
     }
     const int dur = ev.event_ticks();
-    if (dur <= 0 || ev.start_tick < 0 || ev.start_tick + dur > measure_ticks) {
-      errors.push_back(std::format("Bar {} {} event {} tick span [{}, {}) exceeds measure [0, {})",
-                                   bar_number, staff_name, idx, ev.start_tick, ev.start_tick + dur,
-                                   measure_ticks));
-    }
-    voice_spans[ev.voice].emplace_back(ev.start_tick, ev.start_tick + dur);
+    if (ev.is_grace) {
+      if (ev.start_tick < 0 || ev.start_tick >= measure_ticks) {
+        errors.push_back(std::format("Bar {} {} grace event {} start_tick {} out of [0, {})",
+                                     bar_number, staff_name, idx, ev.start_tick, measure_ticks));
+      }
+      if (ev.is_rest || ev.notes.empty()) {
+        errors.push_back(std::format("Bar {} {} grace event {} must have non-empty notes",
+                                     bar_number, staff_name, idx));
+      }
+    } else {
+      if (dur <= 0 || ev.start_tick < 0 || ev.start_tick + dur > measure_ticks) {
+        errors.push_back(
+            std::format("Bar {} {} event {} tick span [{}, {}) exceeds measure [0, {})", bar_number,
+                        staff_name, idx, ev.start_tick, ev.start_tick + dur, measure_ticks));
+      }
+      voice_spans[ev.voice].emplace_back(ev.start_tick, ev.start_tick + dur);
 
-    if (ev.is_rest && !ev.notes.empty()) {
-      errors.push_back(std::format("Bar {} {} rest event {} must have empty notes", bar_number,
-                                   staff_name, idx));
-    }
-    if (!ev.is_rest && ev.notes.empty()) {
-      errors.push_back(
-          std::format("Bar {} {} non-rest event {} has no notes", bar_number, staff_name, idx));
+      if (ev.is_rest && !ev.notes.empty()) {
+        errors.push_back(std::format("Bar {} {} rest event {} must have empty notes", bar_number,
+                                     staff_name, idx));
+      }
+      if (!ev.is_rest && ev.notes.empty()) {
+        errors.push_back(
+            std::format("Bar {} {} non-rest event {} has no notes", bar_number, staff_name, idx));
+      }
     }
 
     for (const auto& n : ev.notes) {
@@ -335,6 +346,12 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
                                      hp.start_tick, hp.end_tick, mticks));
       }
     }
+    for (const auto& cc : m.clef_changes) {
+      if (cc.start_tick < 0 || cc.start_tick >= mticks) {
+        errors.push_back(std::format("Bar {} clef_change start_tick {} out of [0, {})",
+                                     m.bar_number, cc.start_tick, mticks));
+      }
+    }
   }
 
   for (const MidiPitch p : treble_open_ties) {
@@ -362,6 +379,18 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
         pd.end_tick > bar_ticks[pd.end_bar]) {
       errors.push_back(std::format("Pedal {} has invalid span ({}:{} -> {}:{})", pi, pd.start_bar,
                                    pd.start_tick, pd.end_bar, pd.end_tick));
+    }
+  }
+  for (std::size_t oi = 0; oi < score.ottavas.size(); ++oi) {
+    const auto& ov = score.ottavas[oi];
+    if ((ov.octave_shift != 1 && ov.octave_shift != -1) || ov.start_bar >= score.measures.size() ||
+        ov.end_bar >= score.measures.size() || ov.start_bar > ov.end_bar ||
+        (ov.start_bar == ov.end_bar && ov.start_tick >= ov.end_tick) || ov.start_tick < 0 ||
+        ov.start_tick > bar_ticks[ov.start_bar] || ov.end_tick < 0 ||
+        ov.end_tick > bar_ticks[ov.end_bar]) {
+      errors.push_back(std::format("Ottava {} has invalid span or shift ({}:{} -> {}:{}, {})", oi,
+                                   ov.start_bar, ov.start_tick, ov.end_bar, ov.end_tick,
+                                   ov.octave_shift));
     }
   }
 

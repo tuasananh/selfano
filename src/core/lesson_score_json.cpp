@@ -146,6 +146,10 @@ using json = nlohmann::json;
   if (ev.tick_duration_override > 0) {
     ej["tick_duration_override"] = ev.tick_duration_override;
   }
+  if (ev.is_grace) {
+    ej["is_grace"] = true;
+    ej["grace_slash"] = ev.grace_slash;
+  }
   if (ev.articulations != 0U) {
     json art = json::array();
     if (has_articulation(ev.articulations, ArticulationFlag::Staccato)) {
@@ -243,6 +247,18 @@ using json = nlohmann::json;
       return std::unexpected("Event 'tick_duration_override' must be an integer");
     }
     ev.tick_duration_override = std::max(0, obj.at("tick_duration_override").get<int>());
+  }
+  if (obj.contains("is_grace")) {
+    if (!obj.at("is_grace").is_boolean()) {
+      return std::unexpected("Event 'is_grace' must be a boolean");
+    }
+    ev.is_grace = obj.at("is_grace").get<bool>();
+  }
+  if (obj.contains("grace_slash")) {
+    if (!obj.at("grace_slash").is_boolean()) {
+      return std::unexpected("Event 'grace_slash' must be a boolean");
+    }
+    ev.grace_slash = obj.at("grace_slash").get<bool>();
   }
   if (obj.contains("is_rest")) {
     if (!obj.at("is_rest").is_boolean()) {
@@ -454,6 +470,17 @@ std::string lesson_score_to_json(const LessonScore& score) {
       }
       mj["hairpins"] = std::move(hp_arr);
     }
+    if (!m.clef_changes.empty()) {
+      json cc_arr = json::array();
+      for (const auto& cc : m.clef_changes) {
+        cc_arr.push_back({
+            {"start_tick", cc.start_tick},
+            {"clef", cc.clef == Clef::Treble ? "treble" : "bass"},
+            {"treble_staff", cc.treble_staff},
+        });
+      }
+      mj["clef_changes"] = std::move(cc_arr);
+    }
     measures_arr.push_back(std::move(mj));
   }
   j["measures"] = std::move(measures_arr);
@@ -492,6 +519,20 @@ std::string lesson_score_to_json(const LessonScore& score) {
       });
     }
     j["pedals"] = std::move(ped_arr);
+  }
+  if (!score.ottavas.empty()) {
+    json ov_arr = json::array();
+    for (const auto& ov : score.ottavas) {
+      ov_arr.push_back({
+          {"start_bar", ov.start_bar},
+          {"start_tick", ov.start_tick},
+          {"end_bar", ov.end_bar},
+          {"end_tick", ov.end_tick},
+          {"treble", ov.treble},
+          {"octave_shift", ov.octave_shift},
+      });
+    }
+    j["ottavas"] = std::move(ov_arr);
   }
 
   return j.dump(2);
@@ -786,6 +827,32 @@ std::expected<LessonScore, std::string> lesson_score_from_json(std::string_view 
         m.hairpins.push_back(hp);
       }
     }
+    if (mj.contains("clef_changes")) {
+      if (!mj.at("clef_changes").is_array()) {
+        return std::unexpected("Measure 'clef_changes' must be an array");
+      }
+      for (const auto& ccj : mj.at("clef_changes")) {
+        if (!ccj.is_object() || !ccj.contains("clef") || !ccj.at("clef").is_string()) {
+          return std::unexpected("ClefChange entry must be an object with string 'clef'");
+        }
+        ClefChange cc{};
+        if (ccj.contains("start_tick") && ccj.at("start_tick").is_number_integer()) {
+          cc.start_tick = ccj.at("start_tick").get<int>();
+        }
+        const auto cs = ccj.at("clef").get<std::string>();
+        if (cs == "treble") {
+          cc.clef = Clef::Treble;
+        } else if (cs == "bass") {
+          cc.clef = Clef::Bass;
+        } else {
+          return std::unexpected(std::format("Unknown clef '{}'", cs));
+        }
+        if (ccj.contains("treble_staff") && ccj.at("treble_staff").is_boolean()) {
+          cc.treble_staff = ccj.at("treble_staff").get<bool>();
+        }
+        m.clef_changes.push_back(cc);
+      }
+    }
     out.measures.push_back(std::move(m));
   }
 
@@ -857,6 +924,36 @@ std::expected<LessonScore, std::string> lesson_score_from_json(std::string_view 
         pd.end_tick = pj.at("end_tick").get<int>();
       }
       out.pedals.push_back(pd);
+    }
+  }
+  if (root.contains("ottavas")) {
+    if (!root.at("ottavas").is_array()) {
+      return std::unexpected("LessonScore 'ottavas' must be an array");
+    }
+    for (const auto& ovj : root.at("ottavas")) {
+      if (!ovj.is_object()) {
+        return std::unexpected("Ottava entry must be an object");
+      }
+      OttavaSpan ov{};
+      if (ovj.contains("start_bar") && ovj.at("start_bar").is_number_unsigned()) {
+        ov.start_bar = ovj.at("start_bar").get<std::size_t>();
+      }
+      if (ovj.contains("start_tick") && ovj.at("start_tick").is_number_integer()) {
+        ov.start_tick = ovj.at("start_tick").get<int>();
+      }
+      if (ovj.contains("end_bar") && ovj.at("end_bar").is_number_unsigned()) {
+        ov.end_bar = ovj.at("end_bar").get<std::size_t>();
+      }
+      if (ovj.contains("end_tick") && ovj.at("end_tick").is_number_integer()) {
+        ov.end_tick = ovj.at("end_tick").get<int>();
+      }
+      if (ovj.contains("treble") && ovj.at("treble").is_boolean()) {
+        ov.treble = ovj.at("treble").get<bool>();
+      }
+      if (ovj.contains("octave_shift") && ovj.at("octave_shift").is_number_integer()) {
+        ov.octave_shift = ovj.at("octave_shift").get<int>();
+      }
+      out.ottavas.push_back(ov);
     }
   }
 

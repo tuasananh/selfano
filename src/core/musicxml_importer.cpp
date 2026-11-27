@@ -300,13 +300,22 @@ struct RawEvent {
   std::vector<LessonNote> notes;
   std::optional<RhythmicValue> explicit_duration{};
   std::optional<TupletRatio> tuplet{};
+  bool is_grace{false};
+  bool grace_slash{true};
 };
 
 void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks,
                             std::vector<LessonEvent>& out_events) {
   out_events.clear();
   std::map<std::uint8_t, std::vector<RawEvent>> by_voice;
+  std::vector<RawEvent> grace_events;
   for (auto& ev : raw_events) {
+    if (ev.is_grace) {
+      if (ev.start_tick >= 0 && ev.start_tick < measure_ticks && !ev.notes.empty()) {
+        grace_events.push_back(std::move(ev));
+      }
+      continue;
+    }
     if (ev.start_tick < 0 || ev.start_tick >= measure_ticks || ev.duration_ticks <= 0) {
       continue;
     }
@@ -465,6 +474,29 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
       v_cursor = st + dur;
     }
   }
+
+  for (auto& gev : grace_events) {
+    out_events.push_back(LessonEvent{
+        .start_tick = gev.start_tick,
+        .duration = gev.explicit_duration.value_or(
+            RhythmicValue{.base = NoteBaseDuration::Eighth, .dotted = false}),
+        .is_rest = false,
+        .voice = gev.voice,
+        .articulations = gev.articulations,
+        .notes = std::move(gev.notes),
+        .is_grace = true,
+        .grace_slash = gev.grace_slash,
+    });
+  }
+  std::ranges::stable_sort(out_events, [](const LessonEvent& a, const LessonEvent& b) {
+    if (a.start_tick != b.start_tick) {
+      return a.start_tick < b.start_tick;
+    }
+    if (a.is_grace != b.is_grace) {
+      return a.is_grace;
+    }
+    return a.voice < b.voice;
+  });
 }
 
 void repair_staff_ties(std::vector<LessonMeasure>& measures, bool treble,
@@ -571,10 +603,18 @@ struct OpenHairpinState {
   HairpinKind kind{HairpinKind::Crescendo};
 };
 
+struct OpenOttavaState {
+  std::size_t bar_idx{0};
+  int start_tick{0};
+  int octave_shift{1};
+};
+
 struct MeasureParseContext {
   LessonScore& score;
   KeySignature cur_key{.fifths = 0, .mode = Mode::Major};
   TimeSignature cur_meter{.numerator = 4, .denominator = 4};
+  Clef cur_treble_clef{Clef::Treble};
+  Clef cur_bass_clef{Clef::Bass};
   bool initial_key_set{false};
   bool initial_meter_set{false};
   bool found_tempo{false};
@@ -586,6 +626,7 @@ struct MeasureParseContext {
   std::map<std::pair<int, int>, std::pair<std::size_t, int>> open_slurs{};
   std::optional<std::pair<std::size_t, int>> open_pedal{};
   std::optional<OpenHairpinState> open_hairpin{};
+  std::map<int, OpenOttavaState> open_ottavas{};
 };
 
 struct MeasureVoiceState {
@@ -616,7 +657,9 @@ struct MeasureVoiceState {
 }
 
 void parse_attributes_node(pugi::xml_node attr, bool allow_header_updates, std::size_t bar_idx,
-                           int& active_div, int& measure_ticks, MeasureParseContext& ctx) {
+                           int cursor_ticks, int& active_div, int& measure_ticks,
+                           MeasureParseContext& ctx,
+                           std::vector<ClefChange>* clef_changes_out = nullptr) {
   if (!attr) {
     return;
   }
@@ -625,6 +668,30 @@ void parse_attributes_node(pugi::xml_node attr, bool allow_header_updates, std::
   }
   if (!allow_header_updates) {
     return;
+  }
+  for (pugi::xml_node clef_n : attr.children("clef")) {
+    const int num = parse_int_sv(clef_n.attribute("number").as_string()).value_or(1);
+    const std::string sign = trim_copy(clef_n.child_value("sign"));
+    std::optional<Clef> parsed_clef;
+    if (sign == "G") {
+      parsed_clef = Clef::Treble;
+    } else if (sign == "F") {
+      parsed_clef = Clef::Bass;
+    }
+    if (parsed_clef.has_value()) {
+      const bool treble_staff = (num != 2);
+      Clef& active = treble_staff ? ctx.cur_treble_clef : ctx.cur_bass_clef;
+      if (*parsed_clef != active) {
+        active = *parsed_clef;
+        if (clef_changes_out != nullptr && !(bar_idx == 0U && cursor_ticks == 0)) {
+          clef_changes_out->push_back(ClefChange{
+              .start_tick = std::clamp(cursor_ticks, 0, std::max(0, measure_ticks - 1)),
+              .clef = *parsed_clef,
+              .treble_staff = treble_staff,
+          });
+        }
+      }
+    }
   }
   if (const pugi::xml_node key_node = attr.child("key")) {
     if (const auto f = parse_int_sv(key_node.child_value("fifths")); f.has_value()) {
@@ -687,9 +754,14 @@ void parse_harmony_node(pugi::xml_node child, int cursor_ticks, int measure_tick
 }
 
 void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseContext& ctx) {
-  if (child.child("grace")) {
-    ++ctx.skipped_grace_notes;
-    return;
+  const pugi::xml_node grace_node = child.child("grace");
+  const bool is_grace = static_cast<bool>(grace_node);
+  bool grace_slash = true;
+  if (is_grace) {
+    const std::string_view sl = grace_node.attribute("slash").as_string();
+    if (sl == "no") {
+      grace_slash = false;
+    }
   }
 
   std::uint8_t dot_count = 0U;
@@ -741,8 +813,10 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
   }
 
   int dur_ticks = 480;
-  if (const auto raw_d = parse_int_sv(child.child_value("duration"));
-      raw_d.has_value() && *raw_d > 0) {
+  if (is_grace) {
+    dur_ticks = 0;
+  } else if (const auto raw_d = parse_int_sv(child.child_value("duration"));
+             raw_d.has_value() && *raw_d > 0) {
     const int scaled = static_cast<int>(
         std::llround(static_cast<double>(*raw_d) * kTicksPerQuarter / vs.active_div));
     if (tuplet_ratio.has_value()) {
@@ -762,6 +836,10 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
   }
 
   if (is_rest) {
+    if (is_grace) {
+      ++ctx.skipped_grace_notes;
+      return;
+    }
     auto& vec = (resolved_staff == 2) ? *vs.bass_raw : *vs.treble_raw;
     if (!is_chord) {
       vec.push_back(RawEvent{
@@ -783,7 +861,7 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
   const auto letter = parse_step_letter(pitch_n.child_value("step"));
   const auto octave = parse_int_sv(pitch_n.child_value("octave"));
   if (!letter.has_value() || !octave.has_value()) {
-    if (!is_chord) {
+    if (!is_chord && !is_grace) {
       vs.cursor_ticks = std::min(vs.measure_ticks, vs.cursor_ticks + dur_ticks);
     }
     return;
@@ -795,7 +873,7 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
   const auto midi_opt = to_midi(sp);
   if (!midi_opt.has_value() || *midi_opt < kPianoLowestMidi || *midi_opt > kPianoHighestMidi) {
     ++ctx.skipped_out_of_range;
-    if (!is_chord) {
+    if (!is_chord && !is_grace) {
       vs.cursor_ticks = std::min(vs.measure_ticks, vs.cursor_ticks + dur_ticks);
     }
     return;
@@ -858,14 +936,16 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
     }
   }
 
-  int ev_start = vs.cursor_ticks;
-  if (is_chord && vs.last_event_idx.contains({staff_id, v})) {
+  int ev_start = std::clamp(vs.cursor_ticks, 0, std::max(0, vs.measure_ticks - 1));
+  if (is_chord && !is_grace && vs.last_event_idx.contains({staff_id, v})) {
     auto& prev = vec[vs.last_event_idx[{staff_id, v}]];
     ev_start = prev.start_tick;
     prev.articulations |= raw_art;
     prev.notes.push_back(ln);
   } else {
-    ev_start = (is_chord && !vec.empty()) ? vec.back().start_tick : vs.cursor_ticks;
+    ev_start = (is_chord && !is_grace && !vec.empty())
+                   ? vec.back().start_tick
+                   : std::clamp(vs.cursor_ticks, 0, std::max(0, vs.measure_ticks - 1));
     vec.push_back(RawEvent{
         .start_tick = ev_start,
         .duration_ticks = dur_ticks,
@@ -875,10 +955,14 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
         .notes = {ln},
         .explicit_duration = explicit_dur,
         .tuplet = tuplet_ratio,
+        .is_grace = is_grace,
+        .grace_slash = grace_slash,
     });
-    vs.last_event_idx[{staff_id, v}] = vec.size() - 1U;
-    if (!is_chord) {
-      vs.cursor_ticks = std::min(vs.measure_ticks, vs.cursor_ticks + dur_ticks);
+    if (!is_grace) {
+      vs.last_event_idx[{staff_id, v}] = vec.size() - 1U;
+      if (!is_chord) {
+        vs.cursor_ticks = std::min(vs.measure_ticks, vs.cursor_ticks + dur_ticks);
+      }
     }
   }
 
@@ -915,10 +999,8 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
                          std::vector<RawEvent>& bass_raw,
                          std::vector<HarmonicAnnotation>& harmony_out,
                          std::vector<DynamicEvent>* dynamics_out = nullptr,
-                         std::vector<HairpinSpan>* hairpins_out = nullptr) {
-  parse_attributes_node(meas.child("attributes"), allow_header_updates, bar_idx, active_div,
-                        measure_ticks, ctx);
-
+                         std::vector<HairpinSpan>* hairpins_out = nullptr,
+                         std::vector<ClefChange>* clef_changes_out = nullptr) {
   MeasureVoiceState vs{};
   vs.bar_idx = bar_idx;
   vs.measure_ticks = measure_ticks;
@@ -930,7 +1012,11 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
 
   for (pugi::xml_node child : meas.children()) {
     const std::string_view tag = child.name();
-    if (tag == "direction") {
+    if (tag == "attributes") {
+      parse_attributes_node(child, allow_header_updates, bar_idx, vs.cursor_ticks, active_div,
+                            vs.measure_ticks, ctx, clef_changes_out);
+      vs.active_div = active_div;
+    } else if (tag == "direction") {
       if (!ctx.found_tempo) {
         if (const pugi::xml_node snd = child.child("sound")) {
           if (const auto t = parse_double_sv(snd.attribute("tempo").as_string());
@@ -996,6 +1082,46 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
           }
         }
         if (allow_header_updates) {
+          if (const pugi::xml_node oshift = dt.child("octave-shift")) {
+            const std::string_view otype = oshift.attribute("type").as_string();
+            const int o_staff = parse_int_sv(child.child_value("staff")).value_or(1);
+            const int staff_key = (o_staff == 2) ? 2 : 1;
+            const int otick = std::clamp(vs.cursor_ticks, 0, vs.measure_ticks);
+            if (otype == "down" || otype == "up") {
+              // MusicXML: "down" = 8va (written lower, sounds +1 octave); "up" = 8vb (-1 octave)
+              const int shift = (otype == "down") ? 1 : -1;
+              if (const auto it = ctx.open_ottavas.find(staff_key); it != ctx.open_ottavas.end()) {
+                if (bar_idx > it->second.bar_idx ||
+                    (bar_idx == it->second.bar_idx && otick > it->second.start_tick)) {
+                  ctx.score.ottavas.push_back(OttavaSpan{
+                      .start_bar = it->second.bar_idx,
+                      .start_tick = it->second.start_tick,
+                      .end_bar = bar_idx,
+                      .end_tick = otick,
+                      .treble = (staff_key == 1),
+                      .octave_shift = it->second.octave_shift,
+                  });
+                }
+              }
+              ctx.open_ottavas[staff_key] =
+                  OpenOttavaState{.bar_idx = bar_idx, .start_tick = otick, .octave_shift = shift};
+            } else if (otype == "stop") {
+              if (const auto it = ctx.open_ottavas.find(staff_key); it != ctx.open_ottavas.end()) {
+                if (bar_idx > it->second.bar_idx ||
+                    (bar_idx == it->second.bar_idx && otick > it->second.start_tick)) {
+                  ctx.score.ottavas.push_back(OttavaSpan{
+                      .start_bar = it->second.bar_idx,
+                      .start_tick = it->second.start_tick,
+                      .end_bar = bar_idx,
+                      .end_tick = otick,
+                      .treble = (staff_key == 1),
+                      .octave_shift = it->second.octave_shift,
+                  });
+                }
+                ctx.open_ottavas.erase(it);
+              }
+            }
+          }
           if (const pugi::xml_node ped = dt.child("pedal")) {
             const std::string_view ptype = ped.attribute("type").as_string();
             const int ptick = std::clamp(vs.cursor_ticks, 0, vs.measure_ticks);
@@ -1236,9 +1362,11 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
     std::vector<HarmonicAnnotation> harmony_out;
     std::vector<DynamicEvent> dynamics_out;
     std::vector<HairpinSpan> hairpins_out;
+    std::vector<ClefChange> clef_changes_out;
 
     parse_measure_nodes(primary_measures[bi], divisions, false, true, ctx.cur_meter.measure_ticks(),
-                        bi, ctx, treble_raw, bass_raw, harmony_out, &dynamics_out, &hairpins_out);
+                        bi, ctx, treble_raw, bass_raw, harmony_out, &dynamics_out, &hairpins_out,
+                        &clef_changes_out);
 
     if (bi < bass_part_measures.size()) {
       std::vector<RawEvent> unused_tr;
@@ -1306,6 +1434,7 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
     lm.harmony = std::move(harmony_out);
     lm.dynamics = std::move(dynamics_out);
     lm.hairpins = std::move(clamped_hp);
+    lm.clef_changes = std::move(clef_changes_out);
 
     score.measures.push_back(std::move(lm));
   }
@@ -1334,6 +1463,23 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
     }
     ctx.open_pedal.reset();
   }
+  if (!ctx.open_ottavas.empty() && !score.measures.empty()) {
+    const std::size_t last_b = score.measures.size() - 1U;
+    const int last_ticks = actual_bar_ticks[last_b];
+    for (const auto& [staff_key, st] : ctx.open_ottavas) {
+      if (last_b > st.bar_idx || (last_b == st.bar_idx && last_ticks > st.start_tick)) {
+        score.ottavas.push_back(OttavaSpan{
+            .start_bar = st.bar_idx,
+            .start_tick = st.start_tick,
+            .end_bar = last_b,
+            .end_tick = last_ticks,
+            .treble = (staff_key == 1),
+            .octave_shift = st.octave_shift,
+        });
+      }
+    }
+    ctx.open_ottavas.clear();
+  }
   auto clamp_spans = [&](auto& spans) {
     for (auto it = spans.begin(); it != spans.end();) {
       if (it->start_bar >= actual_bar_ticks.size() || it->end_bar >= actual_bar_ticks.size()) {
@@ -1352,6 +1498,7 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   };
   clamp_spans(score.slurs);
   clamp_spans(score.pedals);
+  clamp_spans(score.ottavas);
 
   repair_staff_ties(score.measures, true, result.warnings);
   repair_staff_ties(score.measures, false, result.warnings);

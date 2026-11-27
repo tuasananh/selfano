@@ -1,6 +1,6 @@
 # Phase 25: Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava Brackets
 
-**Status:** `[ ] Planned` (Depends on Phase 24 — Track B: Romantic Score & Importer Foundations)  
+**Status:** `[x] Complete` (Depends on Phase 24 — Track B: Romantic Score & Importer Foundations)  
 **Goal:** Enable faithful reading and importing of Romantic piano scores by supporting **grace notes / appoggiaturas**, **mid-piece clef changes** (especially Left Hand treble clef), and **`8va`/`8vb` ottava brackets** across `LessonScore`, MusicXML import, `StaffRenderer`, and `LessonEngine`.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `verification-and-review`

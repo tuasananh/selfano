@@ -583,4 +583,38 @@ std::vector<TieSpan> resolve_tie_spans(std::span<const TieEndpointRef> system_no
   return spans;
 }
 
+Clef active_clef_at(std::span<const ClefChange> clef_changes, Clef initial_clef, bool treble_staff,
+                    int tick) noexcept {
+  Clef active = initial_clef;
+  int latest_tick = -1;
+  for (const auto& cc : clef_changes) {
+    if (cc.treble_staff == treble_staff && cc.start_tick <= tick && cc.start_tick >= latest_tick) {
+      latest_tick = cc.start_tick;
+      active = cc.clef;
+    }
+  }
+  return active;
+}
+
+int active_ottava_shift_at(std::span<const OttavaSpan> ottavas, std::size_t bar_idx, int tick,
+                           bool treble) noexcept {
+  int shift = 0;
+  for (const auto& ov : ottavas) {
+    if (ov.treble != treble) {
+      continue;
+    }
+    if (bar_idx < ov.start_bar || bar_idx > ov.end_bar) {
+      continue;
+    }
+    if (bar_idx == ov.start_bar && tick < ov.start_tick) {
+      continue;
+    }
+    if (bar_idx == ov.end_bar && tick >= ov.end_tick) {
+      continue;
+    }
+    shift = ov.octave_shift;
+  }
+  return shift;
+}
+
 } // namespace selfano::core

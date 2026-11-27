@@ -3,8 +3,8 @@
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
 - **Last Updated:** 2026-11-27
-- **Active Phase:** **Phase 24 Complete** — Track B (Romantic Score & Importer Foundations) in progress
-- **Last Completed Phase:** Phase 24 — Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets & Sextuplets)
+- **Active Phase:** **Phase 25 Complete** — Track B (Romantic Score & Importer Foundations) in progress
+- **Last Completed Phase:** Phase 25 — Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava
 
 ---
 
@@ -306,7 +306,7 @@
     - **Phase 23:** MIDI-Verified Memory Fade Mode ([`docs/phases/phase-23-midi-verified-memory-fade.md`](./phases/phase-23-midi-verified-memory-fade.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 108/108 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on `t5_02` & `t6_04` across `HarmonyMapOnly` and `BlankMemory` and `srs --seed-srs-lesson t5_02`)
   - **Track B (Romantic Score & Importer Foundations — In Progress):**
     - **Phase 24:** Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) ([`docs/phases/phase-24-fine-subdivisions-and-tuplets.md`](./phases/phase-24-fine-subdivisions-and-tuplets.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 113/113 passed, `emcmake cmake --preset web-release && cmake --build --preset web-release` 0 warnings, core purity 0 matches, `clang-format --dry-run --Werror` clean, Light/Dark screenshots verified on `--tab showcase --showcase-preset romantic`)
-    - **Phase 25:** Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava ([`docs/phases/phase-25-grace-notes-clef-changes-and-ottava.md`](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)) (`[ ] Planned`)
+    - **Phase 25:** Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava ([`docs/phases/phase-25-grace-notes-clef-changes-and-ottava.md`](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 118/118 passed, `emcmake cmake --preset web-release && cmake --build --preset web-release` 0 warnings, core purity 0 matches, `clang-format --dry-run --Werror` clean, Light/Dark screenshots verified on `--tab showcase --showcase-preset romantic`)
     - **Phase 26:** Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode ([`docs/phases/phase-26-tempo-maps-rolled-chords-and-rubato.md`](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)) (`[ ] Planned`)
     - **Phase 27:** Automatic Harmonic Analyzer for Imported Scores ([`docs/phases/phase-27-auto-harmonic-analyzer-for-imports.md`](./phases/phase-27-auto-harmonic-analyzer-for-imports.md)) (`[ ] Planned`)
   - **Track C (Daily Drills & MIDI Technique Diagnostics — Ready Now):**

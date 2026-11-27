@@ -562,3 +562,52 @@ TEST_CASE("LessonScore supports 32nd notes, double dots, and general tuplets wit
     REQUIRE_FALSE(validate_lesson_score(bad).has_value());
   }
 }
+
+TEST_CASE("LessonScore supports grace notes, mid-piece clef changes, and 8va/8vb ottava spans",
+          "[lesson_score][phase25]") {
+  auto score = make_valid_two_bar_score();
+  // Bar 1: add a slashed grace note at tick 0 before the half note
+  score.measures[0].treble_events.insert(
+      score.measures[0].treble_events.begin(),
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Eighth},
+                  .notes = {make_ln(NoteLetter::F, Accidental::Sharp, 4, 2)},
+                  .is_grace = true,
+                  .grace_slash = true});
+  // Bar 2: LH switches to Treble clef at tick 0
+  score.measures[1].clef_changes = {
+      ClefChange{.start_tick = 0, .clef = Clef::Treble, .treble_staff = false},
+  };
+  // 8va over Bar 2 treble
+  score.ottavas = {
+      OttavaSpan{.start_bar = 1,
+                 .start_tick = 0,
+                 .end_bar = 1,
+                 .end_tick = 1920,
+                 .treble = true,
+                 .octave_shift = 1},
+  };
+
+  REQUIRE(score.measures[0].treble_events[0].event_ticks() == 0);
+  REQUIRE(validate_lesson_score(score).has_value());
+
+  const std::string json_str = lesson_score_to_json(score);
+  const auto reparsed = lesson_score_from_json(json_str);
+  REQUIRE(reparsed.has_value());
+  REQUIRE(*reparsed == score);
+  REQUIRE(reparsed->measures[0].treble_events[0].is_grace);
+  REQUIRE(reparsed->measures[0].treble_events[0].grace_slash);
+  REQUIRE(reparsed->measures[1].clef_changes.size() == 1U);
+  REQUIRE(reparsed->ottavas.size() == 1U);
+  REQUIRE(reparsed->ottavas[0].octave_shift == 1);
+
+  SECTION("Rejects invalid ottava shift and out-of-range clef change") {
+    auto bad_oct = score;
+    bad_oct.ottavas[0].octave_shift = 2;
+    REQUIRE_FALSE(validate_lesson_score(bad_oct).has_value());
+
+    auto bad_clef = score;
+    bad_clef.measures[1].clef_changes[0].start_tick = 2000;
+    REQUIRE_FALSE(validate_lesson_score(bad_clef).has_value());
+  }
+}

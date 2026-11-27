@@ -265,8 +265,13 @@ struct LessonEvent {
   std::vector<LessonNote> notes;
   std::optional<TupletRatio> tuplet{};
   int tick_duration_override{0};
+  bool is_grace{false};
+  bool grace_slash{true};
 
   [[nodiscard]] constexpr int event_ticks() const noexcept {
+    if (is_grace) {
+      return 0;
+    }
     if (tick_duration_override > 0) {
       return tick_duration_override;
     }
@@ -288,6 +293,25 @@ struct HarmonicAnnotation {
   bool operator==(const HarmonicAnnotation&) const = default;
 };
 
+struct ClefChange {
+  int start_tick{0};
+  Clef clef{Clef::Treble};
+  bool treble_staff{false};
+
+  constexpr bool operator==(const ClefChange&) const = default;
+};
+
+struct OttavaSpan {
+  std::size_t start_bar{0};
+  int start_tick{0};
+  std::size_t end_bar{0};
+  int end_tick{0};
+  bool treble{true};
+  int octave_shift{1}; // +1 = 8va, -1 = 8vb
+
+  constexpr bool operator==(const OttavaSpan&) const = default;
+};
+
 struct LessonMeasure {
   std::uint32_t bar_number{1};
   std::optional<int> pickup_ticks{};
@@ -298,6 +322,7 @@ struct LessonMeasure {
   std::vector<HarmonicAnnotation> harmony;
   std::vector<DynamicEvent> dynamics;
   std::vector<HairpinSpan> hairpins;
+  std::vector<ClefChange> clef_changes;
 
   bool operator==(const LessonMeasure&) const = default;
 };
@@ -367,6 +392,7 @@ struct LessonScore {
   std::vector<LessonPhrase> phrases;
   std::vector<SlurSpan> slurs;
   std::vector<PedalSpan> pedals;
+  std::vector<OttavaSpan> ottavas;
 
   bool operator==(const LessonScore&) const = default;
 };

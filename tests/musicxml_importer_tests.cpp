@@ -218,16 +218,15 @@ TEST_CASE("MusicXmlImporter parses Grand Staff MusicXML with backup, chord, ties
   REQUIRE(score.measures.size() == 2U);
   REQUIRE(validate_lesson_score(score).has_value());
 
-  // Grace note skipped with warning
-  REQUIRE_FALSE(res->warnings.empty());
-
-  // Bar 1 treble: dotted quarter G4(2), 8th A4(3), quarter Bb4(4), quarter D5(5, tie_start)
+  // Grace note F#4 imported before dotted quarter G4(2), 8th A4(3), quarter Bb4(4), quarter D5(5)
   const auto& m1 = score.measures[0];
-  REQUIRE(m1.treble_events.size() == 4U);
-  REQUIRE(m1.treble_events[0].duration.base == NoteBaseDuration::Quarter);
-  REQUIRE(m1.treble_events[0].duration.dotted);
-  REQUIRE(m1.treble_events[0].notes[0].finger == 2U);
-  REQUIRE(m1.treble_events[3].notes[0].tie_start);
+  REQUIRE(m1.treble_events.size() == 5U);
+  REQUIRE(m1.treble_events[0].is_grace);
+  REQUIRE(m1.treble_events[0].notes[0].midi == 66); // F#4
+  REQUIRE(m1.treble_events[1].duration.base == NoteBaseDuration::Quarter);
+  REQUIRE(m1.treble_events[1].duration.dotted);
+  REQUIRE(m1.treble_events[1].notes[0].finger == 2U);
+  REQUIRE(m1.treble_events[4].notes[0].tie_start);
 
   // Bar 1 bass: half G2, half D3+Bb3 chord
   REQUIRE(m1.bass_events.size() == 2U);
@@ -244,7 +243,8 @@ TEST_CASE("MusicXmlImporter parses Grand Staff MusicXML with backup, chord, ties
   LessonEngine engine;
   engine.load_score(score, LessonConfig{.practice_mode = LessonPracticeMode::WaitForNote,
                                         .hand_mode = LessonHandMode::RightHand});
-  REQUIRE(engine.targets().size() == 5U); // G4, A4, Bb4, D5 (bar 1), C5 (bar 2) - tied D5 skipped
+  REQUIRE(engine.targets().size() ==
+          6U); // G4, grace A4, A4, Bb4, D5 (bar 1), C5 (bar 2) - tied D5 skipped
 }
 
 TEST_CASE("MusicXmlImporter unpacks compressed .mxl archives via META-INF/container.xml",
@@ -591,4 +591,87 @@ TEST_CASE("MusicXmlImporter imports 32nd notes, double dots, triplets, 2-against
   REQUIRE(m2_tr[1].start_tick == 96);
   REQUIRE(m2_tr[0].tuplet.has_value());
   REQUIRE(m2_tr[0].tuplet->actual == 5U);
+}
+
+TEST_CASE("MusicXmlImporter imports grace notes, mid-piece clef changes, and 8va/8vb ottava",
+          "[musicxml_importer][phase25]") {
+  constexpr const char* kGraceClefOttavaXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Romantic Ornaments &amp; Clefs</work-title></work>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key><fifths>0</fifths><mode>major</mode></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+        <clef number="1"><sign>G</sign><line>2</line></clef>
+        <clef number="2"><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <direction placement="above">
+        <direction-type><octave-shift type="down" size="8"/></direction-type>
+        <staff>1</staff>
+      </direction>
+      <note>
+        <grace slash="yes"/>
+        <pitch><step>B</step><octave>5</octave></pitch>
+        <voice>1</voice><type>eighth</type><staff>1</staff>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>6</octave></pitch>
+        <duration>4</duration><voice>1</voice><type>half</type><staff>1</staff>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>6</octave></pitch>
+        <duration>4</duration><voice>1</voice><type>half</type><staff>1</staff>
+      </note>
+      <direction placement="above">
+        <direction-type><octave-shift type="stop" size="8"/></direction-type>
+        <staff>1</staff>
+      </direction>
+      <backup><duration>8</duration></backup>
+      <note>
+        <pitch><step>C</step><octave>3</octave></pitch>
+        <duration>4</duration><voice>5</voice><type>half</type><staff>2</staff>
+      </note>
+      <attributes>
+        <clef number="2"><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <note>
+        <pitch><step>G</step><octave>4</octave></pitch>
+        <duration>4</duration><voice>5</voice><type>half</type><staff>2</staff>
+      </note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  const auto res = import_musicxml_string(kGraceClefOttavaXml);
+  REQUIRE(res.has_value());
+  const auto& sc = res->score;
+  REQUIRE(validate_lesson_score(sc).has_value());
+  REQUIRE(sc.measures.size() == 1U);
+
+  // Grace note imported (not skipped) right before C6
+  const auto& tr = sc.measures[0].treble_events;
+  REQUIRE(tr.size() == 3U);
+  CHECK(tr[0].is_grace);
+  CHECK(tr[0].grace_slash);
+  CHECK(tr[0].start_tick == 0);
+  CHECK(tr[0].notes[0].midi == 83); // B5
+  CHECK_FALSE(tr[1].is_grace);
+  CHECK(tr[1].notes[0].midi == 84); // C6
+
+  // Mid-bar LH treble clef change at tick 960
+  REQUIRE(sc.measures[0].clef_changes.size() == 1U);
+  CHECK(sc.measures[0].clef_changes[0].clef == Clef::Treble);
+  CHECK_FALSE(sc.measures[0].clef_changes[0].treble_staff);
+  CHECK(sc.measures[0].clef_changes[0].start_tick == 960);
+
+  // 8va ottava span (MusicXML down -> octave_shift = +1)
+  REQUIRE(sc.ottavas.size() == 1U);
+  CHECK(sc.ottavas[0].treble);
+  CHECK(sc.ottavas[0].octave_shift == 1);
+  CHECK(sc.ottavas[0].start_tick == 0);
+  CHECK(sc.ottavas[0].end_tick == 1920);
 }

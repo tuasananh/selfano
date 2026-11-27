@@ -1689,6 +1689,12 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
     opts1.slurs = slice_system_slurs(engine_.score().slurs, sys1_start, sys1_end, sm1, show_treble,
                                      show_bass);
     opts1.pedals = slice_system_pedals(engine_.score().pedals, sys1_start, sys1_end, sm1);
+    opts1.ottavas = slice_system_ottavas(engine_.score().ottavas, sys1_start, sys1_end, sm1,
+                                         show_treble, show_bass);
+    opts1.initial_treble_clef =
+        resolve_clef_before_bar(measures, sys1_start, true, core::Clef::Treble);
+    opts1.initial_bass_clef =
+        resolve_clef_before_bar(measures, sys1_start, false, core::Clef::Bass);
   }
 
   draw_staff_canvas("##lv_sys1", smufl_font, ui_font, avail_w, sm1, opts1,
@@ -1716,6 +1722,12 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
       opts2.slurs = slice_system_slurs(engine_.score().slurs, sys2_start, sys2_end, sm2,
                                        show_treble, show_bass);
       opts2.pedals = slice_system_pedals(engine_.score().pedals, sys2_start, sys2_end, sm2);
+      opts2.ottavas = slice_system_ottavas(engine_.score().ottavas, sys2_start, sys2_end, sm2,
+                                           show_treble, show_bass);
+      opts2.initial_treble_clef =
+          resolve_clef_before_bar(measures, sys2_start, true, core::Clef::Treble);
+      opts2.initial_bass_clef =
+          resolve_clef_before_bar(measures, sys2_start, false, core::Clef::Bass);
     }
 
     draw_staff_canvas("##lv_sys2", smufl_font, ui_font, avail_w, sm2, opts2,

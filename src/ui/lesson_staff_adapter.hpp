@@ -40,4 +40,13 @@ slice_system_slurs(std::span<const core::SlurSpan> slurs, std::size_t sys_start_
 slice_system_pedals(std::span<const core::PedalSpan> pedals, std::size_t sys_start_bar,
                     std::size_t sys_end_bar, std::span<const StaffMeasure> sys_measures);
 
+[[nodiscard]] std::vector<StaffOttavaSpan>
+slice_system_ottavas(std::span<const core::OttavaSpan> ottavas, std::size_t sys_start_bar,
+                     std::size_t sys_end_bar, std::span<const StaffMeasure> sys_measures,
+                     bool show_treble, bool show_bass);
+
+[[nodiscard]] core::Clef resolve_clef_before_bar(std::span<const core::LessonMeasure> measures,
+                                                 std::size_t bar_index, bool treble_staff,
+                                                 core::Clef default_clef) noexcept;
+
 } // namespace selfano::ui

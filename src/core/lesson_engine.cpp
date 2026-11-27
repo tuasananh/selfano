@@ -424,18 +424,19 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         int staff_id{0};
         int total_duration_ticks{480};
       };
-      std::map<int, std::vector<CollectedNote>> tick_notes;
+      std::map<std::pair<int, int>, std::vector<CollectedNote>> tick_notes;
       auto collect = [&](std::span<const LessonEvent> evs, int staff_id) {
         for (const auto& ev : evs) {
           if (ev.is_rest) {
             continue;
           }
           const int ev_ticks = ev.event_ticks();
+          const int grace_ord = ev.is_grace ? 0 : 1;
           for (const auto& n : ev.notes) {
             if (!n.tie_stop) {
               const int full_dur = compute_tied_note_duration_ticks(
                   practice_measures, b, staff_id, ev.start_tick, n.midi, ev_ticks, n.tie_start);
-              tick_notes[ev.start_tick].push_back(CollectedNote{
+              tick_notes[{ev.start_tick, grace_ord}].push_back(CollectedNote{
                   .note = n,
                   .staff_id = staff_id,
                   .total_duration_ticks = full_dur,
@@ -452,14 +453,16 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
           config.hand_mode == LessonHandMode::HandsTogether) {
         collect(lm.bass_events, 1);
       }
-      for (const auto& [tick, notes] : tick_notes) {
+      for (const auto& [tick_key, notes] : tick_notes) {
         if (notes.empty()) {
           continue;
         }
+        const int tick = tick_key.first;
         LessonTarget target{};
         target.bar_index = b;
         target.tick_in_bar = tick;
         target.global_tick = acc_ticks + tick;
+        target.is_grace = (tick_key.second == 0);
         for (const auto& cn : notes) {
           target.expected_midi.push_back(cn.note.midi);
           target.expected_spelled.push_back(cn.note.spelled);
@@ -1271,6 +1274,13 @@ LessonTickResult LessonEngine::update(double dt_ms) {
       ++active_target_index_;
       continue;
     }
+    if (tgt.is_grace && !config_.grade_grace_notes_in_pulse) {
+      if (static_cast<double>(tgt.global_tick) <= elapsed_ticks_) {
+        ++active_target_index_;
+        continue;
+      }
+      break;
+    }
     if (static_cast<double>(tgt.global_tick) + hit_window_ticks < elapsed_ticks_) {
       tgt.status = LessonTargetStatus::Missed;
       if (config_.memory_fade != MemoryFadeLevel::FullScore && !tgt.memory_peeked) {
@@ -1540,7 +1550,8 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     double best_dist = std::numeric_limits<double>::max();
     double best_match_dist = std::numeric_limits<double>::max();
     for (std::size_t i = active_target_index_; i < targets_.size(); ++i) {
-      if (targets_[i].status != LessonTargetStatus::Pending) {
+      if (targets_[i].status != LessonTargetStatus::Pending ||
+          (targets_[i].is_grace && !config_.grade_grace_notes_in_pulse)) {
         continue;
       }
       const double dist = std::abs(static_cast<double>(targets_[i].global_tick) - elapsed_ticks_);
@@ -1723,14 +1734,21 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
         }
       }
       std::ranges::sort(ordered, [](const LessonEvent* a, const LessonEvent* c) {
-        return a->start_tick < c->start_tick;
+        if (a->start_tick != c->start_tick) {
+          return a->start_tick < c->start_tick;
+        }
+        return (a->is_grace ? 0 : 1) < (c->is_grace ? 0 : 1);
       });
 
       for (const LessonEvent* ev : ordered) {
         const auto shape = compute_expressive_shape(expr_lm, *ev, staff_id, false, bar_dyn);
-        const double ev_start_ms = bar_start_ms + static_cast<double>(ev->start_tick) * ms_per_tick;
+        const double host_start_ms =
+            bar_start_ms + static_cast<double>(ev->start_tick) * ms_per_tick;
+        const double ev_start_ms =
+            ev->is_grace ? std::max(0.0, host_start_ms - 65.0) : host_start_ms;
         const double raw_dur_ms = static_cast<double>(ev->event_ticks()) * ms_per_tick;
-        const double gated_dur_ms = std::max(40.0, raw_dur_ms * shape.gate_scale);
+        const double gated_dur_ms =
+            ev->is_grace ? 65.0 : std::max(40.0, raw_dur_ms * shape.gate_scale);
         std::vector<LessonNote> notes = ev->notes;
         if (shape.rolled && notes.size() > 1U) {
           std::ranges::sort(

@@ -58,6 +58,8 @@ struct StaffNote {
   std::uint8_t articulations{0};
   std::uint8_t dots{0};
   std::optional<core::TupletRatio> tuplet{};
+  bool is_grace{false};
+  bool grace_slash{true};
 
   [[nodiscard]] constexpr std::uint8_t effective_dots() const noexcept {
     if (dots > 0U) {
@@ -83,6 +85,8 @@ struct StaffChord {
   std::uint8_t dots{0};
   std::uint8_t treble_rest_dots{0};
   std::uint8_t bass_rest_dots{0};
+  bool is_grace{false};
+  bool grace_slash{true};
 
   [[nodiscard]] constexpr std::uint8_t effective_dots() const noexcept {
     if (dots > 0U) {
@@ -125,6 +129,17 @@ struct StaffPedalSpan {
   bool open_right{false};
 };
 
+struct StaffOttavaSpan {
+  std::size_t start_measure_idx{0};
+  int start_tick{0};
+  std::size_t end_measure_idx{0};
+  int end_tick{0};
+  bool treble{true};
+  int octave_shift{1};
+  bool open_left{false};
+  bool open_right{false};
+};
+
 struct StaffMeasure {
   std::vector<StaffChord> chords;
   float beats_per_measure{4.0f};
@@ -134,6 +149,7 @@ struct StaffMeasure {
   bool is_pickup{false};
   std::vector<core::DynamicEvent> dynamics{};
   std::vector<core::HairpinSpan> hairpins{};
+  std::vector<core::ClefChange> clef_changes{};
 };
 
 enum class StaffViewMode : std::uint8_t {
@@ -159,6 +175,9 @@ struct StaffRenderOptions {
   std::string tempo_marking{};
   std::vector<StaffSlurSpan> slurs{};
   std::vector<StaffPedalSpan> pedals{};
+  std::vector<StaffOttavaSpan> ottavas{};
+  core::Clef initial_treble_clef{core::Clef::Treble};
+  core::Clef initial_bass_clef{core::Clef::Bass};
   core::MemoryFadeLevel memory_fade{core::MemoryFadeLevel::FullScore};
 };
 

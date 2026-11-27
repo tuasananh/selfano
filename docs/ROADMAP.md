@@ -117,8 +117,8 @@ Phase 0 (Workflow/Repo)
     - [Phase 22 — Chopin Speed Lab (Rhythmic Alteration, `4+1` Bursts & Hand Blocking)](./phases/phase-22-chopin-speed-lab-practice-methods.md)
     - [Phase 23 — MIDI-Verified Memory Fade Mode](./phases/phase-23-midi-verified-memory-fade.md)
   - **Track B — Romantic Score & Importer Foundations (Phases 24–27):**
-    - [Phase 24 — Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets)](./phases/phase-24-fine-subdivisions-and-tuplets.md)
-    - [Phase 25 — Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)
+    - [x] [Phase 24 — Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets)](./phases/phase-24-fine-subdivisions-and-tuplets.md)
+    - [x] [Phase 25 — Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)
     - [Phase 26 — Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)
     - [Phase 27 — Automatic Harmonic Analyzer for Imported Scores](./phases/phase-27-auto-harmonic-analyzer-for-imports.md)
   - **Track C — Daily Drills & MIDI Technique Diagnostics (Phases 28–31):**

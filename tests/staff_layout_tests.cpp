@@ -703,3 +703,38 @@ TEST_CASE("32nd-note triple beams and tuplet brackets compute cleanly", "[staff_
   CHECK(brackets[0].actual == 3U);
   CHECK_FALSE(brackets[0].draw_bracket);
 }
+
+TEST_CASE("Ottava display transposition and active clef helpers work accurately",
+          "[staff_layout][phase25]") {
+  // C6 = step 42; under 8va (+1) displays as C5 = step 35 (0 ledger lines on Treble)
+  CHECK(apply_ottava_display_step(42, 1) == 35);
+  CHECK(compute_ledger_line_steps(apply_ottava_display_step(42, 1), Clef::Treble).empty());
+
+  // C2 = step 14; under 8vb (-1) displays as C3 = step 21 (0 ledger lines on Bass)
+  CHECK(apply_ottava_display_step(14, -1) == 21);
+  CHECK(compute_ledger_line_steps(apply_ottava_display_step(14, -1), Clef::Bass).empty());
+
+  // Neutral shift 0 leaves step unchanged
+  CHECK(apply_ottava_display_step(42, 0) == 42);
+
+  const std::vector<ClefChange> changes{
+      {.start_tick = 960, .clef = Clef::Treble, .treble_staff = false},
+  };
+  CHECK(active_clef_at(changes, Clef::Bass, false, 0) == Clef::Bass);
+  CHECK(active_clef_at(changes, Clef::Bass, false, 960) == Clef::Treble);
+  CHECK(active_clef_at(changes, Clef::Treble, true, 960) == Clef::Treble);
+
+  const std::vector<OttavaSpan> spans{
+      {.start_bar = 0,
+       .start_tick = 480,
+       .end_bar = 1,
+       .end_tick = 960,
+       .treble = true,
+       .octave_shift = 1},
+  };
+  CHECK(active_ottava_shift_at(spans, 0, 0, true) == 0);
+  CHECK(active_ottava_shift_at(spans, 0, 480, true) == 1);
+  CHECK(active_ottava_shift_at(spans, 1, 0, true) == 1);
+  CHECK(active_ottava_shift_at(spans, 1, 960, true) == 0);
+  CHECK(active_ottava_shift_at(spans, 0, 480, false) == 0);
+}
