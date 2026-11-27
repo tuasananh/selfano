@@ -189,7 +189,8 @@ namespace {
 
 [[nodiscard]] constexpr bool is_beamable(const BeamEventInput& ev) noexcept {
   return !ev.is_rest && (ev.base_duration == NoteBaseDuration::Eighth ||
-                         ev.base_duration == NoteBaseDuration::Sixteenth);
+                         ev.base_duration == NoteBaseDuration::Sixteenth ||
+                         ev.base_duration == NoteBaseDuration::ThirtySecond);
 }
 
 [[nodiscard]] int beam_bucket_ticks(TimeSignature meter, std::span<const BeamEventInput> events,
@@ -198,14 +199,15 @@ namespace {
     return meter.beat_ticks(); // 720 ticks (3 eighths in 6/8)
   }
   if (meter.numerator == 4 && meter.denominator == 4) {
-    // Half-bar grouping [0, 960) and [960, 1920), unless 16ths appear in that half-bar,
-    // in which case split per quarter-note beat (480) for crisp classical readability.
+    // Half-bar grouping [0, 960) and [960, 1920), unless 16ths/32nds/tuplets appear in that
+    // half-bar, in which case split per quarter-note beat (480) for crisp classical readability.
     const int half_idx = start_tick / (kTicksPerQuarter * 2);
     const int half_lo = half_idx * kTicksPerQuarter * 2;
     const int half_hi = half_lo + kTicksPerQuarter * 2;
     for (const auto& ev : events) {
       if (ev.start_tick >= half_lo && ev.start_tick < half_hi &&
-          ev.base_duration == NoteBaseDuration::Sixteenth) {
+          (ev.base_duration == NoteBaseDuration::Sixteenth ||
+           ev.base_duration == NoteBaseDuration::ThirtySecond || ev.tuplet.has_value())) {
         return kTicksPerQuarter;
       }
     }
@@ -217,7 +219,8 @@ namespace {
     const int half_hi = half_lo + kTicksPerQuarter * 3;
     for (const auto& ev : events) {
       if (ev.start_tick >= half_lo && ev.start_tick < half_hi &&
-          ev.base_duration == NoteBaseDuration::Sixteenth) {
+          (ev.base_duration == NoteBaseDuration::Sixteenth ||
+           ev.base_duration == NoteBaseDuration::ThirtySecond || ev.tuplet.has_value())) {
         return kTicksPerQuarter;
       }
     }
@@ -268,12 +271,24 @@ namespace {
   out.end_x_spaces = stem_x(run.size() - 1U);
   const float dx = out.end_x_spaces - out.start_x_spaces;
 
-  const float y_first_ideal = (out.stem_direction == StemDirection::Up)
-                                  ? std::max(2.0f, step_to_spaces(run.front().max_step) + 3.25f)
-                                  : std::min(2.0f, step_to_spaces(run.front().min_step) - 3.25f);
-  const float y_last_ideal = (out.stem_direction == StemDirection::Up)
-                                 ? std::max(2.0f, step_to_spaces(run.back().max_step) + 3.25f)
-                                 : std::min(2.0f, step_to_spaces(run.back().min_step) - 3.25f);
+  bool has_32nd = false;
+  for (const auto& ev : run) {
+    if (ev.base_duration == NoteBaseDuration::ThirtySecond) {
+      has_32nd = true;
+      break;
+    }
+  }
+  const float stem_clear = has_32nd ? 3.25f : 2.65f;
+  const float ideal_clear = has_32nd ? 3.75f : 3.25f;
+
+  const float y_first_ideal =
+      (out.stem_direction == StemDirection::Up)
+          ? std::max(2.0f, step_to_spaces(run.front().max_step) + ideal_clear)
+          : std::min(2.0f, step_to_spaces(run.front().min_step) - ideal_clear);
+  const float y_last_ideal =
+      (out.stem_direction == StemDirection::Up)
+          ? std::max(2.0f, step_to_spaces(run.back().max_step) + ideal_clear)
+          : std::min(2.0f, step_to_spaces(run.back().min_step) - ideal_clear);
 
   float slope = (dx > 1e-4f) ? ((y_last_ideal - y_first_ideal) / dx) : 0.0f;
   slope = std::clamp(slope, -0.22f, 0.22f);
@@ -284,7 +299,7 @@ namespace {
   float base_y0 = y_first_ideal;
   if (out.stem_direction == StemDirection::Up) {
     for (std::size_t i = 0; i < run.size(); ++i) {
-      const float req_y = std::max(2.0f, step_to_spaces(run[i].max_step) + 2.65f);
+      const float req_y = std::max(2.0f, step_to_spaces(run[i].max_step) + stem_clear);
       const float line_y = base_y0 + slope * (stem_x(i) - out.start_x_spaces);
       if (line_y < req_y) {
         base_y0 += (req_y - line_y);
@@ -292,7 +307,7 @@ namespace {
     }
   } else {
     for (std::size_t i = 0; i < run.size(); ++i) {
-      const float req_y = std::min(2.0f, step_to_spaces(run[i].min_step) - 2.65f);
+      const float req_y = std::min(2.0f, step_to_spaces(run[i].min_step) - stem_clear);
       const float line_y = base_y0 + slope * (stem_x(i) - out.start_x_spaces);
       if (line_y > req_y) {
         base_y0 -= (line_y - req_y);
@@ -310,45 +325,57 @@ namespace {
     out.stem_tip_y_spaces.push_back(beam_y_at(stem_x(i)));
   }
 
-  // Secondary 16th beams (contiguous 16ths or short fractional hooks)
-  const float sec_y_shift = (out.stem_direction == StemDirection::Up) ? -0.75f : 0.75f;
-  std::size_t i = 0;
-  while (i < run.size()) {
-    if (run[i].base_duration != NoteBaseDuration::Sixteenth) {
-      ++i;
-      continue;
+  // Secondary 16th (level 2) & 32nd (level 3) beams (contiguous or short fractional hooks)
+  auto add_secondary_level = [&](std::uint8_t level, float y_shift, auto&& predicate) {
+    std::size_t i = 0;
+    while (i < run.size()) {
+      if (!predicate(run[i])) {
+        ++i;
+        continue;
+      }
+      std::size_t j = i + 1U;
+      while (j < run.size() && predicate(run[j])) {
+        ++j;
+      }
+      if (j - i >= 2U) {
+        const float x0 = stem_x(i);
+        const float x1 = stem_x(j - 1U);
+        out.secondary_beams.push_back(SecondaryBeamSegment{
+            .x0_spaces = x0,
+            .x1_spaces = x1,
+            .y0_spaces = beam_y_at(x0) + y_shift,
+            .y1_spaces = beam_y_at(x1) + y_shift,
+            .is_hook = false,
+            .level = level,
+        });
+      } else {
+        const float xk = stem_x(i);
+        const float x_other =
+            (i == 0U) ? (xk + std::min(0.95f, std::max(0.0f, stem_x(1U) - xk) * 0.45f))
+                      : (xk - std::min(0.95f, std::max(0.0f, xk - stem_x(i - 1U)) * 0.45f));
+        const float x0 = std::min(xk, x_other);
+        const float x1 = std::max(xk, x_other);
+        out.secondary_beams.push_back(SecondaryBeamSegment{
+            .x0_spaces = x0,
+            .x1_spaces = x1,
+            .y0_spaces = beam_y_at(x0) + y_shift,
+            .y1_spaces = beam_y_at(x1) + y_shift,
+            .is_hook = true,
+            .level = level,
+        });
+      }
+      i = j;
     }
-    std::size_t j = i + 1U;
-    while (j < run.size() && run[j].base_duration == NoteBaseDuration::Sixteenth) {
-      ++j;
-    }
-    if (j - i >= 2U) {
-      const float x0 = stem_x(i);
-      const float x1 = stem_x(j - 1U);
-      out.secondary_beams.push_back(SecondaryBeamSegment{
-          .x0_spaces = x0,
-          .x1_spaces = x1,
-          .y0_spaces = beam_y_at(x0) + sec_y_shift,
-          .y1_spaces = beam_y_at(x1) + sec_y_shift,
-          .is_hook = false,
-      });
-    } else {
-      const float xk = stem_x(i);
-      const float x_other =
-          (i == 0U) ? (xk + std::min(0.95f, std::max(0.0f, stem_x(1U) - xk) * 0.45f))
-                    : (xk - std::min(0.95f, std::max(0.0f, xk - stem_x(i - 1U)) * 0.45f));
-      const float x0 = std::min(xk, x_other);
-      const float x1 = std::max(xk, x_other);
-      out.secondary_beams.push_back(SecondaryBeamSegment{
-          .x0_spaces = x0,
-          .x1_spaces = x1,
-          .y0_spaces = beam_y_at(x0) + sec_y_shift,
-          .y1_spaces = beam_y_at(x1) + sec_y_shift,
-          .is_hook = true,
-      });
-    }
-    i = j;
-  }
+  };
+
+  const float dir_sign = (out.stem_direction == StemDirection::Up) ? -1.0f : 1.0f;
+  add_secondary_level(2U, dir_sign * 0.72f, [](const BeamEventInput& ev) noexcept {
+    return ev.base_duration == NoteBaseDuration::Sixteenth ||
+           ev.base_duration == NoteBaseDuration::ThirtySecond;
+  });
+  add_secondary_level(3U, dir_sign * 1.40f, [](const BeamEventInput& ev) noexcept {
+    return ev.base_duration == NoteBaseDuration::ThirtySecond;
+  });
 
   return out;
 }
@@ -388,11 +415,22 @@ compute_beam_groups(std::span<const BeamEventInput> events, TimeSignature meter,
       if (!is_beamable(events[j])) {
         break;
       }
-      const int next_bucket_size =
-          std::max(1, beam_bucket_ticks(meter, events, events[j].start_tick));
-      if (next_bucket_size != bucket_size ||
-          (events[j].start_tick / next_bucket_size) != bucket_id) {
-        break;
+      const bool same_tuplet_group = events[idx].tuplet.has_value() &&
+                                     events[j].tuplet.has_value() &&
+                                     events[idx].tuplet->group_id > 0U &&
+                                     events[idx].tuplet->group_id == events[j].tuplet->group_id;
+      if (!same_tuplet_group) {
+        if (events[idx].tuplet.has_value() != events[j].tuplet.has_value() ||
+            (events[idx].tuplet.has_value() &&
+             events[idx].tuplet->group_id != events[j].tuplet->group_id)) {
+          break;
+        }
+        const int next_bucket_size =
+            std::max(1, beam_bucket_ticks(meter, events, events[j].start_tick));
+        if (next_bucket_size != bucket_size ||
+            (events[j].start_tick / next_bucket_size) != bucket_id) {
+          break;
+        }
       }
       run.push_back(events[j]);
       ++j;
@@ -405,6 +443,78 @@ compute_beam_groups(std::span<const BeamEventInput> events, TimeSignature meter,
   }
 
   return groups;
+}
+
+std::vector<TupletBracketLayout>
+compute_tuplet_brackets(std::span<const BeamEventInput> events,
+                        std::span<const BeamGroupLayout> beam_groups, Clef clef,
+                        float notehead_width_spaces) {
+  std::vector<TupletBracketLayout> out;
+  const int bottom = staff_bottom_step(clef);
+  auto step_to_spaces = [bottom](int step) noexcept {
+    return static_cast<float>(step - bottom) * 0.5f;
+  };
+
+  std::size_t i = 0;
+  while (i < events.size()) {
+    if (!events[i].tuplet.has_value()) {
+      ++i;
+      continue;
+    }
+    const auto tup = *events[i].tuplet;
+    std::size_t j = i + 1U;
+    while (j < events.size() && events[j].tuplet.has_value() &&
+           events[j].tuplet->group_id == tup.group_id && events[j].tuplet->actual == tup.actual &&
+           events[j].tuplet->normal == tup.normal) {
+      ++j;
+    }
+    if (j - i >= 2U) {
+      const BeamGroupLayout* matched_bg = nullptr;
+      for (const auto& bg : beam_groups) {
+        if (bg.event_indices.size() == (j - i) &&
+            bg.event_indices.front() == events[i].event_index &&
+            bg.event_indices.back() == events[j - 1U].event_index) {
+          matched_bg = &bg;
+          break;
+        }
+      }
+
+      if (matched_bg != nullptr) {
+        const bool above = (matched_bg->stem_direction == StemDirection::Up);
+        const float y_peak =
+            above ? std::max(matched_bg->start_y_spaces, matched_bg->end_y_spaces) + 0.85f
+                  : std::min(matched_bg->start_y_spaces, matched_bg->end_y_spaces) - 0.85f;
+        out.push_back(TupletBracketLayout{
+            .start_x_spaces = matched_bg->start_x_spaces,
+            .end_x_spaces = matched_bg->end_x_spaces,
+            .y_spaces = y_peak,
+            .above = above,
+            .actual = tup.actual,
+            .draw_bracket = false,
+        });
+      } else {
+        int min_step = events[i].min_step;
+        int max_step = events[i].max_step;
+        for (std::size_t k = i; k < j; ++k) {
+          min_step = std::min(min_step, events[k].min_step);
+          max_step = std::max(max_step, events[k].max_step);
+        }
+        const bool above = (clef == Clef::Treble);
+        const float y_pos = above ? std::max(4.8f, step_to_spaces(max_step) + 1.45f)
+                                  : std::min(-0.8f, step_to_spaces(min_step) - 1.45f);
+        out.push_back(TupletBracketLayout{
+            .start_x_spaces = events[i].x_spaces,
+            .end_x_spaces = events[j - 1U].x_spaces + notehead_width_spaces,
+            .y_spaces = y_pos,
+            .above = above,
+            .actual = tup.actual,
+            .draw_bracket = true,
+        });
+      }
+    }
+    i = j;
+  }
+  return out;
 }
 
 float resolve_two_voice_collision(const ChordLayout& voice0_up, const ChordLayout& voice1_down,

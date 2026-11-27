@@ -258,30 +258,37 @@ namespace {
 }
 
 [[nodiscard]] std::optional<RhythmicValue> parse_musicxml_type(std::string_view type_text,
-                                                               bool dotted) noexcept {
+                                                               std::uint8_t dots) noexcept {
   const std::string t = trim_copy(type_text);
+  const std::uint8_t clamped_dots = std::min<std::uint8_t>(dots, 2U);
+  const bool dotted = clamped_dots > 0U;
+  if (t == "32nd") {
+    return RhythmicValue{
+        .base = NoteBaseDuration::ThirtySecond, .dotted = dotted, .dots = clamped_dots};
+  }
   if (t == "16th") {
-    return RhythmicValue{.base = NoteBaseDuration::Sixteenth, .dotted = dotted};
+    return RhythmicValue{
+        .base = NoteBaseDuration::Sixteenth, .dotted = dotted, .dots = clamped_dots};
   }
   if (t == "eighth") {
-    return RhythmicValue{.base = NoteBaseDuration::Eighth, .dotted = dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Eighth, .dotted = dotted, .dots = clamped_dots};
   }
   if (t == "quarter") {
-    return RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = dotted, .dots = clamped_dots};
   }
   if (t == "half") {
-    return RhythmicValue{.base = NoteBaseDuration::Half, .dotted = dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Half, .dotted = dotted, .dots = clamped_dots};
   }
   if (t == "whole") {
-    return RhythmicValue{.base = NoteBaseDuration::Whole, .dotted = dotted};
+    return RhythmicValue{.base = NoteBaseDuration::Whole, .dotted = dotted, .dots = clamped_dots};
   }
   return std::nullopt;
 }
 
 [[nodiscard]] int quantize_raw_ticks(int raw_ticks) noexcept {
-  const int clamped = std::max(120, raw_ticks);
-  const int rounded = ((clamped + 60) / 120) * 120;
-  return std::max(120, rounded);
+  const int clamped = std::max(60, raw_ticks);
+  const int rounded = ((clamped + 15) / 30) * 30;
+  return std::max(60, rounded);
 }
 
 struct RawEvent {
@@ -291,6 +298,8 @@ struct RawEvent {
   std::uint8_t voice{0};
   std::uint8_t articulations{0};
   std::vector<LessonNote> notes;
+  std::optional<RhythmicValue> explicit_duration{};
+  std::optional<TupletRatio> tuplet{};
 };
 
 void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks,
@@ -302,14 +311,46 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
       continue;
     }
     ev.duration_ticks = std::min(ev.duration_ticks, measure_ticks - ev.start_tick);
-    if (ev.duration_ticks < 120) {
+    if (!ev.tuplet.has_value() && ev.duration_ticks < 60) {
       continue;
     }
     by_voice[ev.voice].push_back(std::move(ev));
   }
 
   auto emit_split_event = [&](int start, int dur, bool is_rest, std::uint8_t voice,
-                              std::uint8_t articulations, const std::vector<LessonNote>& notes) {
+                              std::uint8_t articulations, const std::vector<LessonNote>& notes,
+                              const std::optional<RhythmicValue>& explicit_dur,
+                              const std::optional<TupletRatio>& tuplet) {
+    if (tuplet.has_value() && explicit_dur.has_value()) {
+      LessonEvent lev{};
+      lev.start_tick = start;
+      lev.duration = *explicit_dur;
+      lev.is_rest = is_rest;
+      lev.voice = voice;
+      lev.tuplet = tuplet;
+      if (lev.event_ticks() != dur) {
+        lev.tick_duration_override = dur;
+      }
+      if (!is_rest) {
+        lev.articulations = articulations;
+        lev.notes = notes;
+      }
+      out_events.push_back(std::move(lev));
+      return;
+    }
+    if (const auto qv = quantize_ticks_to_rhythmic_value(dur); qv.has_value()) {
+      LessonEvent lev{};
+      lev.start_tick = start;
+      lev.duration = *qv;
+      lev.is_rest = is_rest;
+      lev.voice = voice;
+      if (!is_rest) {
+        lev.articulations = articulations;
+        lev.notes = notes;
+      }
+      out_events.push_back(std::move(lev));
+      return;
+    }
     const auto vals = split_ticks_to_values(dur);
     int cur = start;
     for (std::size_t vi = 0; vi < vals.size(); ++vi) {
@@ -338,7 +379,7 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
   };
 
   auto emit_rest_gap = [&](int start, int gap_ticks, std::uint8_t voice) {
-    if (gap_ticks < 120) {
+    if (gap_ticks < 60) {
       return;
     }
     int cur = start;
@@ -370,19 +411,26 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
       break;
     }
     if (st > cursor) {
-      const int aligned_gap = ((st - cursor) / 120) * 120;
-      if (aligned_gap >= 120) {
+      const int aligned_gap = ((st - cursor) / 60) * 60;
+      if (aligned_gap >= 60) {
         emit_rest_gap(cursor, aligned_gap, 0U);
         cursor += aligned_gap;
       }
       st = cursor;
     }
-    int dur = quantize_raw_ticks(std::min(ev.duration_ticks, measure_ticks - st));
-    dur = std::min(dur, ((measure_ticks - st) / 120) * 120);
-    if (dur < 120) {
+    const int max_rem = measure_ticks - st;
+    int dur = 0;
+    if (ev.tuplet.has_value()) {
+      dur = std::min(ev.duration_ticks, max_rem);
+    } else {
+      dur = quantize_raw_ticks(std::min(ev.duration_ticks, max_rem));
+      dur = std::min(dur, (max_rem / 30) * 30);
+    }
+    if (dur < 30) {
       continue;
     }
-    emit_split_event(st, dur, ev.is_rest, 0U, ev.articulations, ev.notes);
+    emit_split_event(st, dur, ev.is_rest, 0U, ev.articulations, ev.notes, ev.explicit_duration,
+                     ev.tuplet);
     cursor = st + dur;
   }
   if (cursor < measure_ticks) {
@@ -405,12 +453,15 @@ void normalize_staff_events(std::vector<RawEvent>& raw_events, int measure_ticks
       if (st >= measure_ticks) {
         break;
       }
-      const int dur =
-          std::min(quantize_raw_ticks(ev.duration_ticks), ((measure_ticks - st) / 120) * 120);
-      if (dur < 120) {
+      const int max_rem = measure_ticks - st;
+      const int dur = ev.tuplet.has_value()
+                          ? std::min(ev.duration_ticks, max_rem)
+                          : std::min(quantize_raw_ticks(ev.duration_ticks), (max_rem / 30) * 30);
+      if (dur < 30) {
         continue;
       }
-      emit_split_event(st, dur, false, voice_id, ev.articulations, ev.notes);
+      emit_split_event(st, dur, false, voice_id, ev.articulations, ev.notes, ev.explicit_duration,
+                       ev.tuplet);
       v_cursor = st + dur;
     }
   }
@@ -529,6 +580,7 @@ struct MeasureParseContext {
   bool found_tempo{false};
   std::size_t skipped_grace_notes{0};
   std::size_t skipped_out_of_range{0};
+  std::size_t skipped_micro_durations{0};
   std::size_t total_measures{0};
   std::vector<std::size_t> phrase_break_bars{};
   std::map<std::pair<int, int>, std::pair<std::size_t, int>> open_slurs{};
@@ -545,6 +597,8 @@ struct MeasureVoiceState {
   std::map<std::string, std::uint8_t> treble_voice_map;
   std::map<std::string, std::uint8_t> bass_voice_map;
   std::map<std::pair<int, std::uint8_t>, std::size_t> last_event_idx;
+  std::map<std::pair<int, std::uint8_t>, std::uint16_t> active_tuplet_group_id;
+  std::uint16_t next_tuplet_group_id{1};
   std::vector<RawEvent>* treble_raw{nullptr};
   std::vector<RawEvent>* bass_raw{nullptr};
   std::vector<HarmonicAnnotation>* harmony_out{nullptr};
@@ -638,37 +692,88 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
     return;
   }
 
-  int dur_ticks = 480;
-  if (const auto raw_d = parse_int_sv(child.child_value("duration"));
-      raw_d.has_value() && *raw_d > 0) {
-    dur_ticks = quantize_raw_ticks(static_cast<int>(
-        std::llround(static_cast<double>(*raw_d) * kTicksPerQuarter / vs.active_div)));
-  } else {
-    const bool has_dot = static_cast<bool>(child.child("dot"));
-    if (const auto rv = parse_musicxml_type(child.child_value("type"), has_dot); rv.has_value()) {
-      dur_ticks = rv->ticks();
+  std::uint8_t dot_count = 0U;
+  for (pugi::xml_node d : child.children("dot")) {
+    (void)d;
+    if (dot_count < 2U) {
+      ++dot_count;
     }
   }
+  const auto explicit_dur = parse_musicxml_type(child.child_value("type"), dot_count);
 
   const bool is_chord = static_cast<bool>(child.child("chord"));
   const bool is_rest = static_cast<bool>(child.child("rest"));
   const std::string voice_str = trim_copy(child.child_value("voice"));
   const auto staff_attr = parse_int_sv(child.child_value("staff"));
+  const int resolved_staff = vs.force_bass_staff ? 2 : (staff_attr.value_or(1) == 2 ? 2 : 1);
+  const std::uint8_t resolved_v =
+      resolve_voice((resolved_staff == 2) ? vs.bass_voice_map : vs.treble_voice_map, voice_str);
+
+  std::optional<TupletRatio> tuplet_ratio;
+  if (const pugi::xml_node tm = child.child("time-modification")) {
+    const auto act = parse_int_sv(tm.child_value("actual-notes"));
+    const auto norm = parse_int_sv(tm.child_value("normal-notes"));
+    if (act.has_value() && norm.has_value() && *act >= 2 && *act <= 16 && *norm >= 1 &&
+        *norm <= 16) {
+      bool is_start = false;
+      bool is_stop = false;
+      for (pugi::xml_node tup : child.child("notations").children("tuplet")) {
+        const std::string_view ttype = tup.attribute("type").as_string();
+        if (ttype == "start") {
+          is_start = true;
+        } else if (ttype == "stop") {
+          is_stop = true;
+        }
+      }
+      const std::pair<int, std::uint8_t> tkey{resolved_staff, resolved_v};
+      if (is_start || !vs.active_tuplet_group_id.contains(tkey)) {
+        vs.active_tuplet_group_id[tkey] = vs.next_tuplet_group_id++;
+      }
+      tuplet_ratio = TupletRatio{
+          .actual = static_cast<std::uint8_t>(*act),
+          .normal = static_cast<std::uint8_t>(*norm),
+          .group_id = vs.active_tuplet_group_id[tkey],
+      };
+      if (is_stop) {
+        vs.active_tuplet_group_id.erase(tkey);
+      }
+    }
+  }
+
+  int dur_ticks = 480;
+  if (const auto raw_d = parse_int_sv(child.child_value("duration"));
+      raw_d.has_value() && *raw_d > 0) {
+    const int scaled = static_cast<int>(
+        std::llround(static_cast<double>(*raw_d) * kTicksPerQuarter / vs.active_div));
+    if (tuplet_ratio.has_value()) {
+      dur_ticks = std::max(1, scaled);
+    } else if (scaled < 30) {
+      ++ctx.skipped_micro_durations;
+      return;
+    } else {
+      dur_ticks = quantize_raw_ticks(scaled);
+    }
+  } else if (explicit_dur.has_value()) {
+    const int base_t = explicit_dur->ticks();
+    dur_ticks = tuplet_ratio.has_value()
+                    ? std::max(1, (base_t * static_cast<int>(tuplet_ratio->normal)) /
+                                      static_cast<int>(tuplet_ratio->actual))
+                    : base_t;
+  }
 
   if (is_rest) {
-    const int staff_id = vs.force_bass_staff ? 2 : staff_attr.value_or(1);
-    auto& vec = (staff_id == 2) ? *vs.bass_raw : *vs.treble_raw;
-    const std::uint8_t v =
-        resolve_voice((staff_id == 2) ? vs.bass_voice_map : vs.treble_voice_map, voice_str);
+    auto& vec = (resolved_staff == 2) ? *vs.bass_raw : *vs.treble_raw;
     if (!is_chord) {
       vec.push_back(RawEvent{
           .start_tick = vs.cursor_ticks,
           .duration_ticks = dur_ticks,
           .is_rest = true,
-          .voice = v,
+          .voice = resolved_v,
           .notes = {},
+          .explicit_duration = explicit_dur,
+          .tuplet = tuplet_ratio,
       });
-      vs.last_event_idx[{staff_id, v}] = vec.size() - 1U;
+      vs.last_event_idx[{resolved_staff, resolved_v}] = vec.size() - 1U;
       vs.cursor_ticks = std::min(vs.measure_ticks, vs.cursor_ticks + dur_ticks);
     }
     return;
@@ -768,6 +873,8 @@ void parse_note_node(pugi::xml_node child, MeasureVoiceState& vs, MeasureParseCo
         .voice = v,
         .articulations = raw_art,
         .notes = {ln},
+        .explicit_duration = explicit_dur,
+        .tuplet = tuplet_ratio,
     });
     vs.last_event_idx[{staff_id, v}] = vec.size() - 1U;
     if (!is_chord) {
@@ -1256,6 +1363,10 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
   if (ctx.skipped_out_of_range > 0U) {
     result.warnings.push_back(
         std::format("Skipped {} note(s) outside 88-key range [A0..C8]", ctx.skipped_out_of_range));
+  }
+  if (ctx.skipped_micro_durations > 0U) {
+    result.warnings.push_back(
+        std::format("Skipped {} micro-duration note(s) (< 64th)", ctx.skipped_micro_durations));
   }
   if (!ctx.found_tempo) {
     result.warnings.push_back(

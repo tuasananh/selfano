@@ -32,6 +32,7 @@ enum class NoteDuration : std::uint8_t {
   Whole = 2,
   Eighth = 3,
   Sixteenth = 4,
+  ThirtySecond = 5,
 };
 
 enum class RestDuration : std::uint8_t {
@@ -40,6 +41,7 @@ enum class RestDuration : std::uint8_t {
   Whole = 2,
   Eighth = 3,
   Sixteenth = 4,
+  ThirtySecond = 5,
 };
 
 struct StaffNote {
@@ -54,6 +56,15 @@ struct StaffNote {
   bool tie_stop{false};
   std::uint8_t voice{0};
   std::uint8_t articulations{0};
+  std::uint8_t dots{0};
+  std::optional<core::TupletRatio> tuplet{};
+
+  [[nodiscard]] constexpr std::uint8_t effective_dots() const noexcept {
+    if (dots > 0U) {
+      return dots > 2U ? 2U : dots;
+    }
+    return dotted ? 1U : 0U;
+  }
 };
 
 struct StaffChord {
@@ -69,6 +80,16 @@ struct StaffChord {
   bool bass_rest_dotted{false};
   std::optional<int> tick_offset{};
   bool memory_revealed{false};
+  std::uint8_t dots{0};
+  std::uint8_t treble_rest_dots{0};
+  std::uint8_t bass_rest_dots{0};
+
+  [[nodiscard]] constexpr std::uint8_t effective_dots() const noexcept {
+    if (dots > 0U) {
+      return dots > 2U ? 2U : dots;
+    }
+    return dotted ? 1U : 0U;
+  }
 };
 
 struct StaffHarmonicLabel {

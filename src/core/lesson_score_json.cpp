@@ -21,6 +21,8 @@ using json = nlohmann::json;
 
 [[nodiscard]] std::string_view duration_to_string(NoteBaseDuration base) noexcept {
   switch (base) {
+  case NoteBaseDuration::ThirtySecond:
+    return "32nd";
   case NoteBaseDuration::Sixteenth:
     return "16th";
   case NoteBaseDuration::Eighth:
@@ -36,6 +38,9 @@ using json = nlohmann::json;
 }
 
 [[nodiscard]] std::optional<NoteBaseDuration> string_to_duration(std::string_view s) noexcept {
+  if (s == "32nd" || s == "thirty-second") {
+    return NoteBaseDuration::ThirtySecond;
+  }
   if (s == "16th" || s == "sixteenth") {
     return NoteBaseDuration::Sixteenth;
   }
@@ -122,14 +127,25 @@ using json = nlohmann::json;
     }
     notes_arr.push_back(std::move(nj));
   }
+  const std::uint8_t dots = ev.duration.effective_dots();
   json ej{
-      {"start_tick", ev.start_tick},
-      {"dur", duration_to_string(ev.duration.base)},
-      {"dotted", ev.duration.dotted},
-      {"is_rest", ev.is_rest},
-      {"voice", ev.voice},
-      {"notes", std::move(notes_arr)},
+      {"start_tick", ev.start_tick}, {"dur", duration_to_string(ev.duration.base)},
+      {"dotted", dots > 0U},         {"is_rest", ev.is_rest},
+      {"voice", ev.voice},           {"notes", std::move(notes_arr)},
   };
+  if (dots >= 2U) {
+    ej["dots"] = dots;
+  }
+  if (ev.tuplet.has_value()) {
+    ej["tuplet"] = {
+        {"actual", ev.tuplet->actual},
+        {"normal", ev.tuplet->normal},
+        {"group_id", ev.tuplet->group_id},
+    };
+  }
+  if (ev.tick_duration_override > 0) {
+    ej["tick_duration_override"] = ev.tick_duration_override;
+  }
   if (ev.articulations != 0U) {
     json art = json::array();
     if (has_articulation(ev.articulations, ArticulationFlag::Staccato)) {
@@ -163,9 +179,9 @@ using json = nlohmann::json;
     return std::unexpected("Lesson event missing string 'dur'");
   }
   std::string dur_str = obj.at("dur").get<std::string>();
-  bool shorthand_dot = false;
-  if (!dur_str.empty() && dur_str.back() == '.') {
-    shorthand_dot = true;
+  std::uint8_t shorthand_dots = 0U;
+  while (!dur_str.empty() && dur_str.back() == '.' && shorthand_dots < 2U) {
+    ++shorthand_dots;
     dur_str.pop_back();
   }
   const auto base_opt = string_to_duration(dur_str);
@@ -173,13 +189,60 @@ using json = nlohmann::json;
     return std::unexpected(std::format("Unknown rhythmic duration '{}'", dur_str));
   }
   ev.duration.base = *base_opt;
-  ev.duration.dotted = shorthand_dot;
+  ev.duration.dots = shorthand_dots;
+  ev.duration.dotted = (shorthand_dots > 0U);
 
   if (obj.contains("dotted")) {
     if (!obj.at("dotted").is_boolean()) {
       return std::unexpected("Event 'dotted' must be a boolean");
     }
-    ev.duration.dotted = obj.at("dotted").get<bool>();
+    const bool b = obj.at("dotted").get<bool>();
+    if (b) {
+      ev.duration.dotted = true;
+      if (ev.duration.dots == 0U) {
+        ev.duration.dots = 1U;
+      }
+    } else if (shorthand_dots == 0U) {
+      ev.duration.dotted = false;
+      ev.duration.dots = 0U;
+    }
+  }
+  if (obj.contains("dots")) {
+    if (!obj.at("dots").is_number_integer()) {
+      return std::unexpected("Event 'dots' must be an integer");
+    }
+    const int d = obj.at("dots").get<int>();
+    if (d < 0 || d > 2) {
+      return std::unexpected("Event 'dots' must be in [0, 2]");
+    }
+    ev.duration.dots = static_cast<std::uint8_t>(d);
+    ev.duration.dotted = (d > 0);
+  }
+  if (obj.contains("tuplet") && !obj.at("tuplet").is_null()) {
+    const auto& tj = obj.at("tuplet");
+    if (!tj.is_object() || !tj.contains("actual") || !tj.at("actual").is_number_integer() ||
+        !tj.contains("normal") || !tj.at("normal").is_number_integer()) {
+      return std::unexpected("Event 'tuplet' must be an object with 'actual' and 'normal'");
+    }
+    const int act = tj.at("actual").get<int>();
+    const int norm = tj.at("normal").get<int>();
+    const int gid = (tj.contains("group_id") && tj.at("group_id").is_number_integer())
+                        ? tj.at("group_id").get<int>()
+                        : 0;
+    if (act < 2 || act > 16 || norm < 1 || norm > 16 || gid < 0 || gid > 65535) {
+      return std::unexpected("Event 'tuplet' values out of range");
+    }
+    ev.tuplet = TupletRatio{
+        .actual = static_cast<std::uint8_t>(act),
+        .normal = static_cast<std::uint8_t>(norm),
+        .group_id = static_cast<std::uint16_t>(gid),
+    };
+  }
+  if (obj.contains("tick_duration_override")) {
+    if (!obj.at("tick_duration_override").is_number_integer()) {
+      return std::unexpected("Event 'tick_duration_override' must be an integer");
+    }
+    ev.tick_duration_override = std::max(0, obj.at("tick_duration_override").get<int>());
   }
   if (obj.contains("is_rest")) {
     if (!obj.at("is_rest").is_boolean()) {

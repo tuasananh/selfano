@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-26
-- **Active Phase:** **Phases 0–23 Complete** — Track A (Learning Speed Multipliers) Complete
-- **Last Completed Phase:** Phase 23 — MIDI-Verified Memory Fade Mode (Unified Stage 3 + Stage 4A)
+- **Last Updated:** 2026-11-27
+- **Active Phase:** **Phase 24 Complete** — Track B (Romantic Score & Importer Foundations) in progress
+- **Last Completed Phase:** Phase 24 — Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets & Sextuplets)
 
 ---
 
@@ -304,8 +304,8 @@
     - **Phase 21:** Micro-Increment Tempo Ramp & Trouble-Spot Micro-SRS ([`docs/phases/phase-21-tempo-ramp-and-trouble-spot-srs.md`](./phases/phase-21-tempo-ramp-and-trouble-spot-srs.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 101/101 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on `t3_04 --auto-ramp`, settings Auto-ramp switch, `t5_02` Post-Run Coach `Drill (Ramp Loop)` & `Save for tomorrow`, and `home --seed-trouble-spot`)
     - **Phase 22:** Chopin Speed Lab: Rhythmic Alteration, `4+1` Bursts & Hand Blocking ([`docs/phases/phase-22-chopin-speed-lab-practice-methods.md`](./phases/phase-22-chopin-speed-lab-practice-methods.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 106/106 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on `t2_01 --practice-transform block`, `t3_04 --practice-transform long-short`, and `t4_02 --practice-transform burst`)
     - **Phase 23:** MIDI-Verified Memory Fade Mode ([`docs/phases/phase-23-midi-verified-memory-fade.md`](./phases/phase-23-midi-verified-memory-fade.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 108/108 passed, `web-release` 0 warnings, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on `t5_02` & `t6_04` across `HarmonyMapOnly` and `BlankMemory` and `srs --seed-srs-lesson t5_02`)
-  - **Track B (Romantic Score & Importer Foundations — Ready Now):**
-    - **Phase 24:** Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) ([`docs/phases/phase-24-fine-subdivisions-and-tuplets.md`](./phases/phase-24-fine-subdivisions-and-tuplets.md)) (`[ ] Planned`)
+  - **Track B (Romantic Score & Importer Foundations — In Progress):**
+    - **Phase 24:** Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) ([`docs/phases/phase-24-fine-subdivisions-and-tuplets.md`](./phases/phase-24-fine-subdivisions-and-tuplets.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 113/113 passed, `emcmake cmake --preset web-release && cmake --build --preset web-release` 0 warnings, core purity 0 matches, `clang-format --dry-run --Werror` clean, Light/Dark screenshots verified on `--tab showcase --showcase-preset romantic`)
     - **Phase 25:** Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava ([`docs/phases/phase-25-grace-notes-clef-changes-and-ottava.md`](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)) (`[ ] Planned`)
     - **Phase 26:** Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode ([`docs/phases/phase-26-tempo-maps-rolled-chords-and-rubato.md`](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)) (`[ ] Planned`)
     - **Phase 27:** Automatic Harmonic Analyzer for Imported Scores ([`docs/phases/phase-27-auto-harmonic-analyzer-for-imports.md`](./phases/phase-27-auto-harmonic-analyzer-for-imports.md)) (`[ ] Planned`)

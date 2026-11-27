@@ -340,7 +340,7 @@ build_chord_skeleton_measures(const LessonScore& score, std::span<const KeySigna
       }
       for (const auto& n : ev.notes) {
         if (n.midi == midi && n.tie_stop) {
-          total += ev.duration.ticks();
+          total += ev.event_ticks();
           found_next = true;
           still_open = n.tie_start;
           start_tick = ev.start_tick;
@@ -430,7 +430,7 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
           if (ev.is_rest) {
             continue;
           }
-          const int ev_ticks = ev.duration.ticks();
+          const int ev_ticks = ev.event_ticks();
           for (const auto& n : ev.notes) {
             if (!n.tie_stop) {
               const int full_dur = compute_tied_note_duration_ticks(
@@ -910,7 +910,7 @@ LessonEngine::build_slice_tick_notes(bool include_treble, bool include_bass,
       for (const LessonEvent* ev : ordered) {
         const auto shape = compute_expressive_shape(expr_lm, *ev, staff_id, is_accomp, bar_dyn);
         const int ev_start_tick = bar_start_tick + ev->start_tick;
-        const int raw_dur_ticks = std::max(1, ev->duration.ticks());
+        const int raw_dur_ticks = std::max(1, ev->event_ticks());
         const int gated_dur_ticks = std::max(
             40,
             static_cast<int>(std::lround(static_cast<double>(raw_dur_ticks) * shape.gate_scale)));
@@ -1536,19 +1536,30 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     const double hit_window_ticks = std::max(140.0, 0.38 * ms_per_beat) / ms_per_tick;
 
     std::optional<std::size_t> candidate_idx;
+    std::optional<std::size_t> matching_idx;
     double best_dist = std::numeric_limits<double>::max();
+    double best_match_dist = std::numeric_limits<double>::max();
     for (std::size_t i = active_target_index_; i < targets_.size(); ++i) {
       if (targets_[i].status != LessonTargetStatus::Pending) {
         continue;
       }
       const double dist = std::abs(static_cast<double>(targets_[i].global_tick) - elapsed_ticks_);
-      if (dist <= hit_window_ticks && dist < best_dist) {
-        best_dist = dist;
-        candidate_idx = i;
+      if (dist <= hit_window_ticks) {
+        if (dist < best_dist) {
+          best_dist = dist;
+          candidate_idx = i;
+        }
+        if (matches_target(targets_[i]) && dist < best_match_dist) {
+          best_match_dist = dist;
+          matching_idx = i;
+        }
       }
       if (static_cast<double>(targets_[i].global_tick) - elapsed_ticks_ > hit_window_ticks) {
         break;
       }
+    }
+    if (matching_idx.has_value()) {
+      candidate_idx = matching_idx;
     }
 
     if (!candidate_idx.has_value()) {
@@ -1718,7 +1729,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
       for (const LessonEvent* ev : ordered) {
         const auto shape = compute_expressive_shape(expr_lm, *ev, staff_id, false, bar_dyn);
         const double ev_start_ms = bar_start_ms + static_cast<double>(ev->start_tick) * ms_per_tick;
-        const double raw_dur_ms = static_cast<double>(ev->duration.ticks()) * ms_per_tick;
+        const double raw_dur_ms = static_cast<double>(ev->event_ticks()) * ms_per_tick;
         const double gated_dur_ms = std::max(40.0, raw_dur_ms * shape.gate_scale);
         std::vector<LessonNote> notes = ev->notes;
         if (shape.rolled && notes.size() > 1U) {

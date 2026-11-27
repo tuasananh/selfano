@@ -13,6 +13,7 @@ enum class ShowcasePreset : std::uint8_t {
   LedgerExtremes = 2,
   SecondAndAccidentalStress = 3,
   ClassicalNotationSpecimen = 4,
+  RomanticNotationSpecimen = 5,
 };
 
 class StaffShowcase {

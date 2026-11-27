@@ -24,17 +24,39 @@ namespace selfano::core {
 
 namespace {
 
-inline constexpr std::array<RhythmicValue, 10> kRhythmicValuesDesc{{
-    {.base = NoteBaseDuration::Whole, .dotted = true},
-    {.base = NoteBaseDuration::Whole, .dotted = false},
-    {.base = NoteBaseDuration::Half, .dotted = true},
-    {.base = NoteBaseDuration::Half, .dotted = false},
-    {.base = NoteBaseDuration::Quarter, .dotted = true},
-    {.base = NoteBaseDuration::Quarter, .dotted = false},
-    {.base = NoteBaseDuration::Eighth, .dotted = true},
-    {.base = NoteBaseDuration::Eighth, .dotted = false},
-    {.base = NoteBaseDuration::Sixteenth, .dotted = true},
-    {.base = NoteBaseDuration::Sixteenth, .dotted = false},
+inline constexpr std::array<RhythmicValue, 17> kQuantizeRhythmicValuesDesc{{
+    {.base = NoteBaseDuration::Whole, .dotted = true, .dots = 2},
+    {.base = NoteBaseDuration::Whole, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Whole, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Half, .dotted = true, .dots = 2},
+    {.base = NoteBaseDuration::Half, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Half, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 2},
+    {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Quarter, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Eighth, .dotted = true, .dots = 2},
+    {.base = NoteBaseDuration::Eighth, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Eighth, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = true, .dots = 2},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::ThirtySecond, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::ThirtySecond, .dotted = false, .dots = 0},
+}};
+
+inline constexpr std::array<RhythmicValue, 12> kRhythmicValuesDesc{{
+    {.base = NoteBaseDuration::Whole, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Whole, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Half, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Half, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Quarter, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Eighth, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Eighth, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::Sixteenth, .dotted = false, .dots = 0},
+    {.base = NoteBaseDuration::ThirtySecond, .dotted = true, .dots = 1},
+    {.base = NoteBaseDuration::ThirtySecond, .dotted = false, .dots = 0},
 }};
 
 void validate_staff_events(std::uint32_t bar_number, std::string_view staff_name,
@@ -43,7 +65,11 @@ void validate_staff_events(std::uint32_t bar_number, std::string_view staff_name
   std::map<std::uint8_t, std::vector<std::pair<int, int>>> voice_spans;
   for (std::size_t idx = 0; idx < events.size(); ++idx) {
     const auto& ev = events[idx];
-    const int dur = ev.duration.ticks();
+    if (ev.tuplet.has_value() && !ev.tuplet->is_valid()) {
+      errors.push_back(std::format("Bar {} {} event {} has invalid tuplet ratio {}:{}", bar_number,
+                                   staff_name, idx, ev.tuplet->actual, ev.tuplet->normal));
+    }
+    const int dur = ev.event_ticks();
     if (dur <= 0 || ev.start_tick < 0 || ev.start_tick + dur > measure_ticks) {
       errors.push_back(std::format("Bar {} {} event {} tick span [{}, {}) exceeds measure [0, {})",
                                    bar_number, staff_name, idx, ev.start_tick, ev.start_tick + dur,
@@ -202,7 +228,7 @@ std::expected<SpelledNote, std::string> parse_spelled_note(std::string_view text
 }
 
 std::optional<RhythmicValue> quantize_ticks_to_rhythmic_value(int ticks) noexcept {
-  for (const auto& rv : kRhythmicValuesDesc) {
+  for (const auto& rv : kQuantizeRhythmicValuesDesc) {
     if (rv.ticks() == ticks) {
       return rv;
     }
@@ -213,7 +239,7 @@ std::optional<RhythmicValue> quantize_ticks_to_rhythmic_value(int ticks) noexcep
 std::vector<RhythmicValue> split_ticks_to_values(int total_ticks) {
   std::vector<RhythmicValue> out;
   int rem = total_ticks;
-  while (rem >= 120) {
+  while (rem >= 60) {
     bool matched = false;
     for (const auto& rv : kRhythmicValuesDesc) {
       if (rv.ticks() <= rem) {

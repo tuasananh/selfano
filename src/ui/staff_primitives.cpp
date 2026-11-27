@@ -100,6 +100,7 @@ ThemePalette palette_for(bool light_paper, bool dim_preview) noexcept {
 
 const char* notehead_glyph(NoteDuration duration) noexcept {
   switch (duration) {
+  case NoteDuration::ThirtySecond:
   case NoteDuration::Sixteenth:
   case NoteDuration::Eighth:
   case NoteDuration::Quarter:
@@ -114,6 +115,7 @@ const char* notehead_glyph(NoteDuration duration) noexcept {
 
 float notehead_width_spaces(NoteDuration duration) noexcept {
   switch (duration) {
+  case NoteDuration::ThirtySecond:
   case NoteDuration::Sixteenth:
   case NoteDuration::Eighth:
   case NoteDuration::Quarter:
@@ -128,6 +130,8 @@ float notehead_width_spaces(NoteDuration duration) noexcept {
 
 core::NoteBaseDuration to_core_base_duration(NoteDuration duration) noexcept {
   switch (duration) {
+  case NoteDuration::ThirtySecond:
+    return core::NoteBaseDuration::ThirtySecond;
   case NoteDuration::Sixteenth:
     return core::NoteBaseDuration::Sixteenth;
   case NoteDuration::Eighth:
@@ -144,6 +148,8 @@ core::NoteBaseDuration to_core_base_duration(NoteDuration duration) noexcept {
 
 const char* rest_glyph(RestDuration duration) noexcept {
   switch (duration) {
+  case RestDuration::ThirtySecond:
+    return kGlyphRest32nd;
   case RestDuration::Sixteenth:
     return kGlyphRest16th;
   case RestDuration::Eighth:
@@ -160,6 +166,7 @@ const char* rest_glyph(RestDuration duration) noexcept {
 
 int rest_anchor_step(RestDuration duration, core::Clef clef) noexcept {
   switch (duration) {
+  case RestDuration::ThirtySecond:
   case RestDuration::Sixteenth:
   case RestDuration::Eighth:
   case RestDuration::Quarter:

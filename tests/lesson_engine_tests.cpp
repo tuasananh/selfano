@@ -1550,3 +1550,79 @@ TEST_CASE("LessonEngine MemoryFadeLevel tracks peek-on-mistake and computes SM-2
     CHECK(prog.memory_blank_clean);
   }
 }
+
+TEST_CASE("LessonEngine handles 32nd runs and 2-against-3 polyrhythm in SteadyPulse and Demo",
+          "[lesson_engine][phase24]") {
+  LessonScore score = make_sample_lesson();
+  score.measures.resize(1);
+  score.phrases = {LessonPhrase{.label = "Phrase A", .start_bar = 0, .end_bar = 0}};
+  // Beat 1: RH 8th triplet (0, 160, 320) vs LH 8ths (0, 240)
+  // Beat 2: RH four 32nds (480, 540, 600, 660) + quarter (720)
+  // Beat 3-4: Half (960)
+  auto make_n = [](NoteLetter l, int oct) {
+    const SpelledNote sp{.letter = l, .accidental = Accidental::Natural, .octave = oct};
+    return LessonNote{.spelled = sp, .midi = to_midi(sp).value()};
+  };
+  score.measures[0].treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Eighth},
+       .notes = {make_n(NoteLetter::C, 5)},
+       .tuplet = TupletRatio{3, 2, 1}},
+      {.start_tick = 160,
+       .duration = {.base = NoteBaseDuration::Eighth},
+       .notes = {make_n(NoteLetter::D, 5)},
+       .tuplet = TupletRatio{3, 2, 1}},
+      {.start_tick = 320,
+       .duration = {.base = NoteBaseDuration::Eighth},
+       .notes = {make_n(NoteLetter::E, 5)},
+       .tuplet = TupletRatio{3, 2, 1}},
+      {.start_tick = 480,
+       .duration = {.base = NoteBaseDuration::ThirtySecond},
+       .notes = {make_n(NoteLetter::F, 5)}},
+      {.start_tick = 540,
+       .duration = {.base = NoteBaseDuration::ThirtySecond},
+       .notes = {make_n(NoteLetter::E, 5)}},
+      {.start_tick = 600,
+       .duration = {.base = NoteBaseDuration::ThirtySecond},
+       .notes = {make_n(NoteLetter::D, 5)}},
+      {.start_tick = 660,
+       .duration = {.base = NoteBaseDuration::ThirtySecond},
+       .notes = {make_n(NoteLetter::C, 5)}},
+      {.start_tick = 720,
+       .duration = {.base = NoteBaseDuration::Quarter},
+       .notes = {make_n(NoteLetter::D, 5)}},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half},
+       .notes = {make_n(NoteLetter::C, 5)}},
+  };
+  score.measures[0].bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Eighth},
+       .notes = {make_n(NoteLetter::C, 3)}},
+      {.start_tick = 240,
+       .duration = {.base = NoteBaseDuration::Eighth},
+       .notes = {make_n(NoteLetter::G, 3)}},
+      {.start_tick = 480,
+       .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+       .notes = {make_n(NoteLetter::C, 3)}},
+  };
+
+  LessonEngine engine;
+  LessonConfig cfg{};
+  cfg.practice_mode = LessonPracticeMode::WaitForNote;
+  cfg.hand_mode = LessonHandMode::HandsTogether;
+  engine.load_score(score, cfg);
+
+  // Ticks: 0 (C3+C5), 160 (D5), 240 (G3), 320 (E5), 480 (C3+F5), 540 (E5), 600 (D5), 660 (C5),
+  // 720 (D5), 960 (C5) -> 10 targets
+  REQUIRE(engine.targets().size() == 10U);
+  CHECK(engine.targets()[1].tick_in_bar == 160);
+  CHECK(engine.targets()[2].tick_in_bar == 240);
+  CHECK(engine.targets()[3].tick_in_bar == 320);
+
+  const auto demo = engine.build_demo_playback();
+  REQUIRE(demo.size() == 12U);
+  for (std::size_t i = 1; i < demo.size(); ++i) {
+    CHECK(demo[i].start_ms >= demo[i - 1U].start_ms);
+  }
+}

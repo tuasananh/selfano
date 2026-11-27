@@ -118,6 +118,8 @@ CliOptions parse_cli(int argc, char* argv[]) {
       const std::string_view p = argv[++i];
       if (p == "classical") {
         opts.showcase_preset = ui::ShowcasePreset::ClassicalNotationSpecimen;
+      } else if (p == "romantic") {
+        opts.showcase_preset = ui::ShowcasePreset::RomanticNotationSpecimen;
       }
     } else if (arg == "--keymap") {
       opts.open_keymap = true;

@@ -444,3 +444,151 @@ TEST_CASE("MusicXmlImporter imports expressive tempo words, dynamics, hairpins, 
   REQUIRE(has_articulation(tr[2].articulations, ArticulationFlag::Accent));
   REQUIRE(has_articulation(tr[3].articulations, ArticulationFlag::Arpeggiate));
 }
+
+TEST_CASE("MusicXmlImporter imports 32nd notes, double dots, triplets, 2-against-3, quintuplets, "
+          "and sextuplets",
+          "[musicxml_importer][phase24]") {
+  // divisions = 120 -> quarter = 120, 8th = 60, 8th triplet = 40, 16th = 30, 32nd = 15,
+  // 16th sextuplet = 20, 16th quintuplet (use divisions = 600 -> quarter = 600, 16th quint = 120)
+  constexpr const char* kRomanticXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Romantic Tuplet &amp; 32nd Fixture</work-title></work>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>120</divisions>
+        <key><fifths>-2</fifths><mode>minor</mode></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <staves>2</staves>
+      </attributes>
+      <!-- Beat 1: 8th triplet (40 each = 160 ticks) -->
+      <note>
+        <pitch><step>G</step><octave>4</octave></pitch>
+        <duration>40</duration><voice>1</voice><type>eighth</type><staff>1</staff>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+        <notations><tuplet type="start"/></notations>
+      </note>
+      <note>
+        <pitch><step>A</step><octave>4</octave></pitch>
+        <duration>40</duration><voice>1</voice><type>eighth</type><staff>1</staff>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+      </note>
+      <note>
+        <pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch>
+        <duration>40</duration><voice>1</voice><type>eighth</type><staff>1</staff>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>
+        <notations><tuplet type="stop"/></notations>
+      </note>
+      <!-- Beat 2-3: double-dotted quarter (210 div = 840 ticks) + 16th (30 div = 120 ticks) -->
+      <note>
+        <pitch><step>D</step><octave>5</octave></pitch>
+        <duration>210</duration><voice>1</voice><type>quarter</type><dot/><dot/><staff>1</staff>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>5</octave></pitch>
+        <duration>30</duration><voice>1</voice><type>16th</type><staff>1</staff>
+      </note>
+      <!-- Beat 4: four 32nds (15 div = 60 ticks each) + 8th (60 div = 240 ticks) -->
+      <note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>15</duration><voice>1</voice><type>32nd</type><staff>1</staff></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>15</duration><voice>1</voice><type>32nd</type><staff>1</staff></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>15</duration><voice>1</voice><type>32nd</type><staff>1</staff></note>
+      <note><pitch><step>F</step><alter>1</alter><octave>4</octave></pitch><duration>15</duration><voice>1</voice><type>32nd</type><staff>1</staff></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>60</duration><voice>1</voice><type>eighth</type><staff>1</staff></note>
+      <backup><duration>480</duration></backup>
+      <!-- Bass: 2-against-3 (two 8ths at 0, 240) + sextuplet (six 16ths = 80 each) + half -->
+      <note><pitch><step>G</step><octave>2</octave></pitch><duration>60</duration><voice>5</voice><type>eighth</type><staff>2</staff></note>
+      <note><pitch><step>D</step><octave>3</octave></pitch><duration>60</duration><voice>5</voice><type>eighth</type><staff>2</staff></note>
+      <note>
+        <pitch><step>G</step><octave>3</octave></pitch><duration>20</duration><voice>5</voice><type>16th</type><staff>2</staff>
+        <time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+        <notations><tuplet type="start"/></notations>
+      </note>
+      <note>
+        <pitch><step>A</step><octave>3</octave></pitch><duration>20</duration><voice>5</voice><type>16th</type><staff>2</staff>
+        <time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+      </note>
+      <note>
+        <pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>20</duration><voice>5</voice><type>16th</type><staff>2</staff>
+        <time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>20</duration><voice>5</voice><type>16th</type><staff>2</staff>
+        <time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+      </note>
+      <note>
+        <pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>20</duration><voice>5</voice><type>16th</type><staff>2</staff>
+        <time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+      </note>
+      <note>
+        <pitch><step>A</step><octave>3</octave></pitch><duration>20</duration><voice>5</voice><type>16th</type><staff>2</staff>
+        <time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification>
+        <notations><tuplet type="stop"/></notations>
+      </note>
+      <note><pitch><step>G</step><octave>2</octave></pitch><duration>240</duration><voice>5</voice><type>half</type><staff>2</staff></note>
+    </measure>
+    <measure number="2">
+      <attributes><divisions>5</divisions></attributes>
+      <!-- Beat 1: 16th quintuplet (1 div each = 96 ticks) + dotted half -->
+      <note>
+        <pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><staff>1</staff>
+        <time-modification><actual-notes>5</actual-notes><normal-notes>4</normal-notes></time-modification>
+        <notations><tuplet type="start"/></notations>
+      </note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><staff>1</staff><time-modification><actual-notes>5</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note><pitch><step>E</step><alter>-1</alter><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><staff>1</staff><time-modification><actual-notes>5</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><staff>1</staff><time-modification><actual-notes>5</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note>
+        <pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><staff>1</staff>
+        <time-modification><actual-notes>5</actual-notes><normal-notes>4</normal-notes></time-modification>
+        <notations><tuplet type="stop"/></notations>
+      </note>
+      <note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>15</duration><voice>1</voice><type>half</type><dot/><staff>1</staff></note>
+      <backup><duration>20</duration></backup>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>20</duration><voice>5</voice><type>whole</type><staff>2</staff></note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  const auto res = import_musicxml_string(kRomanticXml);
+  REQUIRE(res.has_value());
+  const auto& sc = res->score;
+  REQUIRE(validate_lesson_score(sc).has_value());
+  REQUIRE(sc.measures.size() == 2U);
+
+  const auto& m1_tr = sc.measures[0].treble_events;
+  REQUIRE(m1_tr.size() == 10U);
+  // Triplet at ticks 0, 160, 320
+  REQUIRE(m1_tr[0].start_tick == 0);
+  REQUIRE(m1_tr[0].event_ticks() == 160);
+  REQUIRE(m1_tr[0].tuplet.has_value());
+  REQUIRE(m1_tr[0].tuplet->actual == 3U);
+  REQUIRE(m1_tr[1].start_tick == 160);
+  REQUIRE(m1_tr[2].start_tick == 320);
+  // Double-dotted quarter = 840 ticks
+  REQUIRE(m1_tr[3].start_tick == 480);
+  REQUIRE(m1_tr[3].duration.base == NoteBaseDuration::Quarter);
+  REQUIRE(m1_tr[3].duration.effective_dots() == 2U);
+  REQUIRE(m1_tr[3].event_ticks() == 840);
+  // Four 32nds = 60 ticks each
+  REQUIRE(m1_tr[5].duration.base == NoteBaseDuration::ThirtySecond);
+  REQUIRE(m1_tr[5].event_ticks() == 60);
+  REQUIRE(m1_tr[8].start_tick == 1620);
+
+  // Bass 2-against-3 + sextuplet (80 ticks each)
+  const auto& m1_bs = sc.measures[0].bass_events;
+  REQUIRE(m1_bs.size() == 9U);
+  REQUIRE(m1_bs[1].start_tick == 240);
+  REQUIRE(m1_bs[2].start_tick == 480);
+  REQUIRE(m1_bs[2].event_ticks() == 80);
+  REQUIRE(m1_bs[2].tuplet.has_value());
+  REQUIRE(m1_bs[2].tuplet->actual == 6U);
+
+  // Measure 2: quintuplet (96 ticks each)
+  const auto& m2_tr = sc.measures[1].treble_events;
+  REQUIRE(m2_tr.size() == 6U);
+  REQUIRE(m2_tr[0].event_ticks() == 96);
+  REQUIRE(m2_tr[1].start_tick == 96);
+  REQUIRE(m2_tr[0].tuplet.has_value());
+  REQUIRE(m2_tr[0].tuplet->actual == 5U);
+}

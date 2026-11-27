@@ -17,6 +17,8 @@ namespace selfano::ui {
 
 NoteDuration to_staff_note_duration(core::NoteBaseDuration base) noexcept {
   switch (base) {
+  case core::NoteBaseDuration::ThirtySecond:
+    return NoteDuration::ThirtySecond;
   case core::NoteBaseDuration::Sixteenth:
     return NoteDuration::Sixteenth;
   case core::NoteBaseDuration::Eighth:
@@ -33,6 +35,8 @@ NoteDuration to_staff_note_duration(core::NoteBaseDuration base) noexcept {
 
 RestDuration to_staff_rest_duration(core::NoteBaseDuration base) noexcept {
   switch (base) {
+  case core::NoteBaseDuration::ThirtySecond:
+    return RestDuration::ThirtySecond;
   case core::NoteBaseDuration::Sixteenth:
     return RestDuration::Sixteenth;
   case core::NoteBaseDuration::Eighth:
@@ -127,18 +131,22 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
             if (ev->voice == 0U) {
               if (clef == core::Clef::Treble) {
                 chord.treble_rest = to_staff_rest_duration(ev->duration.base);
-                chord.treble_rest_dotted = ev->duration.dotted;
+                chord.treble_rest_dotted = ev->duration.effective_dots() > 0U;
+                chord.treble_rest_dots = ev->duration.effective_dots();
               } else {
                 chord.bass_rest = to_staff_rest_duration(ev->duration.base);
-                chord.bass_rest_dotted = ev->duration.dotted;
+                chord.bass_rest_dotted = ev->duration.effective_dots() > 0U;
+                chord.bass_rest_dots = ev->duration.effective_dots();
               }
             }
             continue;
           }
           const NoteDuration dur = to_staff_note_duration(ev->duration.base);
+          const std::uint8_t ev_dots = ev->duration.effective_dots();
           if (!chord_dur_set) {
             chord.duration = dur;
-            chord.dotted = ev->duration.dotted;
+            chord.dotted = ev_dots > 0U;
+            chord.dots = ev_dots;
             chord_dur_set = true;
           }
           for (const auto& ln : ev->notes) {
@@ -148,12 +156,14 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
                 .feedback = fb,
                 .played_label = (!badge_attached ? played_lbl : std::string{}),
                 .duration = dur,
-                .dotted = ev->duration.dotted,
+                .dotted = ev_dots > 0U,
                 .finger = ln.finger,
                 .tie_start = ln.tie_start,
                 .tie_stop = ln.tie_stop,
                 .voice = ev->voice,
                 .articulations = ev->articulations,
+                .dots = ev_dots,
+                .tuplet = ev->tuplet,
             });
             badge_attached = true;
           }

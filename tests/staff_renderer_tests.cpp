@@ -384,3 +384,52 @@ TEST_CASE("System-start measure numbers clear tempo and harmony labels and skip 
     CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '0').empty());
   }
 }
+
+TEST_CASE("Double augmentation dots, 32nd rests, and tuplet numerals render cleanly",
+          "[staff_renderer][phase24]") {
+  core::LessonMeasure m{};
+  m.bar_number = 1;
+  auto make_n = [](core::NoteLetter l, int oct) {
+    const core::SpelledNote sp{.letter = l, .accidental = core::Accidental::Natural, .octave = oct};
+    return core::LessonNote{.spelled = sp, .midi = core::to_midi(sp).value()};
+  };
+  m.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Quarter, .dotted = true, .dots = 2},
+       .notes = {make_n(core::NoteLetter::E, 5)}},
+      {.start_tick = 840,
+       .duration = {.base = core::NoteBaseDuration::ThirtySecond},
+       .is_rest = true,
+       .notes = {}},
+      {.start_tick = 900,
+       .duration = {.base = core::NoteBaseDuration::ThirtySecond},
+       .notes = {make_n(core::NoteLetter::D, 5)}},
+      {.start_tick = 960,
+       .duration = {.base = core::NoteBaseDuration::Quarter},
+       .notes = {make_n(core::NoteLetter::C, 5)},
+       .tuplet = core::TupletRatio{3, 2, 1}},
+      {.start_tick = 1280,
+       .duration = {.base = core::NoteBaseDuration::Quarter},
+       .notes = {make_n(core::NoteLetter::D, 5)},
+       .tuplet = core::TupletRatio{3, 2, 1}},
+      {.start_tick = 1600,
+       .duration = {.base = core::NoteBaseDuration::Quarter},
+       .notes = {make_n(core::NoteLetter::E, 5)},
+       .tuplet = core::TupletRatio{3, 2, 1}},
+  };
+  m.bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Whole},
+       .notes = {make_n(core::NoteLetter::C, 3)}},
+  };
+
+  const auto staff = ui::build_lesson_staff_measures(std::span{&m, 1}, 0, {}, true, true);
+  StaffFrame frame;
+  ui::StaffRenderOptions opts{};
+  frame.render(staff, opts, 800.0f);
+
+  const float size = 4 * opts.staff_space * ui::kBravuraEmToPixelHeightScale;
+  CHECK(frame.glyphs(frame.fonts.smufl_font, size, 0xE1E7).size() == 2U); // double dots
+  CHECK(frame.glyphs(frame.fonts.smufl_font, size, 0xE4E8).size() == 1U); // 32nd rest
+  CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '3').size() == 1U);      // tuplet numeral 3
+}

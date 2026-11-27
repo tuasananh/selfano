@@ -44,7 +44,7 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 21** | Micro-Increment Tempo Ramp & Trouble-Spot Micro-SRS *(Track A)* | [phase-21-tempo-ramp-and-trouble-spot-srs.md](./phases/phase-21-tempo-ramp-and-trouble-spot-srs.md) | `[x] Complete` |
 | **Phase 22** | Chopin Speed Lab: Rhythmic Alteration, `4+1` Bursts & Hand Blocking *(Track A)* | [phase-22-chopin-speed-lab-practice-methods.md](./phases/phase-22-chopin-speed-lab-practice-methods.md) | `[x] Complete` |
 | **Phase 23** | MIDI-Verified Memory Fade Mode *(Track A)* | [phase-23-midi-verified-memory-fade.md](./phases/phase-23-midi-verified-memory-fade.md) | `[x] Complete` |
-| **Phase 24** | Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) *(Track B)* | [phase-24-fine-subdivisions-and-tuplets.md](./phases/phase-24-fine-subdivisions-and-tuplets.md) | `[ ] Planned` |
+| **Phase 24** | Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets) *(Track B)* | [phase-24-fine-subdivisions-and-tuplets.md](./phases/phase-24-fine-subdivisions-and-tuplets.md) | `[x] Complete` |
 | **Phase 25** | Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava *(Track B)* | [phase-25-grace-notes-clef-changes-and-ottava.md](./phases/phase-25-grace-notes-clef-changes-and-ottava.md) | `[ ] Planned` |
 | **Phase 26** | Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode *(Track B)* | [phase-26-tempo-maps-rolled-chords-and-rubato.md](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md) | `[ ] Planned` |
 | **Phase 27** | Automatic Harmonic Analyzer for Imported Scores *(Track B)* | [phase-27-auto-harmonic-analyzer-for-imports.md](./phases/phase-27-auto-harmonic-analyzer-for-imports.md) | `[ ] Planned` |

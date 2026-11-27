@@ -54,20 +54,32 @@ struct TimeSignature {
 };
 
 enum class NoteBaseDuration : std::uint8_t {
-  Sixteenth = 0, // 120 ticks
-  Eighth = 1,    // 240 ticks
-  Quarter = 2,   // 480 ticks
-  Half = 3,      // 960 ticks
-  Whole = 4,     // 1920 ticks
+  Sixteenth = 0,    // 120 ticks
+  Eighth = 1,       // 240 ticks
+  Quarter = 2,      // 480 ticks
+  Half = 3,         // 960 ticks
+  Whole = 4,        // 1920 ticks
+  ThirtySecond = 5, // 60 ticks
 };
 
 struct RhythmicValue {
   NoteBaseDuration base{NoteBaseDuration::Quarter};
   bool dotted{false};
+  std::uint8_t dots{0};
+
+  [[nodiscard]] constexpr std::uint8_t effective_dots() const noexcept {
+    if (dots > 0U) {
+      return dots > 2U ? 2U : dots;
+    }
+    return dotted ? 1U : 0U;
+  }
 
   [[nodiscard]] constexpr int ticks() const noexcept {
     int base_ticks = kTicksPerQuarter;
     switch (base) {
+    case NoteBaseDuration::ThirtySecond:
+      base_ticks = kTicksPerQuarter / 8; // 60
+      break;
     case NoteBaseDuration::Sixteenth:
       base_ticks = kTicksPerQuarter / 4; // 120
       break;
@@ -84,10 +96,19 @@ struct RhythmicValue {
       base_ticks = kTicksPerQuarter * 4; // 1920
       break;
     }
-    return dotted ? (base_ticks + base_ticks / 2) : base_ticks;
+    const std::uint8_t d = effective_dots();
+    if (d == 1U) {
+      return base_ticks + base_ticks / 2;
+    }
+    if (d == 2U) {
+      return base_ticks + base_ticks / 2 + base_ticks / 4;
+    }
+    return base_ticks;
   }
 
-  constexpr bool operator==(const RhythmicValue&) const = default;
+  constexpr bool operator==(const RhythmicValue& o) const noexcept {
+    return base == o.base && effective_dots() == o.effective_dots();
+  }
 };
 
 enum class ArticulationFlag : std::uint8_t {
@@ -223,6 +244,18 @@ struct LessonNote {
   constexpr bool operator==(const LessonNote&) const = default;
 };
 
+struct TupletRatio {
+  std::uint8_t actual{3};
+  std::uint8_t normal{2};
+  std::uint16_t group_id{0};
+
+  [[nodiscard]] constexpr bool is_valid() const noexcept {
+    return actual >= 2U && actual <= 16U && normal >= 1U && normal <= 16U;
+  }
+
+  constexpr bool operator==(const TupletRatio&) const = default;
+};
+
 struct LessonEvent {
   int start_tick{0}; // [0, measure_ticks)
   RhythmicValue duration{};
@@ -230,6 +263,19 @@ struct LessonEvent {
   std::uint8_t voice{0};         // 0 = primary, 1 = optional secondary voice
   std::uint8_t articulations{0}; // ArticulationFlag bitmask
   std::vector<LessonNote> notes;
+  std::optional<TupletRatio> tuplet{};
+  int tick_duration_override{0};
+
+  [[nodiscard]] constexpr int event_ticks() const noexcept {
+    if (tick_duration_override > 0) {
+      return tick_duration_override;
+    }
+    const int base_ticks = duration.ticks();
+    if (!tuplet.has_value() || tuplet->actual == 0U) {
+      return base_ticks;
+    }
+    return (base_ticks * static_cast<int>(tuplet->normal)) / static_cast<int>(tuplet->actual);
+  }
 
   bool operator==(const LessonEvent&) const = default;
 };

@@ -320,7 +320,11 @@ TEST_CASE("split_ticks_to_values greedily decomposes durations into rhythmic val
   REQUIRE(bar_5_4[1] == RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = false});
 
   REQUIRE(split_ticks_to_values(0).empty());
-  REQUIRE(split_ticks_to_values(60).empty());
+  REQUIRE(split_ticks_to_values(30).empty());
+  const auto thirty_second = split_ticks_to_values(60);
+  REQUIRE(thirty_second.size() == 1);
+  REQUIRE(thirty_second[0] ==
+          RhythmicValue{.base = NoteBaseDuration::ThirtySecond, .dotted = false});
 }
 
 TEST_CASE("LessonScore supports anacrusis pickup measures with backward-compatible JSON",
@@ -434,5 +438,127 @@ TEST_CASE("Expressive LessonScore fields round-trip cleanly and validate bounds"
     bad_pedal.pedals[0].start_bar = 1;
     bad_pedal.pedals[0].end_bar = 0;
     REQUIRE_FALSE(validate_lesson_score(bad_pedal).has_value());
+  }
+}
+
+TEST_CASE("LessonScore supports 32nd notes, double dots, and general tuplets with JSON round-trip",
+          "[lesson_score][phase24]") {
+  REQUIRE(RhythmicValue{NoteBaseDuration::ThirtySecond, false}.ticks() == 60);
+  REQUIRE(RhythmicValue{NoteBaseDuration::ThirtySecond, true}.ticks() == 90);
+  REQUIRE(RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 2}.ticks() ==
+          840);
+  REQUIRE(RhythmicValue{.base = NoteBaseDuration::Eighth, .dotted = true, .dots = 2}.ticks() ==
+          420);
+  REQUIRE(RhythmicValue{.base = NoteBaseDuration::Half, .dotted = true, .dots = 2}.ticks() == 1680);
+  REQUIRE(RhythmicValue{.base = NoteBaseDuration::Sixteenth, .dotted = true, .dots = 2}.ticks() ==
+          210);
+
+  REQUIRE(quantize_ticks_to_rhythmic_value(60) ==
+          RhythmicValue{.base = NoteBaseDuration::ThirtySecond, .dotted = false});
+  REQUIRE(quantize_ticks_to_rhythmic_value(840) ==
+          RhythmicValue{.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 2});
+
+  LessonScore score = make_valid_two_bar_score();
+  score.measures.clear();
+
+  LessonMeasure m1{};
+  m1.bar_number = 1;
+  // Beat 1: 8th triplet (160 x 3 = 480)
+  // Beat 2: 16th quintuplet (96 x 5 = 480)
+  // Beat 3-4: double-dotted quarter (840) + two 32nds (60 + 60) = 960
+  m1.treble_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Eighth},
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 4, 1)},
+                  .tuplet = TupletRatio{.actual = 3, .normal = 2, .group_id = 1}},
+      LessonEvent{.start_tick = 160,
+                  .duration = {.base = NoteBaseDuration::Eighth},
+                  .notes = {make_ln(NoteLetter::A, Accidental::Natural, 4, 2)},
+                  .tuplet = TupletRatio{.actual = 3, .normal = 2, .group_id = 1}},
+      LessonEvent{.start_tick = 320,
+                  .duration = {.base = NoteBaseDuration::Eighth},
+                  .notes = {make_ln(NoteLetter::B, Accidental::Flat, 4, 3)},
+                  .tuplet = TupletRatio{.actual = 3, .normal = 2, .group_id = 1}},
+      LessonEvent{.start_tick = 480,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::C, Accidental::Natural, 5, 1)},
+                  .tuplet = TupletRatio{.actual = 5, .normal = 4, .group_id = 2}},
+      LessonEvent{.start_tick = 576,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::D, Accidental::Natural, 5, 2)},
+                  .tuplet = TupletRatio{.actual = 5, .normal = 4, .group_id = 2}},
+      LessonEvent{.start_tick = 672,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::E, Accidental::Flat, 5, 3)},
+                  .tuplet = TupletRatio{.actual = 5, .normal = 4, .group_id = 2}},
+      LessonEvent{.start_tick = 768,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::D, Accidental::Natural, 5, 2)},
+                  .tuplet = TupletRatio{.actual = 5, .normal = 4, .group_id = 2}},
+      LessonEvent{.start_tick = 864,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::C, Accidental::Natural, 5, 1)},
+                  .tuplet = TupletRatio{.actual = 5, .normal = 4, .group_id = 2}},
+      LessonEvent{.start_tick = 960,
+                  .duration = {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 2},
+                  .notes = {make_ln(NoteLetter::B, Accidental::Flat, 4, 3)}},
+      LessonEvent{.start_tick = 1800,
+                  .duration = {.base = NoteBaseDuration::ThirtySecond},
+                  .notes = {make_ln(NoteLetter::A, Accidental::Natural, 4, 2)}},
+      LessonEvent{.start_tick = 1860,
+                  .duration = {.base = NoteBaseDuration::ThirtySecond},
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 4, 1)}},
+  };
+  // Bass: 16th sextuplet (80 x 6 = 480) + dotted half (1440)
+  m1.bass_events = {
+      LessonEvent{.start_tick = 0,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 2, 5)},
+                  .tuplet = TupletRatio{.actual = 6, .normal = 4, .group_id = 3}},
+      LessonEvent{.start_tick = 80,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)},
+                  .tuplet = TupletRatio{.actual = 6, .normal = 4, .group_id = 3}},
+      LessonEvent{.start_tick = 160,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 3, 1)},
+                  .tuplet = TupletRatio{.actual = 6, .normal = 4, .group_id = 3}},
+      LessonEvent{.start_tick = 240,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::B, Accidental::Flat, 3, 2)},
+                  .tuplet = TupletRatio{.actual = 6, .normal = 4, .group_id = 3}},
+      LessonEvent{.start_tick = 320,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 3, 1)},
+                  .tuplet = TupletRatio{.actual = 6, .normal = 4, .group_id = 3}},
+      LessonEvent{.start_tick = 400,
+                  .duration = {.base = NoteBaseDuration::Sixteenth},
+                  .notes = {make_ln(NoteLetter::D, Accidental::Natural, 3, 2)},
+                  .tuplet = TupletRatio{.actual = 6, .normal = 4, .group_id = 3}},
+      LessonEvent{.start_tick = 480,
+                  .duration = {.base = NoteBaseDuration::Half, .dotted = true},
+                  .notes = {make_ln(NoteLetter::G, Accidental::Natural, 2, 5)}},
+  };
+  score.measures.push_back(m1);
+  score.phrases = {LessonPhrase{.label = "Phrase A", .start_bar = 0, .end_bar = 0}};
+
+  REQUIRE(m1.treble_events[0].event_ticks() == 160);
+  REQUIRE(m1.treble_events[3].event_ticks() == 96);
+  REQUIRE(m1.bass_events[0].event_ticks() == 80);
+  REQUIRE(validate_lesson_score(score).has_value());
+
+  const std::string json_str = lesson_score_to_json(score);
+  const auto reparsed = lesson_score_from_json(json_str);
+  REQUIRE(reparsed.has_value());
+  REQUIRE(*reparsed == score);
+  REQUIRE(reparsed->measures[0].treble_events[8].duration.effective_dots() == 2U);
+  REQUIRE(reparsed->measures[0].treble_events[9].duration.base == NoteBaseDuration::ThirtySecond);
+  REQUIRE(reparsed->measures[0].treble_events[0].tuplet ==
+          TupletRatio{.actual = 3, .normal = 2, .group_id = 1});
+
+  SECTION("Rejects invalid tuplet ratio") {
+    auto bad = score;
+    bad.measures[0].treble_events[0].tuplet = TupletRatio{.actual = 1, .normal = 2, .group_id = 1};
+    REQUIRE_FALSE(validate_lesson_score(bad).has_value());
   }
 }
