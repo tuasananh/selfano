@@ -59,7 +59,8 @@ StaffShowcase::StaffShowcase() {
 void StaffShowcase::set_preset(ShowcasePreset preset) {
   if (preset_ != preset) {
     preset_ = preset;
-    if (preset_ == ShowcasePreset::ClassicalNotationSpecimen) {
+    if (preset_ == ShowcasePreset::ClassicalNotationSpecimen ||
+        preset_ == ShowcasePreset::RomanticNotationSpecimen) {
       options_.key = core::KeySignature{.fifths = -2, .mode = core::Mode::Minor};
     }
     rebuild_measures();
@@ -549,6 +550,200 @@ void StaffShowcase::rebuild_measures() {
     return;
   }
 
+  if (preset_ == ShowcasePreset::RomanticNotationSpecimen) {
+    options_.key = core::KeySignature{.fifths = -2, .mode = core::Mode::Minor};
+    options_.time_signature = core::TimeSignature{.numerator = 4, .denominator = 4};
+    options_.show_harmony_labels = true;
+    options_.show_fingerings = true;
+    options_.tempo_marking = "Largo";
+
+    auto ln = [](core::NoteLetter l, core::Accidental a, int oct, std::uint8_t f = 0) {
+      const core::SpelledNote sp{.letter = l, .accidental = a, .octave = oct};
+      return core::LessonNote{.spelled = sp, .midi = core::to_midi(sp).value_or(60), .finger = f};
+    };
+    using D = core::NoteBaseDuration;
+    const core::TupletRatio trip{3, 2, 1};
+    const core::TupletRatio quin{5, 4, 2};
+    const core::TupletRatio sext{6, 4, 3};
+
+    // Bar 1: 8th triplets (2-against-3 with LH 8ths) + double-dotted quarter + 16th
+    core::LessonMeasure m1{};
+    m1.bar_number = 1;
+    m1.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
+    m1.dynamics = {{.start_tick = 0, .level = core::DynamicLevel::MP}};
+    m1.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Sharp, 4)},
+         .is_grace = true,
+         .grace_slash = true},
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 4, 1)},
+         .tuplet = trip},
+        {.start_tick = 160,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::A, core::Accidental::Natural, 4, 2)},
+         .tuplet = trip},
+        {.start_tick = 320,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 3)},
+         .tuplet = trip},
+        {.start_tick = 480,
+         .duration = {.base = D::Quarter, .dotted = true, .dots = 2},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 5)}},
+        {.start_tick = 1320,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 4)}},
+        {.start_tick = 1440,
+         .duration = {.base = D::Quarter},
+         .notes = {ln(core::NoteLetter::B, core::Accidental::Flat, 4, 3)}},
+    };
+    m1.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5)}},
+        {.start_tick = 240,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 3, 2)}},
+        {.start_tick = 480,
+         .duration = {.base = D::Half, .dotted = true},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 3, 1)}},
+    };
+
+    // Bar 2: Double-dotted 8th + 32nd triple-beamed run + 32nd rest + Moderato tempo change
+    core::LessonMeasure m2{};
+    m2.bar_number = 2;
+    m2.harmony = {{.start_tick = 0, .chord_symbol = "Cm", .roman_numeral = "iv"}};
+    m2.tempo_changes = {{.start_tick = 0, .bpm = 104.0, .label = "Moderato"}};
+    m2.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Eighth, .dotted = true, .dots = 2},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 4)}},
+        {.start_tick = 420, .duration = {.base = D::ThirtySecond}, .is_rest = true, .notes = {}},
+        {.start_tick = 480,
+         .duration = {.base = D::ThirtySecond},
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 2)}},
+        {.start_tick = 540,
+         .duration = {.base = D::ThirtySecond},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 3)}},
+        {.start_tick = 600,
+         .duration = {.base = D::ThirtySecond},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 4)}},
+        {.start_tick = 660,
+         .duration = {.base = D::ThirtySecond},
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Natural, 5, 5)}},
+        {.start_tick = 720,
+         .duration = {.base = D::Eighth},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 5, 5)}},
+        {.start_tick = 960,
+         .duration = {.base = D::Half},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 3)}},
+    };
+    m2.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Whole},
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 3, 5)}},
+    };
+
+    // Bar 3: 16th quintuplet (5:4) + 16th sextuplet (6:4) + half
+    core::LessonMeasure m3{};
+    m3.bar_number = 3;
+    m3.harmony = {{.start_tick = 0, .chord_symbol = "D7", .roman_numeral = "V7"}};
+    m3.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 2)},
+         .tuplet = quin},
+        {.start_tick = 96,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 3)},
+         .tuplet = quin},
+        {.start_tick = 192,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Sharp, 5, 4)},
+         .tuplet = quin},
+        {.start_tick = 288,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 3)},
+         .tuplet = quin},
+        {.start_tick = 384,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 2)},
+         .tuplet = quin},
+        {.start_tick = 480,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::C, core::Accidental::Natural, 5, 1)},
+         .tuplet = sext},
+        {.start_tick = 560,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 2)},
+         .tuplet = sext},
+        {.start_tick = 640,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 3)},
+         .tuplet = sext},
+        {.start_tick = 720,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::F, core::Accidental::Sharp, 5, 4)},
+         .tuplet = sext},
+        {.start_tick = 800,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::E, core::Accidental::Flat, 5, 3)},
+         .tuplet = sext},
+        {.start_tick = 880,
+         .duration = {.base = D::Sixteenth},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 5, 2)},
+         .tuplet = sext},
+        {.start_tick = 960,
+         .duration = {.base = D::Half},
+         .notes = {ln(core::NoteLetter::A, core::Accidental::Natural, 4, 1)}},
+    };
+    m3.clef_changes = {
+        {.start_tick = 0, .clef = core::Clef::Treble, .treble_staff = false},
+    };
+    m3.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Whole},
+         .notes = {ln(core::NoteLetter::D, core::Accidental::Natural, 4, 5),
+                   ln(core::NoteLetter::A, core::Accidental::Natural, 4, 2)}},
+    };
+
+    // Bar 4: Expressive 8va climax resolution
+    core::LessonMeasure m4{};
+    m4.bar_number = 4;
+    m4.harmony = {{.start_tick = 0, .chord_symbol = "Gm", .roman_numeral = "i"}};
+    m4.dynamics = {{.start_tick = 0, .level = core::DynamicLevel::P}};
+    m4.clef_changes = {
+        {.start_tick = 0, .clef = core::Clef::Bass, .treble_staff = false},
+    };
+    m4.treble_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Whole},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 5, 1),
+                   ln(core::NoteLetter::B, core::Accidental::Flat, 5, 3),
+                   ln(core::NoteLetter::D, core::Accidental::Natural, 6, 5)}},
+    };
+    m4.bass_events = {
+        {.start_tick = 0,
+         .duration = {.base = D::Whole},
+         .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 2, 5)}},
+    };
+
+    const std::array<core::LessonMeasure, 4> spec{m1, m2, m3, m4};
+    measures_ = build_lesson_staff_measures(spec, 0, *options_.time_signature, true, true);
+    const std::array<core::OttavaSpan, 1> ottavas{{
+        {.start_bar = 3,
+         .start_tick = 0,
+         .end_bar = 3,
+         .end_tick = 1920,
+         .treble = true,
+         .octave_shift = 1},
+    }};
+    options_.ottavas = slice_system_ottavas(ottavas, 0, 3, measures_, true, true);
+    return;
+  }
+
   // SecondAndAccidentalStress
   StaffMeasure m1;
   m1.chords.push_back(StaffChord{
@@ -687,7 +882,8 @@ void StaffShowcase::draw_contents(ImFont* smufl_font, ImFont* ui_font) {
   ImGui::SetNextItemWidth(220.0f * scale);
   if (ImGui::Combo("##sc_preset", &preset_idx,
                    "Phase 1 Overview\0Scale & Cadence\0Ledger Extremes\0"
-                   "2nds & Accidentals\0Classical Notation (6/8)\0")) {
+                   "2nds & Accidentals\0Classical Notation (6/8)\0"
+                   "Romantic Notation (Tuplets/32nds)\0")) {
     preset_ = static_cast<ShowcasePreset>(preset_idx);
     changed = true;
   }

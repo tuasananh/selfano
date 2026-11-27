@@ -21,6 +21,7 @@ struct MusicXmlImportOptions {
   std::string fallback_title{"Imported Piece"};
   double default_bpm{84.0};
   std::size_t max_measures{kDefaultMaxImportMeasures};
+  bool auto_analyze_harmony_if_missing{true};
 };
 
 struct MusicXmlImportResult {

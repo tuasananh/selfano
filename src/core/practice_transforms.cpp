@@ -134,7 +134,7 @@ transform_dotted_voice(std::span<const LessonEvent> voice_events, int scale, boo
   for (const auto& ev : voice_events) {
     out.push_back(TimelineEvent{
         .start_tick = ev.start_tick * scale,
-        .duration_ticks = ev.duration.ticks() * scale,
+        .duration_ticks = ev.event_ticks() * scale,
         .is_rest = ev.is_rest,
         .voice = ev.voice,
         .articulations = ev.articulations,

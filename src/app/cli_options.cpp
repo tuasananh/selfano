@@ -118,6 +118,8 @@ CliOptions parse_cli(int argc, char* argv[]) {
       const std::string_view p = argv[++i];
       if (p == "classical") {
         opts.showcase_preset = ui::ShowcasePreset::ClassicalNotationSpecimen;
+      } else if (p == "romantic") {
+        opts.showcase_preset = ui::ShowcasePreset::RomanticNotationSpecimen;
       }
     } else if (arg == "--keymap") {
       opts.open_keymap = true;
@@ -147,6 +149,8 @@ CliOptions parse_cli(int argc, char* argv[]) {
         opts.lesson_mode_override = core::LessonPracticeMode::WaitForNote;
       } else if (m == "pulse") {
         opts.lesson_mode_override = core::LessonPracticeMode::SteadyPulse;
+      } else if (m == "rubato") {
+        opts.lesson_mode_override = core::LessonPracticeMode::RubatoFollow;
       }
     } else if (arg == "--lesson-hand" && i + 1 < argc) {
       const std::string_view h = argv[++i];

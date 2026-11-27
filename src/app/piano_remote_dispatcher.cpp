@@ -274,7 +274,10 @@ void AppController::execute_piano_remote_action(core::PianoRemoteAction action, 
       const char* name =
           (m == core::LessonPracticeMode::ChordSkeleton)
               ? "Chord Skeleton"
-              : (m == core::LessonPracticeMode::WaitForNote ? "Wait-for-Note" : "Steady Pulse");
+              : (m == core::LessonPracticeMode::WaitForNote
+                     ? "Wait-for-Note"
+                     : (m == core::LessonPracticeMode::RubatoFollow ? "Rubato Follow"
+                                                                    : "Steady Pulse"));
       show_hud_toast(name, now_ms);
     } else if (stage == S::Stage4ASrs) {
       const bool shown = srs_view_.toggle_hint();

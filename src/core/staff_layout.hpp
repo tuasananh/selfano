@@ -105,6 +105,7 @@ struct BeamEventInput {
   float x_spaces{0.0f};
   int min_step{28};
   int max_step{28};
+  std::optional<TupletRatio> tuplet{};
 };
 
 struct SecondaryBeamSegment {
@@ -113,6 +114,7 @@ struct SecondaryBeamSegment {
   float y0_spaces{0.0f};
   float y1_spaces{0.0f};
   bool is_hook{false};
+  std::uint8_t level{2}; // 2 = 16th/32nd, 3 = 32nd
 };
 
 struct BeamGroupLayout {
@@ -126,10 +128,24 @@ struct BeamGroupLayout {
   std::vector<SecondaryBeamSegment> secondary_beams;
 };
 
+struct TupletBracketLayout {
+  float start_x_spaces{0.0f};
+  float end_x_spaces{0.0f};
+  float y_spaces{0.0f};
+  bool above{true};
+  std::uint8_t actual{3};
+  bool draw_bracket{false};
+};
+
 [[nodiscard]] std::vector<BeamGroupLayout>
 compute_beam_groups(std::span<const BeamEventInput> events, TimeSignature meter, Clef clef,
                     float notehead_width_spaces = kNoteheadBlackWidthSpaces,
                     std::optional<StemDirection> forced_stem_direction = std::nullopt);
+
+[[nodiscard]] std::vector<TupletBracketLayout>
+compute_tuplet_brackets(std::span<const BeamEventInput> events,
+                        std::span<const BeamGroupLayout> beam_groups, Clef clef,
+                        float notehead_width_spaces = kNoteheadBlackWidthSpaces);
 
 enum class TieSpanKind : std::uint8_t {
   Complete = 0,
@@ -168,5 +184,16 @@ struct TieSpan {
 };
 
 [[nodiscard]] std::vector<TieSpan> resolve_tie_spans(std::span<const TieEndpointRef> system_notes);
+
+[[nodiscard]] constexpr int apply_ottava_display_step(int sounding_step,
+                                                      int octave_shift) noexcept {
+  return sounding_step - octave_shift * 7;
+}
+
+[[nodiscard]] Clef active_clef_at(std::span<const ClefChange> clef_changes, Clef initial_clef,
+                                  bool treble_staff, int tick) noexcept;
+
+[[nodiscard]] int active_ottava_shift_at(std::span<const OttavaSpan> ottavas, std::size_t bar_idx,
+                                         int tick, bool treble) noexcept;
 
 } // namespace selfano::core

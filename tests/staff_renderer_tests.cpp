@@ -384,3 +384,143 @@ TEST_CASE("System-start measure numbers clear tempo and harmony labels and skip 
     CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '0').empty());
   }
 }
+
+TEST_CASE("Double augmentation dots, 32nd rests, and tuplet numerals render cleanly",
+          "[staff_renderer][phase24]") {
+  core::LessonMeasure m{};
+  m.bar_number = 1;
+  auto make_n = [](core::NoteLetter l, int oct) {
+    const core::SpelledNote sp{.letter = l, .accidental = core::Accidental::Natural, .octave = oct};
+    return core::LessonNote{.spelled = sp, .midi = core::to_midi(sp).value()};
+  };
+  m.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Quarter, .dotted = true, .dots = 2},
+       .notes = {make_n(core::NoteLetter::E, 5)}},
+      {.start_tick = 840,
+       .duration = {.base = core::NoteBaseDuration::ThirtySecond},
+       .is_rest = true,
+       .notes = {}},
+      {.start_tick = 900,
+       .duration = {.base = core::NoteBaseDuration::ThirtySecond},
+       .notes = {make_n(core::NoteLetter::D, 5)}},
+      {.start_tick = 960,
+       .duration = {.base = core::NoteBaseDuration::Quarter},
+       .notes = {make_n(core::NoteLetter::C, 5)},
+       .tuplet = core::TupletRatio{3, 2, 1}},
+      {.start_tick = 1280,
+       .duration = {.base = core::NoteBaseDuration::Quarter},
+       .notes = {make_n(core::NoteLetter::D, 5)},
+       .tuplet = core::TupletRatio{3, 2, 1}},
+      {.start_tick = 1600,
+       .duration = {.base = core::NoteBaseDuration::Quarter},
+       .notes = {make_n(core::NoteLetter::E, 5)},
+       .tuplet = core::TupletRatio{3, 2, 1}},
+  };
+  m.bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Whole},
+       .notes = {make_n(core::NoteLetter::C, 3)}},
+  };
+
+  const auto staff = ui::build_lesson_staff_measures(std::span{&m, 1}, 0, {}, true, true);
+  StaffFrame frame;
+  ui::StaffRenderOptions opts{};
+  frame.render(staff, opts, 800.0f);
+
+  const float size = 4 * opts.staff_space * ui::kBravuraEmToPixelHeightScale;
+  CHECK(frame.glyphs(frame.fonts.smufl_font, size, 0xE1E7).size() == 2U); // double dots
+  CHECK(frame.glyphs(frame.fonts.smufl_font, size, 0xE4E8).size() == 1U); // 32nd rest
+  CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '3').size() == 1U);      // tuplet numeral 3
+}
+
+TEST_CASE("Grace notes, mid-piece clef changes, and 8va ottava brackets render cleanly",
+          "[staff_renderer][phase25]") {
+  auto make_n = [](core::NoteLetter l, int oct) {
+    const core::SpelledNote sp{.letter = l, .accidental = core::Accidental::Natural, .octave = oct};
+    return core::LessonNote{.spelled = sp, .midi = core::to_midi(sp).value()};
+  };
+
+  core::LessonMeasure m{};
+  m.bar_number = 1;
+  m.clef_changes = {{.start_tick = 0, .clef = core::Clef::Treble, .treble_staff = false}};
+  m.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Eighth},
+       .notes = {make_n(core::NoteLetter::B, 5)},
+       .is_grace = true,
+       .grace_slash = true},
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Half},
+       .notes = {make_n(core::NoteLetter::C, 6)}},
+      {.start_tick = 960,
+       .duration = {.base = core::NoteBaseDuration::Half},
+       .notes = {make_n(core::NoteLetter::E, 6)}},
+  };
+  m.bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Whole},
+       .notes = {make_n(core::NoteLetter::C, 4)}},
+  };
+
+  const auto staff = ui::build_lesson_staff_measures(std::span{&m, 1}, 0, {}, true, true);
+  StaffFrame frame;
+
+  // Without 8va: C6 and E6 require stacked ledger lines
+  ui::StaffRenderOptions no_8va{};
+  no_8va.view_mode = ui::StaffViewMode::GrandStaff;
+  frame.render(staff, no_8va, 800.0f);
+  const float full_size = 4 * no_8va.staff_space * ui::kBravuraEmToPixelHeightScale;
+  float min_y_no_8va = 1e9f;
+  for (const auto& g : frame.glyphs(frame.fonts.smufl_font, full_size, 0xE0A3)) {
+    min_y_no_8va = std::min(min_y_no_8va, g.min.y);
+  }
+  const float g_clef_no_8va = frame.glyphs(frame.fonts.smufl_font, full_size, 0xE050).front().min.y;
+
+  // With 8va: renders "8va" label, miniature G clef on bass staff, scaled grace notehead,
+  // and shifts C6/E6 down an octave (larger Y relative to G clef by ~3.5 spaces)
+  ui::StaffRenderOptions with_8va = no_8va;
+  with_8va.ottavas = {
+      {.start_measure_idx = 0,
+       .start_tick = 0,
+       .end_measure_idx = 0,
+       .end_tick = 1920,
+       .treble = true,
+       .octave_shift = 1},
+  };
+  frame.render(staff, with_8va, 800.0f);
+  CHECK(frame.glyphs(frame.fonts.smufl_font, full_size * 0.75f, 0xE050).size() == 1U); // mid G clef
+  CHECK(frame.glyphs(frame.fonts.smufl_font, full_size * 0.68f, 0xE0A4).size() == 1U); // grace head
+  CHECK(frame.glyphs(frame.fonts.ui_font, 10.5f, '8').size() == 1U);                   // "8va"
+  float min_y_with_8va = 1e9f;
+  for (const auto& g : frame.glyphs(frame.fonts.smufl_font, full_size, 0xE0A3)) {
+    min_y_with_8va = std::min(min_y_with_8va, g.min.y);
+  }
+  const float g_clef_with_8va =
+      frame.glyphs(frame.fonts.smufl_font, full_size, 0xE050).front().min.y;
+  CHECK((min_y_with_8va - g_clef_with_8va) >
+        (min_y_no_8va - g_clef_no_8va) + 3.0f * with_8va.staff_space);
+}
+
+TEST_CASE("Mid-piece tempo_changes render tempo headers above the staff",
+          "[staff_renderer][phase26]") {
+  core::LessonMeasure m1{};
+  m1.bar_number = 1;
+  m1.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Whole},
+       .notes = {core::LessonNote{.spelled = {core::NoteLetter::C, core::Accidental::Natural, 5},
+                                  .midi = 72}}}};
+  core::LessonMeasure m2 = m1;
+  m2.bar_number = 2;
+  m2.tempo_changes = {{.start_tick = 0, .bpm = 104.0, .label = "Moderato"}};
+  const std::array<core::LessonMeasure, 2> ms{m1, m2};
+  const auto staff = ui::build_lesson_staff_measures(ms, 0, {}, true, false);
+  ui::StaffRenderOptions opts{};
+  opts.view_mode = ui::StaffViewMode::TrebleOnly;
+  opts.tempo_marking = "Largo";
+  StaffFrame frame;
+  frame.render(staff, opts, 800.0f);
+  CHECK(frame.glyphs(frame.fonts.ui_font, 13.5f, 'L').size() >= 1U);
+  CHECK(frame.glyphs(frame.fonts.ui_font, 12.5f, 'M').size() >= 1U);
+}

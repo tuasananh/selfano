@@ -36,6 +36,12 @@ struct Fingering {
   bool above;
 };
 
+struct PendingTuplet {
+  StaffInk ink;
+  core::Clef clef;
+  bool above;
+};
+
 struct StaffLabel {
   StaffInk ink;
   std::optional<StaffHarmonicHitbox> hitbox;
@@ -62,12 +68,17 @@ struct ClefSlot {
   int start_tick{0};
   float chord_x{0.0f};
   NoteDuration duration{NoteDuration::Quarter};
-  bool dotted{false};
+  std::uint8_t dots{0};
   bool is_rest{false};
   RestDuration rest_dur{RestDuration::Quarter};
-  bool rest_dotted{false};
+  std::uint8_t rest_dots{0};
   std::uint8_t voice{0};
   std::uint8_t articulations{0};
+  std::optional<core::TupletRatio> tuplet{};
+  core::Clef active_clef{core::Clef::Treble};
+  bool is_grace{false};
+  bool grace_slash{true};
+  int ottava_shift{0};
   std::vector<const StaffNote*> notes;
   core::ChordLayout layout{};
   std::optional<core::StemDirection> beamed_dir;
@@ -75,12 +86,33 @@ struct ClefSlot {
   ImU32 stem_color{0};
 };
 
-[[nodiscard]] std::vector<ClefSlot> prepare_clef_slots(const StaffMeasure& measure, core::Clef clef,
-                                                       float m_x0, float pad_left, float usable_w,
-                                                       float measure_beats, float space,
-                                                       core::MeasureAccidentalState& acc_state,
-                                                       const ThemePalette& pal,
-                                                       bool& out_multi_voice) {
+[[nodiscard]] int staff_ottava_shift_at(std::span<const StaffOttavaSpan> ottavas,
+                                        std::size_t bar_idx, int tick, bool treble) noexcept {
+  int shift = 0;
+  for (const auto& ov : ottavas) {
+    if (ov.treble != treble) {
+      continue;
+    }
+    if (bar_idx < ov.start_measure_idx || bar_idx > ov.end_measure_idx) {
+      continue;
+    }
+    if (bar_idx == ov.start_measure_idx && tick < ov.start_tick) {
+      continue;
+    }
+    if (bar_idx == ov.end_measure_idx && tick >= ov.end_tick) {
+      continue;
+    }
+    shift = ov.octave_shift;
+  }
+  return shift;
+}
+
+[[nodiscard]] std::vector<ClefSlot>
+prepare_clef_slots(const StaffMeasure& measure, std::size_t measure_idx, core::Clef clef,
+                   core::Clef running_clef, float m_x0, float pad_left, float usable_w,
+                   float measure_beats, float space, core::MeasureAccidentalState& acc_state,
+                   const StaffRenderOptions& options, const ThemePalette& pal,
+                   bool& out_multi_voice) {
   std::vector<ClefSlot> slots;
   const int m_ticks = std::max(1, measure.measure_ticks);
 
@@ -103,6 +135,12 @@ struct ClefSlot {
                                                   c, measure.chords.size(), chord);
     const int start_tick = chord.tick_offset.value_or(static_cast<int>(
         std::llround(chord.beat_offset.value_or(static_cast<float>(c)) * core::kTicksPerQuarter)));
+    const bool treble_staff = (clef == core::Clef::Treble);
+    const core::Clef active_clef =
+        core::active_clef_at(measure.clef_changes, running_clef, treble_staff, start_tick);
+    const int ottava_shift =
+        staff_ottava_shift_at(options.ottavas, measure_idx, start_tick, treble_staff);
+    const float slot_x = chord.is_grace ? (chord_x - 1.65f * space) : chord_x;
 
     std::vector<std::uint8_t> voices;
     for (const auto& sn : chord.notes) {
@@ -119,13 +157,17 @@ struct ClefSlot {
       if (rest_opt.has_value()) {
         ClefSlot slot{};
         slot.chord_idx = c;
-        slot.chord_x = chord_x;
+        slot.chord_x = slot_x;
         slot.start_tick = start_tick;
         slot.is_rest = true;
         slot.rest_dur = *rest_opt;
-        slot.rest_dotted =
-            (clef == core::Clef::Treble) ? chord.treble_rest_dotted : chord.bass_rest_dotted;
+        slot.rest_dots = (clef == core::Clef::Treble)
+                             ? (chord.treble_rest_dots > 0U ? chord.treble_rest_dots
+                                                            : (chord.treble_rest_dotted ? 1U : 0U))
+                             : (chord.bass_rest_dots > 0U ? chord.bass_rest_dots
+                                                          : (chord.bass_rest_dotted ? 1U : 0U));
         slot.voice = 0U;
+        slot.active_clef = active_clef;
         slot.stem_color = pal.ink;
         slots.push_back(std::move(slot));
       }
@@ -147,13 +189,19 @@ struct ClefSlot {
       const StaffNote& rhythm_note = *clef_notes.front();
       ClefSlot slot{};
       slot.chord_idx = c;
-      slot.chord_x = chord_x;
+      slot.chord_x = slot_x;
       slot.start_tick = start_tick;
       slot.is_rest = false;
       slot.duration = rhythm_note.duration.value_or(chord.duration);
-      slot.dotted = rhythm_note.duration.has_value() ? rhythm_note.dotted : chord.dotted;
+      slot.dots =
+          rhythm_note.duration.has_value() ? rhythm_note.effective_dots() : chord.effective_dots();
       slot.voice = v;
       slot.articulations = rhythm_note.articulations;
+      slot.tuplet = rhythm_note.tuplet;
+      slot.active_clef = active_clef;
+      slot.is_grace = chord.is_grace || rhythm_note.is_grace;
+      slot.grace_slash = chord.is_grace ? chord.grace_slash : rhythm_note.grace_slash;
+      slot.ottava_shift = ottava_shift;
       slot.notes = std::move(clef_notes);
 
       std::vector<core::ChordNoteLayoutInput> inputs;
@@ -166,7 +214,7 @@ struct ClefSlot {
         const auto disp_acc = acc_state.resolve_and_record(sn->note);
         inputs.push_back(core::ChordNoteLayoutInput{
             .source_index = i,
-            .step = core::diatonic_step(sn->note),
+            .step = core::apply_ottava_display_step(core::diatonic_step(sn->note), ottava_shift),
             .displayed_accidental = disp_acc,
         });
         if (sn->feedback == NoteFeedback::Incorrect) {
@@ -183,8 +231,9 @@ struct ClefSlot {
           out_multi_voice
               ? std::optional{(v == 0U) ? core::StemDirection::Up : core::StemDirection::Down}
               : std::nullopt;
-      slot.layout = core::layout_chord(inputs, clef, detail::notehead_width_spaces(slot.duration),
-                                       forced_dir);
+      const float nh_scale = slot.is_grace ? 0.68f : 1.0f;
+      slot.layout = core::layout_chord(
+          inputs, active_clef, detail::notehead_width_spaces(slot.duration) * nh_scale, forced_dir);
       slot.stem_color = any_incorrect
                             ? pal.incorrect
                             : (any_partial ? pal.partial : (all_correct ? pal.correct : pal.ink));
@@ -211,16 +260,40 @@ struct BarSpacing {
 
 void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, float smufl_font_size,
                          std::size_t measure_idx, const StaffMeasure& measure,
-                         core::TimeSignature meter, core::Clef clef, float m_x0, float pad_left,
-                         float usable_w, float measure_beats, float bottom_y, float space,
-                         core::MeasureAccidentalState& acc_state, const StaffRenderOptions& options,
-                         const ThemePalette& pal, std::vector<core::TieEndpointRef>& out_ties,
+                         core::TimeSignature meter, core::Clef clef, core::Clef running_clef,
+                         float m_x0, float pad_left, float usable_w, float measure_beats,
+                         float bottom_y, float space, core::MeasureAccidentalState& acc_state,
+                         const StaffRenderOptions& options, const ThemePalette& pal,
+                         std::vector<core::TieEndpointRef>& out_ties,
                          std::vector<PendingFeedbackBadge>& out_badges,
                          std::vector<SlurAnchorPoint>& out_slur_anchors,
-                         std::vector<Fingering>& fingerings, BarSpacing* spacing) {
+                         std::vector<Fingering>& fingerings,
+                         std::vector<PendingTuplet>& out_tuplets, BarSpacing* spacing) {
+  const bool is_treble_staff = (clef == core::Clef::Treble);
+  // Mid-piece clef changes on this staff (drawn at 0.75x scale)
+  const int m_ticks_cc = std::max(1, measure.measure_ticks);
+  for (const auto& cc : measure.clef_changes) {
+    if (cc.treble_staff != is_treble_staff) {
+      continue;
+    }
+    const float cc_frac =
+        std::clamp(static_cast<float>(cc.start_tick) / static_cast<float>(m_ticks_cc), 0.0f, 1.0f);
+    const float cc_x = (cc.start_tick <= 0)
+                           ? (m_x0 + std::max(0.35f * space, pad_left - 1.45f * space))
+                           : (m_x0 + pad_left + cc_frac * usable_w - 1.45f * space);
+    const float cc_size = smufl_font_size * 0.75f;
+    const int anchor_step = (cc.clef == core::Clef::Treble)
+                                ? core::diatonic_step(core::NoteLetter::G, 4)
+                                : core::diatonic_step(core::NoteLetter::F, 3);
+    const float cc_y = core::step_to_y(anchor_step, cc.clef, bottom_y, space);
+    const char* cc_glyph = (cc.clef == core::Clef::Treble) ? kGlyphGClef : kGlyphFClef;
+    detail::draw_smufl_glyph(ink, smufl_font, cc_size, ImVec2(cc_x, cc_y), pal.ink, cc_glyph);
+  }
+
   bool has_multi_voice = false;
-  auto slots = prepare_clef_slots(measure, clef, m_x0, pad_left, usable_w, measure_beats, space,
-                                  acc_state, pal, has_multi_voice);
+  auto slots =
+      prepare_clef_slots(measure, measure_idx, clef, running_clef, m_x0, pad_left, usable_w,
+                         measure_beats, space, acc_state, options, pal, has_multi_voice);
   if (slots.empty()) {
     return;
   }
@@ -228,6 +301,9 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
   // Compute meter-aware beam groups independently per voice in this clef
   std::vector<std::uint8_t> beam_voices;
   for (const auto& sl : slots) {
+    if (sl.is_grace) {
+      continue;
+    }
     if (std::find(beam_voices.begin(), beam_voices.end(), sl.voice) == beam_voices.end()) {
       beam_voices.push_back(sl.voice);
     }
@@ -239,12 +315,14 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
     std::vector<core::BeamEventInput> beam_inputs;
     for (std::size_t i = 0; i < slots.size(); ++i) {
       const auto& s_slot = slots[i];
-      if (s_slot.voice != bv) {
+      if (s_slot.voice != bv || s_slot.is_grace) {
         continue;
       }
       if (s_slot.is_rest) {
         core::NoteBaseDuration rbase = core::NoteBaseDuration::Quarter;
-        if (s_slot.rest_dur == RestDuration::Sixteenth) {
+        if (s_slot.rest_dur == RestDuration::ThirtySecond) {
+          rbase = core::NoteBaseDuration::ThirtySecond;
+        } else if (s_slot.rest_dur == RestDuration::Sixteenth) {
           rbase = core::NoteBaseDuration::Sixteenth;
         } else if (s_slot.rest_dur == RestDuration::Eighth) {
           rbase = core::NoteBaseDuration::Eighth;
@@ -252,28 +330,34 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         beam_inputs.push_back(core::BeamEventInput{
             .event_index = i,
             .start_tick = s_slot.start_tick,
-            .duration_ticks =
-                core::RhythmicValue{.base = rbase, .dotted = s_slot.rest_dotted}.ticks(),
+            .duration_ticks = core::RhythmicValue{.base = rbase,
+                                                  .dotted = s_slot.rest_dots > 0U,
+                                                  .dots = s_slot.rest_dots}
+                                  .ticks(),
             .base_duration = rbase,
-            .dotted = s_slot.rest_dotted,
+            .dotted = s_slot.rest_dots > 0U,
             .is_rest = true,
             .x_spaces = s_slot.chord_x / space,
             .min_step = core::staff_middle_step(clef),
             .max_step = core::staff_middle_step(clef),
+            .tuplet = s_slot.tuplet,
         });
       } else {
         const auto base_dur = detail::to_core_base_duration(s_slot.duration);
         beam_inputs.push_back(core::BeamEventInput{
             .event_index = i,
             .start_tick = s_slot.start_tick,
-            .duration_ticks =
-                core::RhythmicValue{.base = base_dur, .dotted = s_slot.dotted}.ticks(),
+            .duration_ticks = core::RhythmicValue{.base = base_dur,
+                                                  .dotted = s_slot.dots > 0U,
+                                                  .dots = s_slot.dots}
+                                  .ticks(),
             .base_duration = base_dur,
-            .dotted = s_slot.dotted,
+            .dotted = s_slot.dots > 0U,
             .is_rest = false,
             .x_spaces = s_slot.chord_x / space,
             .min_step = s_slot.layout.noteheads.front().step,
             .max_step = s_slot.layout.noteheads.back().step,
+            .tuplet = s_slot.tuplet,
         });
       }
     }
@@ -350,6 +434,38 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         }
       }
     }
+
+    // Tuplet numerals & optional brackets for this voice
+    ImFont* tuplet_font = (ds().fonts.ui_semibold != nullptr) ? ds().fonts.ui_semibold : ui_font;
+    if (tuplet_font != nullptr && !memory_hidden_mode) {
+      const auto tuplet_brackets =
+          core::compute_tuplet_brackets(beam_inputs, beam_groups, clef, kNoteheadBlackWidthSpaces);
+      const float tup_sz_px = draw_font_size(10.5f);
+      for (const auto& tb : tuplet_brackets) {
+        const std::string num_str = std::to_string(tb.actual);
+        const ImVec2 txt_sz = tuplet_font->CalcTextSizeA(tup_sz_px, FLT_MAX, 0.0f, num_str.c_str());
+        const float x0 = tb.start_x_spaces * space;
+        const float x1 = tb.end_x_spaces * space;
+        const float cx = (x0 + x1) * 0.5f;
+        const float ty = bottom_y - tb.y_spaces * space;
+        StaffInk tup_ink;
+        tup_ink.text(tuplet_font, tup_sz_px,
+                     ImVec2(std::round(cx - txt_sz.x * 0.5f), std::round(ty - txt_sz.y * 0.5f)),
+                     pal.ink, num_str.c_str());
+        if (tb.draw_bracket && x1 > x0 + txt_sz.x + 8.0f) {
+          const float hook_h = tb.above ? 0.42f * space : -0.42f * space;
+          const float gap = txt_sz.x * 0.5f + 4.0f;
+          const float thick = std::max(1.1f, 0.10f * space);
+          tup_ink.line(ImVec2(x0, ty + hook_h), ImVec2(x0, ty), pal.ink, thick);
+          tup_ink.line(ImVec2(x0, ty), ImVec2(cx - gap, ty), pal.ink, thick);
+          tup_ink.line(ImVec2(cx + gap, ty), ImVec2(x1, ty), pal.ink, thick);
+          tup_ink.line(ImVec2(x1, ty), ImVec2(x1, ty + hook_h), pal.ink, thick);
+        } else {
+          tup_ink.reserve({x0, ty - txt_sz.y * 0.5f, x1, ty + txt_sz.y * 0.5f});
+        }
+        out_tuplets.push_back(PendingTuplet{std::move(tup_ink), clef, tb.above});
+      }
+    }
   }
 
   // Render rests, stems, flags, ledger lines, noteheads, dots, fingerings & collect ties
@@ -389,7 +505,14 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
     const auto first_mark = slot_ink.footprint().size();
     if (slot.is_rest) {
       detail::render_clef_rest(slot_ink, smufl_font, smufl_font_size, slot.chord_x, bottom_y, space,
-                               clef, slot.rest_dur, slot.rest_dotted, pal);
+                               clef, slot.rest_dur, slot.rest_dots > 0U, pal);
+      if (slot.rest_dots >= 2U) {
+        const int dot_step = core::staff_middle_step(clef) + 1;
+        detail::draw_smufl_glyph(
+            slot_ink, smufl_font, smufl_font_size,
+            ImVec2(slot.chord_x + 1.85f * space, core::step_to_y(dot_step, clef, bottom_y, space)),
+            pal.ink, kGlyphAugmentationDot);
+      }
       if (!slot_visible) {
         for (const auto& box : scratch_slot.footprint()) {
           ink.reserve(box);
@@ -399,63 +522,86 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
       continue;
     }
 
-    const float nh_w_spaces = detail::notehead_width_spaces(slot.duration);
+    const float glyph_scale = slot.is_grace ? 0.68f : 1.0f;
+    const float slot_smufl_size = smufl_font_size * glyph_scale;
+    const float nh_w_spaces = detail::notehead_width_spaces(slot.duration) * glyph_scale;
     const auto& layout = slot.layout;
     const core::StemDirection stem_dir = slot.beamed_dir.value_or(layout.stem_direction);
+    const core::Clef slot_clef = slot.active_clef;
 
     // Ledger lines
     const float ledger_thickness = std::max(1.0f, kLedgerLineThicknessSpaces * space);
     const float lx0 =
-        slot.chord_x + (layout.min_notehead_x_spaces - kLedgerLineExtensionSpaces) * space;
+        slot.chord_x +
+        (layout.min_notehead_x_spaces - kLedgerLineExtensionSpaces * glyph_scale) * space;
     const float lx1 =
-        slot.chord_x + (layout.max_notehead_x_spaces + kLedgerLineExtensionSpaces) * space;
+        slot.chord_x +
+        (layout.max_notehead_x_spaces + kLedgerLineExtensionSpaces * glyph_scale) * space;
     for (const int step : layout.ledger_line_steps) {
-      const float ly = std::round(core::step_to_y(step, clef, bottom_y, space));
+      const float ly = std::round(core::step_to_y(step, slot_clef, bottom_y, space));
       slot_ink.line(ImVec2(lx0, ly), ImVec2(lx1, ly), pal.ink, ledger_thickness);
     }
 
     // Stem + unbeamed flag
-    float sy_end = core::step_to_y(layout.stem_end_step, clef, bottom_y, space);
+    float sy_end = core::step_to_y(layout.stem_end_step, slot_clef, bottom_y, space);
     if (slot.duration != NoteDuration::Whole) {
-      const float stem_thickness = std::max(1.0f, kStemThicknessSpaces * space);
+      const float stem_thickness = std::max(1.0f, kStemThicknessSpaces * space * glyph_scale);
       const int start_step = (stem_dir == core::StemDirection::Up) ? layout.noteheads.front().step
                                                                    : layout.noteheads.back().step;
-      float sy_start = core::step_to_y(start_step, clef, bottom_y, space);
+      float sy_start = core::step_to_y(start_step, slot_clef, bottom_y, space);
       if (slot.beamed_dir.has_value()) {
         sy_end = bottom_y - slot.beamed_tip_y_spaces * space;
+      } else if (slot.is_grace) {
+        const int end_step = (stem_dir == core::StemDirection::Up)
+                                 ? (layout.noteheads.back().step + 5)
+                                 : (layout.noteheads.front().step - 5);
+        sy_end = core::step_to_y(end_step, slot_clef, bottom_y, space);
       } else {
         const int end_step =
             (stem_dir == core::StemDirection::Up)
-                ? std::max(layout.noteheads.back().step + 7, core::staff_middle_step(clef))
-                : std::min(layout.noteheads.front().step - 7, core::staff_middle_step(clef));
-        sy_end = core::step_to_y(end_step, clef, bottom_y, space);
+                ? std::max(layout.noteheads.back().step + 7, core::staff_middle_step(slot_clef))
+                : std::min(layout.noteheads.front().step - 7, core::staff_middle_step(slot_clef));
+        sy_end = core::step_to_y(end_step, slot_clef, bottom_y, space);
       }
 
-      const float sx = (stem_dir == core::StemDirection::Up)
-                           ? (slot.chord_x + kStemUpAnchorXSpaces * space - stem_thickness * 0.5f)
-                           : (slot.chord_x + stem_thickness * 0.5f);
-      sy_start += (stem_dir == core::StemDirection::Up) ? -(kStemAnchorOffsetYSpaces * space)
-                                                        : (kStemAnchorOffsetYSpaces * space);
+      const float sx =
+          (stem_dir == core::StemDirection::Up)
+              ? (slot.chord_x + kStemUpAnchorXSpaces * glyph_scale * space - stem_thickness * 0.5f)
+              : (slot.chord_x + stem_thickness * 0.5f);
+      sy_start += (stem_dir == core::StemDirection::Up)
+                      ? -(kStemAnchorOffsetYSpaces * glyph_scale * space)
+                      : (kStemAnchorOffsetYSpaces * glyph_scale * space);
       slot_ink.line(ImVec2(sx, sy_start), ImVec2(sx, sy_end), slot.stem_color, stem_thickness);
 
-      if (!slot.beamed_dir.has_value() &&
-          (slot.duration == NoteDuration::Eighth || slot.duration == NoteDuration::Sixteenth)) {
+      if (!slot.beamed_dir.has_value() && (slot.is_grace || slot.duration == NoteDuration::Eighth ||
+                                           slot.duration == NoteDuration::Sixteenth ||
+                                           slot.duration == NoteDuration::ThirtySecond)) {
         const char* flag_glyph = nullptr;
-        if (slot.duration == NoteDuration::Eighth) {
-          flag_glyph = (stem_dir == core::StemDirection::Up) ? kGlyphFlag8thUp : kGlyphFlag8thDown;
-        } else {
+        if (slot.duration == NoteDuration::Sixteenth) {
           flag_glyph =
               (stem_dir == core::StemDirection::Up) ? kGlyphFlag16thUp : kGlyphFlag16thDown;
+        } else if (slot.duration == NoteDuration::ThirtySecond) {
+          flag_glyph =
+              (stem_dir == core::StemDirection::Up) ? kGlyphFlag32ndUp : kGlyphFlag32ndDown;
+        } else {
+          flag_glyph = (stem_dir == core::StemDirection::Up) ? kGlyphFlag8thUp : kGlyphFlag8thDown;
         }
-        detail::draw_smufl_glyph(slot_ink, smufl_font, smufl_font_size, ImVec2(sx, sy_end),
+        detail::draw_smufl_glyph(slot_ink, smufl_font, slot_smufl_size, ImVec2(sx, sy_end),
                                  slot.stem_color, flag_glyph);
+        if (slot.is_grace && slot.grace_slash) {
+          const float mid_y = (sy_start + sy_end) * 0.5f;
+          const float dir_y = (stem_dir == core::StemDirection::Up) ? 1.0f : -1.0f;
+          slot_ink.line(ImVec2(sx - 0.55f * space, mid_y + 0.45f * space * dir_y),
+                        ImVec2(sx + 0.75f * space, mid_y - 0.65f * space * dir_y), slot.stem_color,
+                        std::max(1.2f, 0.11f * space));
+        }
       }
     }
 
     // Accidentals, noteheads, augmentation dots, feedback badges & ties
     const float acc_right_edge =
-        slot.chord_x + layout.min_notehead_x_spaces * space - 0.35f * space;
-    const float acc_col_stride = 1.15f * space;
+        slot.chord_x + layout.min_notehead_x_spaces * space - 0.35f * space * glyph_scale;
+    const float acc_col_stride = 1.15f * space * glyph_scale;
     float left_acc_edge = slot.chord_x + layout.min_notehead_x_spaces * space;
     const char* nh_glyph = detail::notehead_glyph(slot.duration);
     const float dot_x = slot.chord_x + (layout.max_notehead_x_spaces + 0.32f) * space;
@@ -473,24 +619,28 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
         note_color = pal.incorrect;
       }
 
-      const float ny = core::step_to_y(nh.step, clef, bottom_y, space);
+      const float ny = core::step_to_y(nh.step, slot_clef, bottom_y, space);
       const float nx = slot.chord_x + nh.x_offset_spaces * space;
 
       if (nh.displayed_accidental.has_value()) {
-        const float acc_w = accidental_width_spaces(*nh.displayed_accidental) * space;
+        const float acc_w = accidental_width_spaces(*nh.displayed_accidental) * space * glyph_scale;
         const float ax =
             acc_right_edge - acc_w - static_cast<float>(nh.accidental_column) * acc_col_stride;
         left_acc_edge = std::min(left_acc_edge, ax);
-        detail::draw_smufl_glyph(slot_ink, smufl_font, smufl_font_size, ImVec2(ax, ny), note_color,
+        detail::draw_smufl_glyph(slot_ink, smufl_font, slot_smufl_size, ImVec2(ax, ny), note_color,
                                  accidental_glyph(*nh.displayed_accidental));
       }
 
-      detail::draw_smufl_glyph(slot_ink, smufl_font, smufl_font_size, ImVec2(nx, ny), note_color,
+      detail::draw_smufl_glyph(slot_ink, smufl_font, slot_smufl_size, ImVec2(nx, ny), note_color,
                                nh_glyph);
 
-      if (slot.dotted) {
-        detail::draw_augmentation_dot(slot_ink, smufl_font, smufl_font_size, dot_x, nh.step, clef,
-                                      bottom_y, space, note_color);
+      if (slot.dots >= 1U) {
+        detail::draw_augmentation_dot(slot_ink, smufl_font, slot_smufl_size, dot_x, nh.step,
+                                      slot_clef, bottom_y, space, note_color);
+      }
+      if (slot.dots >= 2U) {
+        detail::draw_augmentation_dot(slot_ink, smufl_font, slot_smufl_size, dot_x + 0.50f * space,
+                                      nh.step, slot_clef, bottom_y, space, note_color);
       }
 
       if (src->finger >= 1U && src->finger <= 5U) {
@@ -531,8 +681,10 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
     }
 
     // Arpeggio roll wiggle and chord articulations (staccato, tenuto, accent)
-    const float top_nh_y = core::step_to_y(layout.noteheads.back().step, clef, bottom_y, space);
-    const float bot_nh_y = core::step_to_y(layout.noteheads.front().step, clef, bottom_y, space);
+    const float top_nh_y =
+        core::step_to_y(layout.noteheads.back().step, slot_clef, bottom_y, space);
+    const float bot_nh_y =
+        core::step_to_y(layout.noteheads.front().step, slot_clef, bottom_y, space);
     const float nh_center_x = slot.chord_x + nh_w_spaces * 0.5f * space;
 
     if (core::has_articulation(slot.articulations, core::ArticulationFlag::Arpeggiate)) {
@@ -555,12 +707,12 @@ void layout_clef_measure(StaffInk& ink, ImFont* smufl_font, ImFont* ui_font, flo
           has_multi_voice ? (slot.voice == 0U) : (stem_dir == core::StemDirection::Down);
       int art_step =
           art_above ? (layout.noteheads.back().step + 2) : (layout.noteheads.front().step - 2);
-      const int s_bot = core::staff_bottom_step(clef);
-      const int s_top = core::staff_top_step(clef);
+      const int s_bot = core::staff_bottom_step(slot_clef);
+      const int s_top = core::staff_top_step(slot_clef);
       if (art_step >= s_bot && art_step <= s_top && (art_step % 2 == 0)) {
         art_step += art_above ? 1 : -1;
       }
-      float cur_ay = core::step_to_y(art_step, clef, bottom_y, space);
+      float cur_ay = core::step_to_y(art_step, slot_clef, bottom_y, space);
       if (art_above && stem_dir == core::StemDirection::Up &&
           slot.duration != NoteDuration::Whole) {
         cur_ay = std::min(cur_ay, sy_end - 0.75f * space);
@@ -722,6 +874,7 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
   const float s = std::max(8.0f, options.staff_space);
   StaffInk treble, bass;
   std::vector<Fingering> fingerings;
+  std::vector<PendingTuplet> tuplets;
   std::vector<StaffLabel> labels, annotations;
   const bool show_treble = (options.view_mode == StaffViewMode::GrandStaff ||
                             options.view_mode == StaffViewMode::TrebleOnly);
@@ -749,16 +902,22 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
   // Clefs
   const float clef_x = system_left_x + 0.65f * s;
   if (show_treble) {
-    const float g_line_y = core::step_to_y(core::diatonic_step(core::NoteLetter::G, 4),
-                                           core::Clef::Treble, treble_bottom_y, s);
-    detail::draw_smufl_glyph(treble, smufl_font, smufl_font_size, ImVec2(clef_x, g_line_y), pal.ink,
-                             kGlyphGClef);
+    const core::Clef c_tr = options.initial_treble_clef;
+    const int anchor_step = (c_tr == core::Clef::Treble)
+                                ? core::diatonic_step(core::NoteLetter::G, 4)
+                                : core::diatonic_step(core::NoteLetter::F, 3);
+    const float line_y = core::step_to_y(anchor_step, c_tr, treble_bottom_y, s);
+    detail::draw_smufl_glyph(treble, smufl_font, smufl_font_size, ImVec2(clef_x, line_y), pal.ink,
+                             (c_tr == core::Clef::Treble) ? kGlyphGClef : kGlyphFClef);
   }
   if (show_bass) {
-    const float f_line_y = core::step_to_y(core::diatonic_step(core::NoteLetter::F, 3),
-                                           core::Clef::Bass, bass_bottom_y, s);
-    detail::draw_smufl_glyph(bass, smufl_font, smufl_font_size, ImVec2(clef_x, f_line_y), pal.ink,
-                             kGlyphFClef);
+    const core::Clef c_bs = options.initial_bass_clef;
+    const int anchor_step = (c_bs == core::Clef::Treble)
+                                ? core::diatonic_step(core::NoteLetter::G, 4)
+                                : core::diatonic_step(core::NoteLetter::F, 3);
+    const float line_y = core::step_to_y(anchor_step, c_bs, bass_bottom_y, s);
+    detail::draw_smufl_glyph(bass, smufl_font, smufl_font_size, ImVec2(clef_x, line_y), pal.ink,
+                             (c_bs == core::Clef::Treble) ? kGlyphGClef : kGlyphFClef);
   }
 
   // Key signatures
@@ -864,6 +1023,8 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
   std::vector<float> pad_lefts(measures.size(), 0.0f);
   std::vector<float> usable_ws(measures.size(), 10.0f);
 
+  core::Clef running_treble_clef = options.initial_treble_clef;
+  core::Clef running_bass_clef = options.initial_bass_clef;
   for (std::size_t m = 0; m < measures.size(); ++m) {
     acc_treble.reset_measure();
     acc_bass.reset_measure();
@@ -997,16 +1158,20 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
     // Render each clef independently (with clef-local beaming)
     if (show_treble) {
       layout_clef_measure(treble, smufl_font, ui_font, smufl_font_size, m, measure, active_meter,
-                          core::Clef::Treble, inner_m_x0, pad_left, usable_w, measure_beats,
-                          treble_bottom_y, s, acc_treble, options, pal, treble_ties, pending_badges,
-                          slur_anchors, fingerings, spacing);
+                          core::Clef::Treble, running_treble_clef, inner_m_x0, pad_left, usable_w,
+                          measure_beats, treble_bottom_y, s, acc_treble, options, pal, treble_ties,
+                          pending_badges, slur_anchors, fingerings, tuplets, spacing);
     }
     if (show_bass) {
       layout_clef_measure(bass, smufl_font, ui_font, smufl_font_size, m, measure, active_meter,
-                          core::Clef::Bass, inner_m_x0, pad_left, usable_w, measure_beats,
-                          bass_bottom_y, s, acc_bass, options, pal, bass_ties, pending_badges,
-                          slur_anchors, fingerings, spacing);
+                          core::Clef::Bass, running_bass_clef, inner_m_x0, pad_left, usable_w,
+                          measure_beats, bass_bottom_y, s, acc_bass, options, pal, bass_ties,
+                          pending_badges, slur_anchors, fingerings, tuplets, spacing);
     }
+    running_treble_clef = core::active_clef_at(measure.clef_changes, running_treble_clef, true,
+                                               measure.measure_ticks);
+    running_bass_clef =
+        core::active_clef_at(measure.clef_changes, running_bass_clef, false, measure.measure_ticks);
     needs_fit |= spacing && (pad_left < bar.left || pad_right < bar.right || usable_w < bar.rhythm);
   }
   // Reflow once if the preferred bar widths would collide. Keep the viewport
@@ -1097,6 +1262,54 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
     auto& staff = fingering.clef == core::Clef::Treble ? treble : bass;
     const auto dy = fingering.digits.clearance(staff, fingering.above, 0.32f * s);
     staff.append(std::move(fingering.digits), dy);
+  }
+  for (auto& tup : tuplets) {
+    auto& staff = tup.clef == core::Clef::Treble ? treble : bass;
+    const auto dy = tup.ink.clearance(staff, tup.above, 0.25f * s);
+    staff.append(std::move(tup.ink), dy);
+  }
+
+  // Ottava brackets (8va / 8vb)
+  if (!memory_hidden_mode && !measures.empty() && !options.ottavas.empty()) {
+    const float ott_sz_px = draw_font_size(11.0f);
+    const float line_thick = std::max(1.2f, 0.09f * s);
+    for (const auto& ov : options.ottavas) {
+      if (ov.treble ? !show_treble : !show_bass) {
+        continue;
+      }
+      const float x0 =
+          ov.open_left ? content_left_x : tick_to_x(ov.start_measure_idx, ov.start_tick);
+      const float x1 =
+          ov.open_right ? (system_right_x - 0.35f * s) : tick_to_x(ov.end_measure_idx, ov.end_tick);
+      if (x1 <= x0) {
+        continue;
+      }
+      const bool above = (ov.octave_shift > 0);
+      const char* label = above ? "8va" : "8vb";
+      const float base_y = above ? ((ov.treble ? treble_top_y : bass_top_y) - 0.65f * s)
+                                 : ((ov.treble ? treble_bottom_y : bass_bottom_y) + 0.65f * s);
+      StaffInk ott_ink;
+      float line_x0 = x0;
+      if (!ov.open_left && ui_font != nullptr) {
+        const ImVec2 lsz = ui_font->CalcTextSizeA(ott_sz_px, FLT_MAX, 0.0f, label);
+        ott_ink.text(ui_font, ott_sz_px, ImVec2(x0, base_y - lsz.y * 0.5f), pal.ink, label);
+        line_x0 = x0 + lsz.x + 0.30f * s;
+      }
+      const float dash_len = 0.42f * s;
+      const float gap_len = 0.28f * s;
+      for (float dx = line_x0; dx < x1; dx += dash_len + gap_len) {
+        const float seg_end = std::min(x1, dx + dash_len);
+        ott_ink.line(ImVec2(dx, base_y), ImVec2(seg_end, base_y), pal.ink, line_thick);
+      }
+      if (!ov.open_right) {
+        const float hook_h = 0.55f * s;
+        const float hy1 = above ? (base_y + hook_h) : (base_y - hook_h);
+        ott_ink.line(ImVec2(x1, base_y), ImVec2(x1, hy1), pal.ink, line_thick);
+      }
+      auto& staff = ov.treble ? treble : bass;
+      const float dy = ott_ink.clearance(staff, above, 0.35f * s);
+      staff.append(std::move(ott_ink), dy);
+    }
   }
 
   // Expression marks in a measure share a baseline. Only ink under their
@@ -1208,6 +1421,24 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
     const float size = draw_font_size(13.5f);
     score.text(ann_font, size, {system_left_x, score.top(system_top_y) - size - 0.45f * s}, pal.ink,
                options.tempo_marking.c_str());
+  }
+  if (ann_font) {
+    const float tc_size = draw_font_size(12.5f);
+    for (std::size_t m = 0; m < measures.size(); ++m) {
+      for (const auto& tc : measures[m].tempo_changes) {
+        if (m == 0U && tc.start_tick == 0 && !options.tempo_marking.empty()) {
+          continue;
+        }
+        const std::string text = tc.label.empty() ? std::format("q = {:.0f}", tc.bpm)
+                                                  : std::format("{} ({:.0f})", tc.label, tc.bpm);
+        const float tx = tick_to_x(m, tc.start_tick);
+        StaffInk tempo_ink;
+        tempo_ink.text(ann_font, tc_size, {std::round(tx), system_top_y - tc_size - 0.35f * s},
+                       pal.ink, text.c_str());
+        const float dy = tempo_ink.clearance(score, true, 0.35f * s);
+        score.append(std::move(tempo_ink), dy);
+      }
+    }
   }
   result.staff_origin_y = std::ceil(s - score.top(-1.75f * s));
   // Put transient feedback below existing ink. Adding feedback can extend the

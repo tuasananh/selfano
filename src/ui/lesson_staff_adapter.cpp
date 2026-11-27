@@ -17,6 +17,8 @@ namespace selfano::ui {
 
 NoteDuration to_staff_note_duration(core::NoteBaseDuration base) noexcept {
   switch (base) {
+  case core::NoteBaseDuration::ThirtySecond:
+    return NoteDuration::ThirtySecond;
   case core::NoteBaseDuration::Sixteenth:
     return NoteDuration::Sixteenth;
   case core::NoteBaseDuration::Eighth:
@@ -33,6 +35,8 @@ NoteDuration to_staff_note_duration(core::NoteBaseDuration base) noexcept {
 
 RestDuration to_staff_rest_duration(core::NoteBaseDuration base) noexcept {
   switch (base) {
+  case core::NoteBaseDuration::ThirtySecond:
+    return RestDuration::ThirtySecond;
   case core::NoteBaseDuration::Sixteenth:
     return RestDuration::Sixteenth;
   case core::NoteBaseDuration::Eighth:
@@ -74,6 +78,8 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
     }
     sm.dynamics = lm.dynamics;
     sm.hairpins = lm.hairpins;
+    sm.clef_changes = lm.clef_changes;
+    sm.tempo_changes = lm.tempo_changes;
 
     for (const auto& ha : lm.harmony) {
       sm.harmony_labels.push_back(StaffHarmonicLabel{
@@ -87,30 +93,33 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
       std::vector<const core::LessonEvent*> treble;
       std::vector<const core::LessonEvent*> bass;
     };
-    std::map<int, TickSlot> slots;
+    std::map<std::pair<int, int>, TickSlot> slots;
     if (show_treble) {
       for (const auto& ev : lm.treble_events) {
-        slots[ev.start_tick].treble.push_back(&ev);
+        slots[{ev.start_tick, ev.is_grace ? 0 : 1}].treble.push_back(&ev);
       }
     }
     if (show_bass) {
       for (const auto& ev : lm.bass_events) {
-        slots[ev.start_tick].bass.push_back(&ev);
+        slots[{ev.start_tick, ev.is_grace ? 0 : 1}].bass.push_back(&ev);
       }
     }
 
     const std::size_t global_bar = global_start_bar + idx;
-    for (const auto& [tick, slot] : slots) {
+    for (const auto& [slot_key, slot] : slots) {
+      const int tick = slot_key.first;
+      const bool slot_is_grace = (slot_key.second == 0);
       StaffChord chord{};
       chord.tick_offset = tick;
       chord.beat_offset = static_cast<float>(tick) / beat_ticks_f;
-      if (tick == 0 && lm.bar_number == 0U) {
+      chord.is_grace = slot_is_grace;
+      if (tick == 0 && lm.bar_number == 0U && !slot_is_grace) {
         chord.annotation = "Pickup";
       }
 
       NoteFeedback fb = NoteFeedback::Neutral;
       std::string played_lbl;
-      if (feedback_map != nullptr) {
+      if (!slot_is_grace && feedback_map != nullptr) {
         if (const auto it = feedback_map->find({global_bar, tick}); it != feedback_map->end()) {
           fb = it->second.feedback;
           played_lbl = it->second.played_label;
@@ -127,18 +136,23 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
             if (ev->voice == 0U) {
               if (clef == core::Clef::Treble) {
                 chord.treble_rest = to_staff_rest_duration(ev->duration.base);
-                chord.treble_rest_dotted = ev->duration.dotted;
+                chord.treble_rest_dotted = ev->duration.effective_dots() > 0U;
+                chord.treble_rest_dots = ev->duration.effective_dots();
               } else {
                 chord.bass_rest = to_staff_rest_duration(ev->duration.base);
-                chord.bass_rest_dotted = ev->duration.dotted;
+                chord.bass_rest_dotted = ev->duration.effective_dots() > 0U;
+                chord.bass_rest_dots = ev->duration.effective_dots();
               }
             }
             continue;
           }
           const NoteDuration dur = to_staff_note_duration(ev->duration.base);
+          const std::uint8_t ev_dots = ev->duration.effective_dots();
           if (!chord_dur_set) {
             chord.duration = dur;
-            chord.dotted = ev->duration.dotted;
+            chord.dotted = ev_dots > 0U;
+            chord.dots = ev_dots;
+            chord.grace_slash = ev->grace_slash;
             chord_dur_set = true;
           }
           for (const auto& ln : ev->notes) {
@@ -148,12 +162,16 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
                 .feedback = fb,
                 .played_label = (!badge_attached ? played_lbl : std::string{}),
                 .duration = dur,
-                .dotted = ev->duration.dotted,
+                .dotted = ev_dots > 0U,
                 .finger = ln.finger,
                 .tie_start = ln.tie_start,
                 .tie_stop = ln.tie_stop,
                 .voice = ev->voice,
                 .articulations = ev->articulations,
+                .dots = ev_dots,
+                .tuplet = ev->tuplet,
+                .is_grace = ev->is_grace,
+                .grace_slash = ev->grace_slash,
             });
             badge_attached = true;
           }
@@ -243,6 +261,64 @@ std::vector<StaffPedalSpan> slice_system_pedals(std::span<const core::PedalSpan>
     });
   }
   return out;
+}
+
+std::vector<StaffOttavaSpan> slice_system_ottavas(std::span<const core::OttavaSpan> ottavas,
+                                                  std::size_t sys_start_bar,
+                                                  std::size_t sys_end_bar,
+                                                  std::span<const StaffMeasure> sys_measures,
+                                                  bool show_treble, bool show_bass) {
+  std::vector<StaffOttavaSpan> out;
+  if (sys_measures.empty() || sys_start_bar > sys_end_bar) {
+    return out;
+  }
+  const std::size_t last_local = sys_measures.size() - 1U;
+  for (const auto& ov : ottavas) {
+    if (ov.treble ? !show_treble : !show_bass) {
+      continue;
+    }
+    if (ov.end_bar < sys_start_bar || ov.start_bar > sys_end_bar) {
+      continue;
+    }
+    const bool open_l = (ov.start_bar < sys_start_bar);
+    const bool open_r = (ov.end_bar > sys_end_bar);
+    const std::size_t loc_s = open_l ? 0U : (ov.start_bar - sys_start_bar);
+    const std::size_t loc_e = open_r ? last_local : (ov.end_bar - sys_start_bar);
+    const int s_tick = open_l ? 0 : std::clamp(ov.start_tick, 0, sys_measures[loc_s].measure_ticks);
+    const int e_tick = open_r ? sys_measures[loc_e].measure_ticks
+                              : std::clamp(ov.end_tick, 0, sys_measures[loc_e].measure_ticks);
+    if (loc_s > loc_e || (loc_s == loc_e && s_tick >= e_tick)) {
+      continue;
+    }
+    out.push_back(StaffOttavaSpan{
+        .start_measure_idx = loc_s,
+        .start_tick = s_tick,
+        .end_measure_idx = loc_e,
+        .end_tick = e_tick,
+        .treble = ov.treble,
+        .octave_shift = ov.octave_shift,
+        .open_left = open_l,
+        .open_right = open_r,
+    });
+  }
+  return out;
+}
+
+core::Clef resolve_clef_before_bar(std::span<const core::LessonMeasure> measures,
+                                   std::size_t bar_index, bool treble_staff,
+                                   core::Clef default_clef) noexcept {
+  core::Clef active = default_clef;
+  const std::size_t limit = std::min(bar_index, measures.size());
+  for (std::size_t b = 0; b < limit; ++b) {
+    int latest_tick = -1;
+    for (const auto& cc : measures[b].clef_changes) {
+      if (cc.treble_staff == treble_staff && cc.start_tick >= latest_tick) {
+        latest_tick = cc.start_tick;
+        active = cc.clef;
+      }
+    }
+  }
+  return active;
 }
 
 } // namespace selfano::ui

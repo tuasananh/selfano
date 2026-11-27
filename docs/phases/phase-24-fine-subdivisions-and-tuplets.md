@@ -1,6 +1,6 @@
 # Phase 24: Fine Subdivisions & Tuplets (32nd Notes, Triplets, Quintuplets & Sextuplets)
 
-**Status:** `[ ] Planned` (Depends on Phase 20 — Track B: Romantic Score & Importer Foundations)  
+**Status:** `[x] Complete` (Depends on Phase 20 — Track B: Romantic Score & Importer Foundations)  
 **Goal:** Remove Selfano's 16th-note / binary-only rhythmic ceiling by adding **32nd notes**, **double-dotted values**, and **general tuplets** (`3:2`, `5:4`, `6:4`, `7:4`) across `LessonScore`, JSON codec, MusicXML importer, `StaffRenderer`, and `LessonEngine`—unblocking authentic Chopin passagework and Urtext `.mxl` imports.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `verification-and-review`

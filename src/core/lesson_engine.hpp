@@ -21,6 +21,7 @@ enum class LessonPracticeMode : std::uint8_t {
   ChordSkeleton = 0,
   WaitForNote = 1,
   SteadyPulse = 2,
+  RubatoFollow = 3,
 };
 
 enum class LessonHandMode : std::uint8_t {
@@ -114,6 +115,8 @@ struct LessonTarget {
   std::vector<MidiPitch> played_midi;
   std::vector<MidiPitch> missed_midi{};
   bool memory_peeked{false};
+  bool is_grace{false};
+  bool allow_rolled_chord{false};
 
   bool operator==(const LessonTarget&) const = default;
 };
@@ -131,6 +134,7 @@ struct LessonConfig {
   double ramp_step_bpm{4.0};
   PracticeTransform practice_transform{PracticeTransform::Straight};
   MemoryFadeLevel memory_fade{MemoryFadeLevel::FullScore};
+  bool grade_grace_notes_in_pulse{false};
 
   bool operator==(const LessonConfig&) const = default;
 };
@@ -381,6 +385,8 @@ public:
   }
 
   [[nodiscard]] double effective_bpm() const noexcept;
+  [[nodiscard]] double tempo_at(std::size_t source_bar, int tick) const noexcept;
+  [[nodiscard]] double active_section_bpm() const noexcept;
   [[nodiscard]] double playhead_beat_in_bar(std::size_t local_bar_idx) const noexcept;
   [[nodiscard]] double playhead_global_beat() const noexcept;
   [[nodiscard]] int count_in_beats_remaining() const noexcept;
@@ -486,6 +492,16 @@ private:
   std::size_t next_pedal_check_idx_{0};
   std::uint32_t pedal_checked_{0};
   std::uint32_t pedal_clean_{0};
+
+  // Rolled-chord accumulation buffer (Phase 26.2)
+  std::size_t roll_target_idx_{static_cast<std::size_t>(-1)};
+  double roll_elapsed_ms_{0.0};
+  std::vector<MidiPitch> roll_accum_midi_{};
+
+  // Elastic Rubato follower state (Phase 26.3)
+  double rubato_tempo_scale_{1.0};
+  double rubato_since_last_hit_ms_{0.0};
+  std::optional<int> rubato_last_hit_tick_{};
 };
 
 } // namespace selfano::core

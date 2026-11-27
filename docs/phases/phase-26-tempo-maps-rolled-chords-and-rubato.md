@@ -1,6 +1,6 @@
 # Phase 26: Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode
 
-**Status:** `[ ] Planned` (Depends on Phase 24 — Track B: Romantic Score & Importer Foundations)  
+**Status:** `[x] Complete` (Depends on Phase 24 — Track B: Romantic Score & Importer Foundations)  
 **Goal:** Support Chopin's real musical pacing by adding **per-measure tempo changes**, a **wider rolled-chord matching window (`~250 ms`)** for arpeggiated/wide chords, and an optional **Elastic Rubato** follower mode alongside `SteadyPulse`.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `midi-emscripten-interop`, `apple-hig-imgui`, `verification-and-review`
