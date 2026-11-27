@@ -134,7 +134,8 @@ LessonProgressUpdateResult apply_run_to_progress(LessonProgress& prog, const Les
 
   const bool clean_full_steady =
       (run.practice_mode == LessonPracticeMode::SteadyPulse &&
-       run.hand_mode == LessonHandMode::HandsTogether && run.is_full_piece && run.accuracy >= 0.90);
+       run.hand_mode == LessonHandMode::HandsTogether && run.is_full_piece &&
+       run.practice_transform == PracticeTransform::Straight && run.accuracy >= 0.90);
 
   if (clean_full_steady) {
     prog.best_clean_bpm = std::max(prog.best_clean_bpm, run.effective_bpm);

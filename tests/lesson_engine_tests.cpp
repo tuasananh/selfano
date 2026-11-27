@@ -1,5 +1,6 @@
 #include "core/key_signature.hpp"
 #include "core/lesson_engine.hpp"
+#include "core/lesson_library.hpp"
 #include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
 
@@ -1408,4 +1409,49 @@ TEST_CASE("Trouble-Spot Micro-SRS queue deduplicates, schedules, and graduates",
     enqueue_or_update_trouble_spot(queue, "t4_02", i * 2U, i * 2U + 1U, 76.0, 46.0, day0);
   }
   CHECK(queue.size() == kMaxTroubleSpotQueueSize);
+}
+
+TEST_CASE("LessonEngine applies PracticeTransform non-destructively and guards Mastery",
+          "[lesson_engine][phase22]") {
+  LessonLibrary lib;
+  REQUIRE(lib.load_built_in_from_directory(std::filesystem::path(SELFANO_SOURCE_ASSETS_DIR) /
+                                           "lessons"));
+  const auto* score_ptr = lib.find_lesson("t2_01");
+  REQUIRE(score_ptr != nullptr);
+  const LessonScore orig = *score_ptr;
+
+  LessonEngine engine;
+  LessonConfig cfg{};
+  cfg.practice_mode = LessonPracticeMode::WaitForNote;
+  cfg.hand_mode = LessonHandMode::HandsTogether;
+  cfg.practice_transform = PracticeTransform::HandBlocking;
+  engine.load_score(orig, cfg);
+
+  // Original score stays untouched while display_measures and targets reflect blocked chords
+  CHECK(engine.score() == orig);
+  REQUIRE_FALSE(engine.display_measures().empty());
+  CHECK(engine.display_measures() != orig.measures);
+  REQUIRE_FALSE(engine.targets().empty());
+  CHECK_FALSE(engine.build_demo_playback().empty());
+
+  const auto summary = engine.build_run_summary();
+  CHECK(summary.practice_transform == PracticeTransform::HandBlocking);
+
+  // Guardrail: transformed run must NOT graduate Tempo Ladder or Mastered status
+  LessonProgress prog{};
+  LessonRunSummary fake_run{};
+  fake_run.lesson_id = orig.meta.id;
+  fake_run.practice_mode = LessonPracticeMode::SteadyPulse;
+  fake_run.hand_mode = LessonHandMode::HandsTogether;
+  fake_run.practice_transform = PracticeTransform::HandBlocking;
+  fake_run.is_full_piece = true;
+  fake_run.effective_bpm = orig.meta.target_bpm;
+  fake_run.accuracy = 1.0;
+
+  const auto upd = apply_run_to_progress(prog, fake_run, orig.meta.target_bpm, 20700);
+  CHECK_FALSE(upd.just_mastered);
+  CHECK_FALSE(prog.ladder_60_clean);
+  CHECK_FALSE(prog.ladder_80_clean);
+  CHECK_FALSE(prog.ladder_100_clean);
+  CHECK(prog.status != LessonMasteryStatus::Mastered);
 }

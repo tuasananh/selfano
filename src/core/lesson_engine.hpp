@@ -2,6 +2,7 @@
 
 #include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
+#include "core/practice_transforms.hpp"
 #include "core/srs_deck.hpp"
 
 #include <cstddef>
@@ -119,6 +120,7 @@ struct LessonConfig {
   bool play_other_hand_accomp{true};
   bool auto_tempo_ramp{false};
   double ramp_step_bpm{4.0};
+  PracticeTransform practice_transform{PracticeTransform::Straight};
 
   bool operator==(const LessonConfig&) const = default;
 };
@@ -197,6 +199,7 @@ struct LessonRunSummary {
   std::uint32_t partial_hits{0};
   std::vector<BarDiagnostic> bar_diagnostics{};
   MusicalityMetrics musicality{};
+  PracticeTransform practice_transform{PracticeTransform::Straight};
 };
 
 struct GuidedPracticeStep {
@@ -318,6 +321,7 @@ public:
   void set_play_other_hand_accomp(bool enabled) noexcept;
   void set_auto_tempo_ramp(bool enabled) noexcept;
   void set_ramp_step_bpm(double step_bpm) noexcept;
+  void set_practice_transform(PracticeTransform transform);
 
   LessonTickResult start();
   LessonTickResult start_demo();
@@ -349,6 +353,12 @@ public:
 
   [[nodiscard]] std::size_t slice_start_bar() const noexcept { return slice_start_bar_; }
   [[nodiscard]] std::size_t slice_end_bar() const noexcept { return slice_end_bar_; }
+  [[nodiscard]] std::size_t display_slice_start_bar() const noexcept {
+    return display_slice_start_bar_;
+  }
+  [[nodiscard]] std::size_t display_slice_end_bar() const noexcept {
+    return display_slice_end_bar_;
+  }
   [[nodiscard]] bool is_full_piece_selected() const noexcept {
     return !config_.custom_bar_range.has_value() &&
            (!config_.phrase_index.has_value() || phrases_.size() <= 1U);
@@ -413,6 +423,9 @@ private:
 
   std::size_t slice_start_bar_{0};
   std::size_t slice_end_bar_{0};
+  std::size_t display_slice_start_bar_{0};
+  std::size_t display_slice_end_bar_{0};
+  std::vector<std::size_t> display_to_source_bar_{};
   int total_slice_ticks_{0};
 
   LessonPlaybackState playback_state_{LessonPlaybackState::Stopped};
