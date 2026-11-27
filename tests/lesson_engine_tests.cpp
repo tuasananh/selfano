@@ -255,7 +255,7 @@ TEST_CASE("LessonEngine mastery graduation, SM-2 revision, and Stage 3 split pla
 
   // Stage 3 split planner picks overdue mastered lesson for 180s revision + 420s active lesson
   std::map<std::string, LessonProgress> map;
-  map["sample_01"] = prog;
+  map.emplace("sample_01", prog);
   const auto no_due = plan_stage3_session(map, "t1_02", 20000);
   REQUIRE_FALSE(no_due.has_revision);
   REQUIRE(no_due.active_duration_sec == 600.0);
