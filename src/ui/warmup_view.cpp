@@ -184,7 +184,7 @@ bool WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
   if (chord.notes.empty()) {
     return false;
   }
-  const auto res = engine_.submit_played_notes(chord.notes);
+  const auto res = engine_.submit_played_notes(chord.notes, chord.velocities, chord.from_hardware);
   const auto key = engine_.config().key;
 
   switch (res.status) {
@@ -642,12 +642,22 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
                                       engine_.completed_runs(), engine_.accuracy_ratio() * 100.0);
   if (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse &&
       engine_.pass_evenness_ratio() > 0.0) {
-    stats_lbl += std::format("  \xC2\xB7  Pulse {:.0f}%", engine_.pass_evenness_ratio() * 100.0);
+    stats_lbl += std::format("  \xC2\xB7  Evenness {:.0f}%", engine_.pass_evenness_ratio() * 100.0);
   }
   {
     ScopedFont sub(TypeStyle::Subheadline);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f * scale);
     ImGui::TextColored(c.text_secondary, "%s", stats_lbl.c_str());
+  }
+  if (engine_.tone_smoothness_available()) {
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    if (engine_.pass_thumb_spikes() == 0U) {
+      status_pill(std::format("Smoothness {:.0f}%", engine_.pass_tone_smoothness_ratio() * 100.0),
+                  StatusTone::Success, IconId::None, true);
+    } else {
+      status_pill(std::format("Thumb spikes: {}", engine_.pass_thumb_spikes()), StatusTone::Warning,
+                  IconId::None, true);
+    }
   }
 
   ImGui::Spacing();
