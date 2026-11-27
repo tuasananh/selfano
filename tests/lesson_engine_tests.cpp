@@ -1715,3 +1715,170 @@ TEST_CASE("Grace notes schedule ahead in demo playback, grade in WaitForNote, an
     CHECK(engine.build_run_summary().misses == 0U);
   }
 }
+
+TEST_CASE("LessonEngine scales multi-section tempo maps in demo playback and live transport",
+          "[lesson_engine][phase26]") {
+  auto make_n = [](NoteLetter l, int oct) {
+    const SpelledNote sp{.letter = l, .accidental = Accidental::Natural, .octave = oct};
+    return LessonNote{.spelled = sp, .midi = to_midi(sp).value()};
+  };
+
+  LessonScore score{};
+  score.meta.id = "p26_tempo_map";
+  score.meta.title = "Tempo Map";
+  score.meta.target_bpm = 60.0; // 1000 ms/beat -> 4000 ms for 4/4 bar 1
+  LessonMeasure m1{};
+  m1.bar_number = 1;
+  m1.treble_events = {{.start_tick = 0,
+                       .duration = {.base = NoteBaseDuration::Whole},
+                       .notes = {make_n(NoteLetter::C, 5)}}};
+  LessonMeasure m2{};
+  m2.bar_number = 2;
+  m2.tempo_changes = {
+      {.start_tick = 0, .bpm = 120.0, .label = "Allegro"}}; // 500 ms/beat -> 2000 ms
+  m2.treble_events = {{.start_tick = 0,
+                       .duration = {.base = NoteBaseDuration::Whole},
+                       .notes = {make_n(NoteLetter::D, 5)}}};
+  score.measures = {m1, m2};
+
+  LessonEngine engine;
+  LessonConfig cfg{};
+  cfg.practice_mode = LessonPracticeMode::SteadyPulse;
+  cfg.hand_mode = LessonHandMode::RightHand;
+  cfg.tempo_step = TempoLadderStep::Target100; // 1.0x
+  engine.load_score(score, cfg);
+
+  const auto demo_100 = engine.build_demo_playback();
+  REQUIRE(demo_100.size() == 2U);
+  CHECK_THAT(demo_100[0].start_ms, WithinAbs(0.0, 1e-3));
+  CHECK_THAT(demo_100[1].start_ms, WithinAbs(4000.0, 1e-3));
+
+  // At 80% Tempo Ladder, both sections scale proportionally (48 BPM and 96 BPM)
+  engine.set_tempo_step(TempoLadderStep::Medium80);
+  const auto demo_80 = engine.build_demo_playback();
+  REQUIRE(demo_80.size() == 2U);
+  CHECK_THAT(demo_80[1].start_ms, WithinAbs(5000.0, 1e-3));
+
+  // Live DemoPlaying transitions active_section_bpm() on entering bar 2
+  engine.set_tempo_step(TempoLadderStep::Target100);
+  engine.start_demo();
+  CHECK_THAT(engine.active_section_bpm(), WithinAbs(60.0, 1e-3));
+  engine.update(4100.0);
+  CHECK(engine.current_bar_in_slice() == 1U);
+  CHECK_THAT(engine.active_section_bpm(), WithinAbs(120.0, 1e-3));
+}
+
+TEST_CASE("Rolled chords (arpeggiated or >12 semitone span) accumulate within 260 ms",
+          "[lesson_engine][phase26]") {
+  auto make_n = [](NoteLetter l, Accidental a, int oct) {
+    const SpelledNote sp{.letter = l, .accidental = a, .octave = oct};
+    return LessonNote{.spelled = sp, .midi = to_midi(sp).value()};
+  };
+
+  LessonScore score{};
+  score.meta.id = "p26_rolled";
+  score.meta.title = "Rolled Chords";
+  score.meta.target_bpm = 60.0;
+  LessonMeasure m{};
+  m.bar_number = 1;
+  m.treble_events = {
+      // Wide 10th (C4..E5 = 16 semitones -> allow_rolled_chord = true)
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half},
+       .notes = {make_n(NoteLetter::C, Accidental::Natural, 4),
+                 make_n(NoteLetter::G, Accidental::Natural, 4),
+                 make_n(NoteLetter::E, Accidental::Natural, 5)}},
+      // Tight triad (C4..G4 = 7 semitones, no Arpeggiate -> allow_rolled_chord = false)
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half},
+       .notes = {make_n(NoteLetter::C, Accidental::Natural, 4),
+                 make_n(NoteLetter::E, Accidental::Natural, 4),
+                 make_n(NoteLetter::G, Accidental::Natural, 4)}},
+  };
+  score.measures.push_back(m);
+
+  LessonEngine engine;
+  LessonConfig cfg{};
+  cfg.practice_mode = LessonPracticeMode::WaitForNote;
+  cfg.hand_mode = LessonHandMode::RightHand;
+  engine.load_score(score, cfg);
+
+  REQUIRE(engine.targets().size() == 2U);
+  CHECK(engine.targets()[0].allow_rolled_chord);
+  CHECK_FALSE(engine.targets()[1].allow_rolled_chord);
+
+  // Roll target 0 over 180 ms (< 260 ms) -> scores Hit
+  const auto p1 = engine.submit_played_notes(std::array<MidiPitch, 1>{60});
+  CHECK_FALSE(p1.matched);
+  CHECK_FALSE(p1.wrong_note);
+  engine.update(90.0);
+  const auto p2 = engine.submit_played_notes(std::array<MidiPitch, 1>{67});
+  CHECK_FALSE(p2.matched);
+  CHECK_FALSE(p2.wrong_note);
+  engine.update(90.0);
+  const auto p3 = engine.submit_played_notes(std::array<MidiPitch, 1>{76});
+  CHECK(p3.matched);
+  CHECK(engine.active_target_index() == 1U);
+
+  // Target 1 is tight (not rolled): partial subset must NOT be buffered as Hit
+  const auto tight_partial = engine.submit_played_notes(std::array<MidiPitch, 1>{60});
+  CHECK_FALSE(tight_partial.matched);
+  CHECK(tight_partial.wrong_note);
+}
+
+TEST_CASE("RubatoFollow advances expressively without metronome penalties and skips ladder mastery",
+          "[lesson_engine][phase26]") {
+  auto make_n = [](NoteLetter l, int oct) {
+    const SpelledNote sp{.letter = l, .accidental = Accidental::Natural, .octave = oct};
+    return LessonNote{.spelled = sp, .midi = to_midi(sp).value()};
+  };
+
+  LessonScore score{};
+  score.meta.id = "p26_rubato";
+  score.meta.title = "Rubato";
+  score.meta.target_bpm = 80.0;
+  LessonMeasure m{};
+  m.bar_number = 1;
+  m.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Half},
+       .notes = {make_n(NoteLetter::C, 5)}},
+      {.start_tick = 960,
+       .duration = {.base = NoteBaseDuration::Half},
+       .notes = {make_n(NoteLetter::D, 5)}},
+  };
+  score.measures.push_back(m);
+
+  LessonEngine engine;
+  LessonConfig cfg{};
+  cfg.practice_mode = LessonPracticeMode::RubatoFollow;
+  cfg.hand_mode = LessonHandMode::RightHand;
+  cfg.tempo_step = TempoLadderStep::Target100;
+  engine.load_score(score, cfg);
+
+  const auto start_res = engine.start();
+  CHECK_FALSE(start_res.metronome_click);
+  CHECK(engine.playback_state() == LessonPlaybackState::Playing);
+
+  // Wait 1200 ms (expressive stretch) -> no metronome click and no false miss
+  const auto tick_res = engine.update(1200.0);
+  CHECK_FALSE(tick_res.metronome_click);
+  CHECK(engine.build_run_summary().misses == 0U);
+
+  CHECK(engine.submit_played_notes(std::array<MidiPitch, 1>{72}).matched);
+  engine.update(1800.0);
+  const auto end_res = engine.submit_played_notes(std::array<MidiPitch, 1>{74});
+  CHECK(end_res.matched);
+  CHECK(end_res.run_completed);
+
+  const auto summary = engine.build_run_summary();
+  CHECK(summary.practice_mode == LessonPracticeMode::RubatoFollow);
+  CHECK_THAT(summary.accuracy, WithinAbs(1.0, 1e-6));
+
+  // RubatoFollow must NOT certify Tempo Ladder 100% mastery
+  LessonProgress prog{};
+  (void)apply_run_to_progress(prog, summary, score.meta.target_bpm, 20000);
+  CHECK_FALSE(prog.ladder_100_clean);
+  CHECK_FALSE(prog.ladder_80_clean);
+  CHECK_FALSE(prog.ladder_60_clean);
+}

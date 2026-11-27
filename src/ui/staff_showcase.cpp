@@ -555,7 +555,7 @@ void StaffShowcase::rebuild_measures() {
     options_.time_signature = core::TimeSignature{.numerator = 4, .denominator = 4};
     options_.show_harmony_labels = true;
     options_.show_fingerings = true;
-    options_.tempo_marking = "Andante con moto";
+    options_.tempo_marking = "Largo";
 
     auto ln = [](core::NoteLetter l, core::Accidental a, int oct, std::uint8_t f = 0) {
       const core::SpelledNote sp{.letter = l, .accidental = a, .octave = oct};
@@ -611,10 +611,11 @@ void StaffShowcase::rebuild_measures() {
          .notes = {ln(core::NoteLetter::G, core::Accidental::Natural, 3, 1)}},
     };
 
-    // Bar 2: Double-dotted 8th + 32nd triple-beamed run + 32nd rest
+    // Bar 2: Double-dotted 8th + 32nd triple-beamed run + 32nd rest + Moderato tempo change
     core::LessonMeasure m2{};
     m2.bar_number = 2;
     m2.harmony = {{.start_tick = 0, .chord_symbol = "Cm", .roman_numeral = "iv"}};
+    m2.tempo_changes = {{.start_tick = 0, .bpm = 104.0, .label = "Moderato"}};
     m2.treble_events = {
         {.start_tick = 0,
          .duration = {.base = D::Eighth, .dotted = true, .dots = 2},

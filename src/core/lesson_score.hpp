@@ -312,6 +312,14 @@ struct OttavaSpan {
   constexpr bool operator==(const OttavaSpan&) const = default;
 };
 
+struct TempoEvent {
+  int start_tick{0};
+  double bpm{80.0};
+  std::string label{};
+
+  bool operator==(const TempoEvent&) const = default;
+};
+
 struct LessonMeasure {
   std::uint32_t bar_number{1};
   std::optional<int> pickup_ticks{};
@@ -323,6 +331,7 @@ struct LessonMeasure {
   std::vector<DynamicEvent> dynamics;
   std::vector<HairpinSpan> hairpins;
   std::vector<ClefChange> clef_changes;
+  std::vector<TempoEvent> tempo_changes;
 
   bool operator==(const LessonMeasure&) const = default;
 };

@@ -1000,7 +1000,8 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
                          std::vector<HarmonicAnnotation>& harmony_out,
                          std::vector<DynamicEvent>* dynamics_out = nullptr,
                          std::vector<HairpinSpan>* hairpins_out = nullptr,
-                         std::vector<ClefChange>* clef_changes_out = nullptr) {
+                         std::vector<ClefChange>* clef_changes_out = nullptr,
+                         std::vector<TempoEvent>* tempo_changes_out = nullptr) {
   MeasureVoiceState vs{};
   vs.bar_idx = bar_idx;
   vs.measure_ticks = measure_ticks;
@@ -1017,30 +1018,28 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
                             vs.measure_ticks, ctx, clef_changes_out);
       vs.active_div = active_div;
     } else if (tag == "direction") {
-      if (!ctx.found_tempo) {
-        if (const pugi::xml_node snd = child.child("sound")) {
-          if (const auto t = parse_double_sv(snd.attribute("tempo").as_string());
-              t.has_value() && *t > 0.0) {
-            ctx.score.meta.target_bpm = std::clamp(*t, 36.0, 220.0);
-            ctx.found_tempo = true;
-          }
+      std::optional<double> dir_bpm;
+      std::string dir_words;
+      if (const pugi::xml_node snd = child.child("sound")) {
+        if (const auto t = parse_double_sv(snd.attribute("tempo").as_string());
+            t.has_value() && *t > 0.0) {
+          dir_bpm = std::clamp(*t, 20.0, 300.0);
         }
       }
       for (pugi::xml_node dt : child.children("direction-type")) {
-        if (!ctx.found_tempo) {
+        if (!dir_bpm.has_value()) {
           if (const pugi::xml_node met = dt.child("metronome")) {
             if (const auto t = parse_double_sv(met.child_value("per-minute"));
                 t.has_value() && *t > 0.0) {
-              ctx.score.meta.target_bpm = std::clamp(*t, 36.0, 220.0);
-              ctx.found_tempo = true;
+              dir_bpm = std::clamp(*t, 20.0, 300.0);
             }
           }
         }
-        if (allow_header_updates && bar_idx == 0U && ctx.score.meta.tempo_marking.empty()) {
+        if (dir_words.empty()) {
           if (const pugi::xml_node words = dt.child("words")) {
             const std::string w = trim_copy(words.text().as_string());
             if (!w.empty() && w.size() <= 40U) {
-              ctx.score.meta.tempo_marking = w;
+              dir_words = w;
             }
           }
         }
@@ -1146,6 +1145,24 @@ void parse_measure_nodes(pugi::xml_node meas, int& active_div, bool force_bass_s
         }
         if (dt.child("rehearsal") && bar_idx > 0U) {
           ctx.phrase_break_bars.push_back(bar_idx);
+        }
+      }
+      if (allow_header_updates) {
+        if (!ctx.found_tempo && dir_bpm.has_value()) {
+          ctx.score.meta.target_bpm = std::clamp(*dir_bpm, 36.0, 220.0);
+          ctx.found_tempo = true;
+          if (!dir_words.empty() && ctx.score.meta.tempo_marking.empty()) {
+            ctx.score.meta.tempo_marking = dir_words;
+          }
+        } else if (dir_bpm.has_value() && tempo_changes_out != nullptr) {
+          tempo_changes_out->push_back(TempoEvent{
+              .start_tick = std::clamp(vs.cursor_ticks, 0, std::max(0, vs.measure_ticks - 1)),
+              .bpm = *dir_bpm,
+              .label = dir_words,
+          });
+        }
+        if (bar_idx == 0U && !dir_words.empty() && ctx.score.meta.tempo_marking.empty()) {
+          ctx.score.meta.tempo_marking = dir_words;
         }
       }
     } else if (tag == "barline") {
@@ -1363,10 +1380,11 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
     std::vector<DynamicEvent> dynamics_out;
     std::vector<HairpinSpan> hairpins_out;
     std::vector<ClefChange> clef_changes_out;
+    std::vector<TempoEvent> tempo_changes_out;
 
     parse_measure_nodes(primary_measures[bi], divisions, false, true, ctx.cur_meter.measure_ticks(),
                         bi, ctx, treble_raw, bass_raw, harmony_out, &dynamics_out, &hairpins_out,
-                        &clef_changes_out);
+                        &clef_changes_out, &tempo_changes_out);
 
     if (bi < bass_part_measures.size()) {
       std::vector<RawEvent> unused_tr;
@@ -1429,12 +1447,18 @@ import_musicxml_string(std::string_view xml_text, MusicXmlImportOptions options)
       }
     }
 
+    for (auto& tc : tempo_changes_out) {
+      tc.start_tick = std::clamp(tc.start_tick, 0, std::max(0, mticks - 1));
+      tc.bpm = std::clamp(tc.bpm, 20.0, 300.0);
+    }
+
     normalize_staff_events(treble_raw, mticks, lm.treble_events);
     normalize_staff_events(bass_raw, mticks, lm.bass_events);
     lm.harmony = std::move(harmony_out);
     lm.dynamics = std::move(dynamics_out);
     lm.hairpins = std::move(clamped_hp);
     lm.clef_changes = std::move(clef_changes_out);
+    lm.tempo_changes = std::move(tempo_changes_out);
 
     score.measures.push_back(std::move(lm));
   }

@@ -611,3 +611,35 @@ TEST_CASE("LessonScore supports grace notes, mid-piece clef changes, and 8va/8vb
     REQUIRE_FALSE(validate_lesson_score(bad_clef).has_value());
   }
 }
+
+TEST_CASE("TempoEvent round-trips in JSON and validates bounds", "[lesson_score][phase26]") {
+  LessonScore score{};
+  score.meta.id = "p26_tempo";
+  score.meta.title = "Tempo Map";
+  score.meta.target_bpm = 52.0;
+  score.meta.tempo_marking = "Largo";
+
+  LessonMeasure m1{};
+  m1.bar_number = 1;
+  m1.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole},
+       .notes = {LessonNote{.spelled = {NoteLetter::C, Accidental::Natural, 5}, .midi = 72}}}};
+  m1.bass_events = {{.start_tick = 0,
+                     .duration = {.base = NoteBaseDuration::Whole},
+                     .is_rest = true,
+                     .notes = {}}};
+  LessonMeasure m2 = m1;
+  m2.bar_number = 2;
+  m2.tempo_changes = {{.start_tick = 0, .bpm = 104.0, .label = "Moderato"}};
+  score.measures = {m1, m2};
+
+  REQUIRE(validate_lesson_score(score).has_value());
+  const auto reparsed = lesson_score_from_json(lesson_score_to_json(score));
+  REQUIRE(reparsed.has_value());
+  REQUIRE(*reparsed == score);
+
+  auto bad_bpm = score;
+  bad_bpm.measures[1].tempo_changes[0].bpm = 350.0;
+  REQUIRE_FALSE(validate_lesson_score(bad_bpm).has_value());
+}

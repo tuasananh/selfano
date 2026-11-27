@@ -79,6 +79,7 @@ build_lesson_staff_measures(std::span<const core::LessonMeasure> measures_slice,
     sm.dynamics = lm.dynamics;
     sm.hairpins = lm.hairpins;
     sm.clef_changes = lm.clef_changes;
+    sm.tempo_changes = lm.tempo_changes;
 
     for (const auto& ha : lm.harmony) {
       sm.harmony_labels.push_back(StaffHarmonicLabel{

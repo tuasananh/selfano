@@ -150,6 +150,7 @@ struct StaffMeasure {
   std::vector<core::DynamicEvent> dynamics{};
   std::vector<core::HairpinSpan> hairpins{};
   std::vector<core::ClefChange> clef_changes{};
+  std::vector<core::TempoEvent> tempo_changes{};
 };
 
 enum class StaffViewMode : std::uint8_t {

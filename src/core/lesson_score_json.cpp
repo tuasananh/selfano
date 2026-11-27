@@ -481,6 +481,20 @@ std::string lesson_score_to_json(const LessonScore& score) {
       }
       mj["clef_changes"] = std::move(cc_arr);
     }
+    if (!m.tempo_changes.empty()) {
+      json tc_arr = json::array();
+      for (const auto& tc : m.tempo_changes) {
+        json tcj{
+            {"start_tick", tc.start_tick},
+            {"bpm", tc.bpm},
+        };
+        if (!tc.label.empty()) {
+          tcj["label"] = tc.label;
+        }
+        tc_arr.push_back(std::move(tcj));
+      }
+      mj["tempo_changes"] = std::move(tc_arr);
+    }
     measures_arr.push_back(std::move(mj));
   }
   j["measures"] = std::move(measures_arr);
@@ -851,6 +865,25 @@ std::expected<LessonScore, std::string> lesson_score_from_json(std::string_view 
           cc.treble_staff = ccj.at("treble_staff").get<bool>();
         }
         m.clef_changes.push_back(cc);
+      }
+    }
+    if (mj.contains("tempo_changes")) {
+      if (!mj.at("tempo_changes").is_array()) {
+        return std::unexpected("Measure 'tempo_changes' must be an array");
+      }
+      for (const auto& tcj : mj.at("tempo_changes")) {
+        if (!tcj.is_object() || !tcj.contains("bpm") || !tcj.at("bpm").is_number()) {
+          return std::unexpected("TempoEvent entry must be an object with numeric 'bpm'");
+        }
+        TempoEvent tc{};
+        if (tcj.contains("start_tick") && tcj.at("start_tick").is_number_integer()) {
+          tc.start_tick = tcj.at("start_tick").get<int>();
+        }
+        tc.bpm = tcj.at("bpm").get<double>();
+        if (tcj.contains("label") && tcj.at("label").is_string()) {
+          tc.label = tcj.at("label").get<std::string>();
+        }
+        m.tempo_changes.push_back(std::move(tc));
       }
     }
     out.measures.push_back(std::move(m));

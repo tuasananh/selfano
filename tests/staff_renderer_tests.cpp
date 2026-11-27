@@ -501,3 +501,26 @@ TEST_CASE("Grace notes, mid-piece clef changes, and 8va ottava brackets render c
   CHECK((min_y_with_8va - g_clef_with_8va) >
         (min_y_no_8va - g_clef_no_8va) + 3.0f * with_8va.staff_space);
 }
+
+TEST_CASE("Mid-piece tempo_changes render tempo headers above the staff",
+          "[staff_renderer][phase26]") {
+  core::LessonMeasure m1{};
+  m1.bar_number = 1;
+  m1.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = core::NoteBaseDuration::Whole},
+       .notes = {core::LessonNote{.spelled = {core::NoteLetter::C, core::Accidental::Natural, 5},
+                                  .midi = 72}}}};
+  core::LessonMeasure m2 = m1;
+  m2.bar_number = 2;
+  m2.tempo_changes = {{.start_tick = 0, .bpm = 104.0, .label = "Moderato"}};
+  const std::array<core::LessonMeasure, 2> ms{m1, m2};
+  const auto staff = ui::build_lesson_staff_measures(ms, 0, {}, true, false);
+  ui::StaffRenderOptions opts{};
+  opts.view_mode = ui::StaffViewMode::TrebleOnly;
+  opts.tempo_marking = "Largo";
+  StaffFrame frame;
+  frame.render(staff, opts, 800.0f);
+  CHECK(frame.glyphs(frame.fonts.ui_font, 13.5f, 'L').size() >= 1U);
+  CHECK(frame.glyphs(frame.fonts.ui_font, 12.5f, 'M').size() >= 1U);
+}

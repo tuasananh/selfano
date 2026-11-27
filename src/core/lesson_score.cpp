@@ -352,6 +352,16 @@ std::expected<void, std::vector<std::string>> validate_lesson_score(const Lesson
                                      m.bar_number, cc.start_tick, mticks));
       }
     }
+    for (const auto& tc : m.tempo_changes) {
+      if (tc.start_tick < 0 || tc.start_tick >= mticks) {
+        errors.push_back(std::format("Bar {} tempo_change start_tick {} out of [0, {})",
+                                     m.bar_number, tc.start_tick, mticks));
+      }
+      if (tc.bpm < 20.0 || tc.bpm > 300.0) {
+        errors.push_back(
+            std::format("Bar {} tempo_change bpm {} out of [20, 300]", m.bar_number, tc.bpm));
+      }
+    }
   }
 
   for (const MidiPitch p : treble_open_ties) {

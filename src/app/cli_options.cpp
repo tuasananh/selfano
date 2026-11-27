@@ -149,6 +149,8 @@ CliOptions parse_cli(int argc, char* argv[]) {
         opts.lesson_mode_override = core::LessonPracticeMode::WaitForNote;
       } else if (m == "pulse") {
         opts.lesson_mode_override = core::LessonPracticeMode::SteadyPulse;
+      } else if (m == "rubato") {
+        opts.lesson_mode_override = core::LessonPracticeMode::RubatoFollow;
       }
     } else if (arg == "--lesson-hand" && i + 1 < argc) {
       const std::string_view h = argv[++i];

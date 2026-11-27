@@ -1422,6 +1422,24 @@ StaffSystemLayout layout_staff(ImFont* smufl_font, ImFont* ui_font, float width,
     score.text(ann_font, size, {system_left_x, score.top(system_top_y) - size - 0.45f * s}, pal.ink,
                options.tempo_marking.c_str());
   }
+  if (ann_font) {
+    const float tc_size = draw_font_size(12.5f);
+    for (std::size_t m = 0; m < measures.size(); ++m) {
+      for (const auto& tc : measures[m].tempo_changes) {
+        if (m == 0U && tc.start_tick == 0 && !options.tempo_marking.empty()) {
+          continue;
+        }
+        const std::string text = tc.label.empty() ? std::format("q = {:.0f}", tc.bpm)
+                                                  : std::format("{} ({:.0f})", tc.label, tc.bpm);
+        const float tx = tick_to_x(m, tc.start_tick);
+        StaffInk tempo_ink;
+        tempo_ink.text(ann_font, tc_size, {std::round(tx), system_top_y - tc_size - 0.35f * s},
+                       pal.ink, text.c_str());
+        const float dy = tempo_ink.clearance(score, true, 0.35f * s);
+        score.append(std::move(tempo_ink), dy);
+      }
+    }
+  }
   result.staff_origin_y = std::ceil(s - score.top(-1.75f * s));
   // Put transient feedback below existing ink. Adding feedback can extend the
   // paper downwards without changing a single note's position.

@@ -423,6 +423,7 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         LessonNote note;
         int staff_id{0};
         int total_duration_ticks{480};
+        bool arpeggiate{false};
       };
       std::map<std::pair<int, int>, std::vector<CollectedNote>> tick_notes;
       auto collect = [&](std::span<const LessonEvent> evs, int staff_id) {
@@ -432,6 +433,7 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
           }
           const int ev_ticks = ev.event_ticks();
           const int grace_ord = ev.is_grace ? 0 : 1;
+          const bool arp = has_articulation(ev.articulations, ArticulationFlag::Arpeggiate);
           for (const auto& n : ev.notes) {
             if (!n.tie_stop) {
               const int full_dur = compute_tied_note_duration_ticks(
@@ -440,6 +442,7 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
                   .note = n,
                   .staff_id = staff_id,
                   .total_duration_ticks = full_dur,
+                  .arpeggiate = arp,
               });
             }
           }
@@ -464,6 +467,9 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         target.global_tick = acc_ticks + tick;
         target.is_grace = (tick_key.second == 0);
         for (const auto& cn : notes) {
+          if (cn.arpeggiate) {
+            target.allow_rolled_chord = true;
+          }
           target.expected_midi.push_back(cn.note.midi);
           target.expected_spelled.push_back(cn.note.spelled);
           if (cn.staff_id == 0) {
@@ -478,6 +484,12 @@ void build_slice_targets(std::span<const LessonMeasure> practice_measures,
         target.treble_midi = normalize_midi_set(target.treble_midi);
         target.bass_midi = normalize_midi_set(target.bass_midi);
         target.expected_midi = normalize_midi_set(target.expected_midi);
+        if ((!target.treble_midi.empty() &&
+             (target.treble_midi.back() - target.treble_midi.front() > 12)) ||
+            (!target.bass_midi.empty() &&
+             (target.bass_midi.back() - target.bass_midi.front() > 12))) {
+          target.allow_rolled_chord = true;
+        }
         target.pitch_class_mask = midi_pitch_class_mask(target.expected_midi);
         target.pitch_class_match = false;
         out_targets.push_back(std::move(target));
@@ -675,6 +687,12 @@ void LessonEngine::reset_transport_state() {
   pedal_clean_ = 0;
   scheduled_playback_notes_.clear();
   next_playback_note_idx_ = 0;
+  roll_target_idx_ = static_cast<std::size_t>(-1);
+  roll_elapsed_ms_ = 0.0;
+  roll_accum_midi_.clear();
+  rubato_tempo_scale_ = 1.0;
+  rubato_since_last_hit_ms_ = 0.0;
+  rubato_last_hit_tick_.reset();
   for (auto& t : targets_) {
     t.status = LessonTargetStatus::Pending;
     t.played_midi.clear();
@@ -1072,18 +1090,23 @@ LessonTickResult LessonEngine::start() {
     }
   }
 
-  playback_state_ = LessonPlaybackState::CountIn;
-  count_in_elapsed_ticks_ = 0.0;
-  count_in_target_ticks_ = static_cast<double>(ci_ticks);
-  count_in_remaining_ =
-      static_cast<int>(std::ceil(count_in_target_ticks_ / static_cast<double>(beat_ticks)));
-  count_in_beat_accum_ms_ = 0.0;
   if (config_.play_other_hand_accomp && config_.hand_mode != LessonHandMode::HandsTogether) {
     scheduled_playback_notes_ =
         build_slice_tick_notes(config_.hand_mode == LessonHandMode::LeftHand,
                                config_.hand_mode == LessonHandMode::RightHand, 66, 64);
     next_playback_note_idx_ = 0;
   }
+  if (config_.practice_mode == LessonPracticeMode::RubatoFollow) {
+    playback_state_ = LessonPlaybackState::Playing;
+    count_in_remaining_ = 0;
+    return {};
+  }
+  playback_state_ = LessonPlaybackState::CountIn;
+  count_in_elapsed_ticks_ = 0.0;
+  count_in_target_ticks_ = static_cast<double>(ci_ticks);
+  count_in_remaining_ =
+      static_cast<int>(std::ceil(count_in_target_ticks_ / static_cast<double>(beat_ticks)));
+  count_in_beat_accum_ms_ = 0.0;
   return LessonTickResult{.metronome_click = true, .metronome_accent = true};
 }
 
@@ -1148,9 +1171,19 @@ LessonTickResult LessonEngine::update(double dt_ms) {
   if (dt_ms <= 0.0 || slice_bar_meters_.empty()) {
     return out;
   }
+  if (!roll_accum_midi_.empty()) {
+    roll_elapsed_ms_ += dt_ms;
+    if (roll_elapsed_ms_ > 260.0) {
+      roll_accum_midi_.clear();
+      roll_target_idx_ = static_cast<std::size_t>(-1);
+    }
+  }
 
-  const double bpm = effective_bpm();
-  const double ms_per_beat = 60000.0 / std::max(30.0, bpm);
+  const double bpm = (playback_state_ == LessonPlaybackState::Playing ||
+                      playback_state_ == LessonPlaybackState::DemoPlaying)
+                         ? active_section_bpm()
+                         : effective_bpm();
+  const double ms_per_beat = 60000.0 / std::max(20.0, bpm);
 
   if (playback_state_ == LessonPlaybackState::CountIn) {
     const int beat_ticks = std::max(1, slice_bar_meters_.front().beat_ticks());
@@ -1214,6 +1247,24 @@ LessonTickResult LessonEngine::update(double dt_ms) {
   }
 
   if (playback_state_ != LessonPlaybackState::Playing) {
+    return out;
+  }
+
+  if (config_.practice_mode == LessonPracticeMode::RubatoFollow) {
+    rubato_since_last_hit_ms_ += dt_ms;
+    const std::size_t local_bar = current_bar_in_slice();
+    const TimeSignature cur_meter = slice_bar_meters_[local_bar];
+    const double beat_ticks_d = static_cast<double>(std::max(1, cur_meter.beat_ticks()));
+    const double rubato_bpm = std::clamp(bpm * rubato_tempo_scale_, 20.0, 300.0);
+    const double rubato_ms_per_tick = (60000.0 / rubato_bpm) / beat_ticks_d;
+    elapsed_ticks_ += dt_ms / rubato_ms_per_tick;
+    if (active_target_index_ < targets_.size()) {
+      const double next_t = static_cast<double>(targets_[active_target_index_].global_tick);
+      if (elapsed_ticks_ > next_t) {
+        elapsed_ticks_ = next_t;
+      }
+    }
+    emit_due_playback_notes(elapsed_ticks_, out.playback_notes);
     return out;
   }
 
@@ -1532,6 +1583,39 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     return normalized == tgt.expected_midi;
   };
 
+  // Returns: 1 = full hit (either direct or completed roll), 2 = buffering valid roll subset,
+  //          0 = not applicable / normal path
+  auto try_rolled_chord = [&](std::size_t idx, const LessonTarget& tgt) -> int {
+    if (!tgt.allow_rolled_chord || tgt.pitch_class_match || normalized.empty() ||
+        normalized == tgt.expected_midi) {
+      return 0;
+    }
+    for (const MidiPitch p : normalized) {
+      if (std::ranges::find(tgt.expected_midi, p) == tgt.expected_midi.end()) {
+        roll_accum_midi_.clear();
+        roll_target_idx_ = static_cast<std::size_t>(-1);
+        return 0;
+      }
+    }
+    if (roll_target_idx_ != idx || roll_elapsed_ms_ > 260.0) {
+      roll_target_idx_ = idx;
+      roll_elapsed_ms_ = 0.0;
+      roll_accum_midi_.clear();
+    }
+    for (const MidiPitch p : normalized) {
+      if (std::ranges::find(roll_accum_midi_, p) == roll_accum_midi_.end()) {
+        roll_accum_midi_.push_back(p);
+      }
+    }
+    std::ranges::sort(roll_accum_midi_);
+    if (roll_accum_midi_ == tgt.expected_midi) {
+      roll_accum_midi_.clear();
+      roll_target_idx_ = static_cast<std::size_t>(-1);
+      return 1;
+    }
+    return 2;
+  };
+
   if (config_.practice_mode == LessonPracticeMode::SteadyPulse) {
     if (playback_state_ != LessonPlaybackState::Playing) {
       return res;
@@ -1578,9 +1662,15 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     }
 
     auto& tgt = targets_[*candidate_idx];
-    if (matches_target(tgt)) {
+    const int roll_st = try_rolled_chord(*candidate_idx, tgt);
+    if (roll_st == 2) {
+      return res;
+    }
+    if (roll_st == 1 || matches_target(tgt)) {
+      roll_accum_midi_.clear();
+      roll_target_idx_ = static_cast<std::size_t>(-1);
       tgt.status = LessonTargetStatus::Hit;
-      tgt.played_midi = normalized;
+      tgt.played_midi = (roll_st == 1) ? tgt.expected_midi : normalized;
       tgt.missed_midi.clear();
       ++hits_;
       record_musicality(tgt);
@@ -1638,16 +1728,42 @@ LessonEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
     return res;
   }
 
-  // WaitForNote or ChordSkeleton (untimed sequential advance)
+  // WaitForNote, ChordSkeleton, or RubatoFollow (untimed sequential advance)
   if (active_target_index_ >= targets_.size()) {
     return res;
   }
   auto& tgt = targets_[active_target_index_];
-  if (matches_target(tgt)) {
+  const int roll_st = try_rolled_chord(active_target_index_, tgt);
+  if (roll_st == 2) {
+    return res;
+  }
+  if (roll_st == 1 || matches_target(tgt)) {
+    roll_accum_midi_.clear();
+    roll_target_idx_ = static_cast<std::size_t>(-1);
     tgt.status = LessonTargetStatus::Hit;
-    tgt.played_midi = normalized;
+    tgt.played_midi = (roll_st == 1) ? tgt.expected_midi : normalized;
     ++hits_;
     record_musicality(tgt);
+    if (config_.practice_mode == LessonPracticeMode::RubatoFollow) {
+      if (rubato_last_hit_tick_.has_value() && tgt.global_tick > *rubato_last_hit_tick_ &&
+          rubato_since_last_hit_ms_ > 20.0) {
+        const std::size_t lb =
+            (tgt.bar_index >= slice_start_bar_) ? (tgt.bar_index - slice_start_bar_) : 0U;
+        const TimeSignature m = (lb < slice_bar_meters_.size())
+                                    ? slice_bar_meters_[lb]
+                                    : TimeSignature{.numerator = 4, .denominator = 4};
+        const double beat_ticks_d = static_cast<double>(std::max(1, m.beat_ticks()));
+        const double nominal_ms_per_tick =
+            (60000.0 / std::max(20.0, active_section_bpm())) / beat_ticks_d;
+        const double expected_ms =
+            static_cast<double>(tgt.global_tick - *rubato_last_hit_tick_) * nominal_ms_per_tick;
+        const double obs_scale = std::clamp(expected_ms / rubato_since_last_hit_ms_, 0.5, 1.5);
+        rubato_tempo_scale_ = std::clamp(0.7 * rubato_tempo_scale_ + 0.3 * obs_scale, 0.5, 1.5);
+      }
+      elapsed_ticks_ = static_cast<double>(tgt.global_tick);
+      rubato_last_hit_tick_ = tgt.global_tick;
+      rubato_since_last_hit_ms_ = 0.0;
+    }
     ++active_target_index_;
     res.matched = true;
     if (active_target_index_ >= targets_.size()) {
@@ -1703,7 +1819,8 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
     return out;
   }
 
-  const double ms_per_beat = 60000.0 / std::max(30.0, effective_bpm());
+  const double base_bpm = std::max(20.0, score_.meta.target_bpm);
+  const double ladder_scale = std::max(20.0, effective_bpm()) / base_bpm;
   struct OpenTie {
     int staff_id{0};
     MidiPitch midi{60};
@@ -1723,7 +1840,37 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
     const auto& lm = source_measures[b];
     const auto& expr_lm = score_.measures[src_b];
     const TimeSignature meter = slice_bar_meters_[local_b];
-    const double ms_per_tick = ms_per_beat / static_cast<double>(std::max(1, meter.beat_ticks()));
+    const int eff_mticks = effective_measure_ticks(lm, meter);
+    const double beat_ticks_d = static_cast<double>(std::max(1, meter.beat_ticks()));
+
+    const double bar_entry_bpm = tempo_at(src_b, -1);
+    std::vector<TempoEvent> sorted_tc = expr_lm.tempo_changes;
+    std::ranges::sort(sorted_tc, [](const TempoEvent& a, const TempoEvent& c) {
+      return a.start_tick < c.start_tick;
+    });
+
+    auto tick_to_bar_ms = [&](int tick) -> double {
+      const int clamped = std::clamp(tick, 0, eff_mticks);
+      double ms = 0.0;
+      int prev_t = 0;
+      double cur_bpm = bar_entry_bpm;
+      for (const auto& tc : sorted_tc) {
+        if (tc.start_tick <= 0) {
+          cur_bpm = tc.bpm * ladder_scale;
+          continue;
+        }
+        if (tc.start_tick >= clamped) {
+          break;
+        }
+        const double seg_ms_per_tick = (60000.0 / std::max(20.0, cur_bpm)) / beat_ticks_d;
+        ms += static_cast<double>(tc.start_tick - prev_t) * seg_ms_per_tick;
+        prev_t = tc.start_tick;
+        cur_bpm = tc.bpm * ladder_scale;
+      }
+      const double tail_ms_per_tick = (60000.0 / std::max(20.0, cur_bpm)) / beat_ticks_d;
+      ms += static_cast<double>(clamped - prev_t) * tail_ms_per_tick;
+      return ms;
+    };
 
     auto process_staff = [&](std::span<const LessonEvent> evs, int staff_id) {
       std::vector<const LessonEvent*> ordered;
@@ -1742,11 +1889,13 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
 
       for (const LessonEvent* ev : ordered) {
         const auto shape = compute_expressive_shape(expr_lm, *ev, staff_id, false, bar_dyn);
-        const double host_start_ms =
-            bar_start_ms + static_cast<double>(ev->start_tick) * ms_per_tick;
+        const double host_start_ms = bar_start_ms + tick_to_bar_ms(ev->start_tick);
         const double ev_start_ms =
             ev->is_grace ? std::max(0.0, host_start_ms - 65.0) : host_start_ms;
-        const double raw_dur_ms = static_cast<double>(ev->event_ticks()) * ms_per_tick;
+        const double raw_dur_ms =
+            ev->is_grace ? 65.0
+                         : std::max(0.0, tick_to_bar_ms(ev->start_tick + ev->event_ticks()) -
+                                             tick_to_bar_ms(ev->start_tick));
         const double gated_dur_ms =
             ev->is_grace ? 65.0 : std::max(40.0, raw_dur_ms * shape.gate_scale);
         std::vector<LessonNote> notes = ev->notes;
@@ -1816,7 +1965,7 @@ std::vector<LessonPlaybackNote> LessonEngine::build_demo_playback() const {
         bar_dyn = d.level;
       }
     }
-    bar_start_ms += static_cast<double>(effective_measure_ticks(lm, meter)) * ms_per_tick;
+    bar_start_ms += tick_to_bar_ms(eff_mticks);
   }
 
   for (const auto& ot : open_ties) {
@@ -1927,6 +2076,40 @@ LessonRunSummary LessonEngine::build_run_summary() const {
 
 double LessonEngine::effective_bpm() const noexcept {
   return compute_ladder_bpm(score_.meta.target_bpm, config_.tempo_step, config_.custom_bpm);
+}
+
+double LessonEngine::tempo_at(std::size_t source_bar, int tick) const noexcept {
+  const double base_bpm = std::max(20.0, score_.meta.target_bpm);
+  const double ladder_scale = std::max(20.0, effective_bpm()) / base_bpm;
+  double nominal = base_bpm;
+  const std::size_t max_b = std::min(source_bar, score_.measures.size());
+  for (std::size_t b = 0; b <= max_b && b < score_.measures.size(); ++b) {
+    int best_t = -1;
+    for (const auto& tc : score_.measures[b].tempo_changes) {
+      if (b < source_bar || tc.start_tick <= tick) {
+        if (tc.start_tick >= best_t) {
+          best_t = tc.start_tick;
+          nominal = tc.bpm;
+        }
+      }
+    }
+  }
+  return nominal * ladder_scale;
+}
+
+double LessonEngine::active_section_bpm() const noexcept {
+  if (slice_bar_meters_.empty()) {
+    return effective_bpm();
+  }
+  const std::size_t local_b = current_bar_in_slice();
+  const std::size_t disp_b = display_slice_start_bar_ + local_b;
+  const std::size_t src_b =
+      (disp_b < display_to_source_bar_.size()) ? display_to_source_bar_[disp_b] : disp_b;
+  const double bar_start_t = (local_b < slice_bar_start_ticks_.size())
+                                 ? static_cast<double>(slice_bar_start_ticks_[local_b])
+                                 : 0.0;
+  const int tick_in_bar = std::max(0, static_cast<int>(std::floor(elapsed_ticks_ - bar_start_t)));
+  return tempo_at(src_b, tick_in_bar);
 }
 
 std::size_t LessonEngine::current_bar_in_slice() const noexcept {

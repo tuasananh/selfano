@@ -675,3 +675,42 @@ TEST_CASE("MusicXmlImporter imports grace notes, mid-piece clef changes, and 8va
   CHECK(sc.ottavas[0].start_tick == 0);
   CHECK(sc.ottavas[0].end_tick == 1920);
 }
+
+TEST_CASE("MusicXmlImporter captures multi-section tempo changes across measures",
+          "[musicxml_importer][phase26]") {
+  constexpr const char* kMultiTempoXml = R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <direction placement="above">
+        <direction-type><words>Largo</words></direction-type>
+        <sound tempo="52"/>
+      </direction>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>
+    </measure>
+    <measure number="2">
+      <direction placement="above">
+        <direction-type><words>Moderato</words></direction-type>
+        <sound tempo="104"/>
+      </direction>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>
+    </measure>
+  </part>
+</score-partwise>)xml";
+
+  const auto res = import_musicxml_string(kMultiTempoXml);
+  REQUIRE(res.has_value());
+  const auto& sc = res->score;
+  REQUIRE_THAT(sc.meta.target_bpm, Catch::Matchers::WithinAbs(52.0, 1e-6));
+  CHECK(sc.meta.tempo_marking == "Largo");
+  REQUIRE(sc.measures.size() == 2U);
+  REQUIRE(sc.measures[1].tempo_changes.size() == 1U);
+  CHECK_THAT(sc.measures[1].tempo_changes[0].bpm, Catch::Matchers::WithinAbs(104.0, 1e-6));
+  CHECK(sc.measures[1].tempo_changes[0].label == "Moderato");
+}

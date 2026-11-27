@@ -630,7 +630,7 @@ core::LessonPracticeMode LessonView::cycle_mode() {
   show_post_run_coach_ = false;
   coach_focus_bar_.reset();
   last_loop_accuracy_.reset();
-  const int next = (static_cast<int>(engine_.config().practice_mode) + 1) % 3;
+  const int next = (static_cast<int>(engine_.config().practice_mode) + 1) % 4;
   const auto m = static_cast<core::LessonPracticeMode>(next);
   engine_.set_practice_mode(m);
   return m;
@@ -876,8 +876,7 @@ void LessonView::draw_practice_settings(const core::LessonProgress& progress,
   const auto bar_label = [&](std::size_t i) { return format_bar_number(measures[i].bar_number); };
   const auto previous = cfg;
   section_kicker("PRACTICE MODE");
-  static constexpr std::array<std::string_view, 3> modes{"Chord shapes", "Wait for notes",
-                                                         "Steady beat"};
+  static constexpr std::array<std::string_view, 4> modes{"Chords", "Wait", "Steady", "Rubato"};
   int mode = static_cast<int>(cfg.practice_mode);
   if (segmented_control("##mode", &mode, modes)) {
     engine_.set_practice_mode(static_cast<core::LessonPracticeMode>(mode));
@@ -1062,9 +1061,10 @@ void LessonView::draw_practice_prompt(const core::LessonProgress& progress,
   const bool running = state == State::CountIn || state == State::Playing;
   const float scale = ImGui::GetStyle().FontScaleDpi;
 
-  const char* mode_label = cfg.practice_mode == Mode::ChordSkeleton ? "Chord shapes"
-                           : cfg.practice_mode == Mode::WaitForNote ? "Wait for notes"
-                                                                    : "Steady beat";
+  const char* mode_label = cfg.practice_mode == Mode::ChordSkeleton  ? "Chord shapes"
+                           : cfg.practice_mode == Mode::WaitForNote  ? "Wait for notes"
+                           : cfg.practice_mode == Mode::RubatoFollow ? "Rubato"
+                                                                     : "Steady beat";
   const char* hand_label = cfg.hand_mode == core::LessonHandMode::LeftHand    ? "Left hand"
                            : cfg.hand_mode == core::LessonHandMode::RightHand ? "Right hand"
                                                                               : "Both hands";
@@ -1576,6 +1576,7 @@ void LessonView::draw_staff_systems(ImFont* smufl_font, ImFont* ui_font,
       *coach_focus_bar_ <= slice_end) {
     active_global_bar = *coach_focus_bar_;
   } else if ((engine_.config().practice_mode == core::LessonPracticeMode::SteadyPulse ||
+              engine_.config().practice_mode == core::LessonPracticeMode::RubatoFollow ||
               pb_st == core::LessonPlaybackState::DemoPlaying) &&
              is_running) {
     active_global_bar = std::min(slice_end, slice_start + engine_.current_bar_in_slice());

@@ -119,7 +119,7 @@ Phase 0 (Workflow/Repo)
   - **Track B — Romantic Score & Importer Foundations (Phases 24–27):**
     - [x] [Phase 24 — Fine Subdivisions & Tuplets (`32nd`, Triplets, Quintuplets/Sextuplets)](./phases/phase-24-fine-subdivisions-and-tuplets.md)
     - [x] [Phase 25 — Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava](./phases/phase-25-grace-notes-clef-changes-and-ottava.md)
-    - [Phase 26 — Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)
+    - [x] [Phase 26 — Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)
     - [Phase 27 — Automatic Harmonic Analyzer for Imported Scores](./phases/phase-27-auto-harmonic-analyzer-for-imports.md)
   - **Track C — Daily Drills & MIDI Technique Diagnostics (Phases 28–31):**
     - [Phase 28 — Advanced Warm-Up Circuits & Printed Scale Fingerings](./phases/phase-28-advanced-warmups-and-scale-fingerings.md)
