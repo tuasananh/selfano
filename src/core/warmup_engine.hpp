@@ -27,6 +27,10 @@ enum class WarmUpStation : std::uint8_t {
   TonicArpeggio = 1,
   TriadInversions = 2,
   VoiceLedCadence = 3,
+  ChromaticScale = 4,
+  SeventhArpeggios = 5,
+  ContraryScale = 6,
+  LhStrideJumps = 7,
 };
 
 [[nodiscard]] constexpr std::string_view warmup_station_name(WarmUpStation station) noexcept {
@@ -39,9 +43,22 @@ enum class WarmUpStation : std::uint8_t {
     return "Inversions";
   case WarmUpStation::VoiceLedCadence:
     return "Cadence";
+  case WarmUpStation::ChromaticScale:
+    return "Chromatic";
+  case WarmUpStation::SeventhArpeggios:
+    return "7th Arps";
+  case WarmUpStation::ContraryScale:
+    return "Contrary";
+  case WarmUpStation::LhStrideJumps:
+    return "LH Stride";
   }
   return "Warm-Up";
 }
+
+enum class WarmUpCircuitPreset : std::uint8_t {
+  Foundation = 0,
+  Romantic = 1,
+};
 
 enum class WarmUpExerciseKind : std::uint8_t {
   FullCircuit = 0,
@@ -50,6 +67,11 @@ enum class WarmUpExerciseKind : std::uint8_t {
   ArpeggioOnly = 3,
   InversionsOnly = 4,
   CadenceOnly = 5,
+  RomanticCircuit = 6,
+  ChromaticOnly = 7,
+  SeventhArpeggiosOnly = 8,
+  ContraryScaleOnly = 9,
+  LhStrideOnly = 10,
 };
 
 enum class WarmUpPacingMode : std::uint8_t {
@@ -79,6 +101,7 @@ struct WarmUpNote {
   SpelledNote spelled{};
   Clef clef{Clef::Treble};
   MidiPitch midi{60};
+  std::uint8_t finger{0};
 
   constexpr bool operator==(const WarmUpNote&) const = default;
 };

@@ -538,3 +538,175 @@ TEST_CASE("WarmUpEngine Adaptive 2-Phase Pacing, Guided Pulse evenness, and BPM 
     REQUIRE_FALSE(engine.best_clean_bpm().has_value());
   }
 }
+
+TEST_CASE("WarmUpEngine attaches standard 24-key scale and arpeggio fingerings", "[warmup]") {
+  // Verify all 24 keys (1 and 2 octaves, Harmonic and Natural minor) have valid 1..5 fingerings
+  // with zero consecutive duplicate fingers on scales.
+  for (std::size_t k_idx = 0; k_idx < kWeeklyKeyCycle.size(); ++k_idx) {
+    const auto key = weekly_key_at(k_idx);
+    for (const int octaves : {1, 2}) {
+      WarmUpEngine engine(WarmUpConfig{
+          .key = key,
+          .octaves = octaves,
+          .hand = HandSelection::HandsTogether,
+          .minor_mode = MinorScaleMode::Harmonic,
+          .exercise = WarmUpExerciseKind::ScaleOnly,
+      });
+      std::uint8_t prev_rh = 0;
+      std::uint8_t prev_lh = 0;
+      for (const auto& step : engine.steps()) {
+        for (const auto& n : step.notes) {
+          REQUIRE(n.finger >= 1);
+          REQUIRE(n.finger <= 5);
+          if (n.clef == Clef::Treble) {
+            REQUIRE(n.finger != prev_rh);
+            prev_rh = n.finger;
+          } else {
+            REQUIRE(n.finger != prev_lh);
+            prev_lh = n.finger;
+          }
+        }
+      }
+    }
+  }
+
+  // Verify thumb (1) never lands on a black key in standard keys (C, G, D, A, E, F, Bb, Eb, Ab,
+  // B, Db, Gb major + Am, Em, Bm, Dm, Gm, Cm, Fm, F#m)
+  auto is_black_key = [](MidiPitch m) {
+    const int pc = static_cast<int>(m) % 12;
+    return pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10;
+  };
+  const std::array<KeySignature, 18> kStandardKeys{{
+      {.fifths = 0, .mode = Mode::Major},
+      {.fifths = 1, .mode = Mode::Major},
+      {.fifths = 2, .mode = Mode::Major},
+      {.fifths = 3, .mode = Mode::Major},
+      {.fifths = 4, .mode = Mode::Major},
+      {.fifths = 5, .mode = Mode::Major},
+      {.fifths = -1, .mode = Mode::Major},
+      {.fifths = -2, .mode = Mode::Major},
+      {.fifths = -3, .mode = Mode::Major},
+      {.fifths = -4, .mode = Mode::Major},
+      {.fifths = -5, .mode = Mode::Major},
+      {.fifths = -6, .mode = Mode::Major},
+      {.fifths = 0, .mode = Mode::Minor},
+      {.fifths = 1, .mode = Mode::Minor},
+      {.fifths = 2, .mode = Mode::Minor},
+      {.fifths = -1, .mode = Mode::Minor},
+      {.fifths = -2, .mode = Mode::Minor},
+      {.fifths = -3, .mode = Mode::Minor},
+  }};
+  for (const auto key : kStandardKeys) {
+    WarmUpEngine engine(WarmUpConfig{
+        .key = key,
+        .octaves = 2,
+        .hand = HandSelection::HandsTogether,
+        .minor_mode = MinorScaleMode::Harmonic,
+        .exercise = WarmUpExerciseKind::ScaleOnly,
+    });
+    for (const auto& step : engine.steps()) {
+      for (const auto& n : step.notes) {
+        if (n.finger == 1U) {
+          REQUIRE_FALSE(is_black_key(n.midi));
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("WarmUpEngine generates Chromatic, Dom7/Dim7 Arpeggios, Contrary Motion, and LH Stride "
+          "across all 24 keys",
+          "[warmup]") {
+  for (std::size_t k_idx = 0; k_idx < kWeeklyKeyCycle.size(); ++k_idx) {
+    const auto key = weekly_key_at(k_idx);
+
+    SECTION("ChromaticScale spans 1 octave up & down (25 steps) with 1..3 fingerings") {
+      WarmUpEngine chrom(WarmUpConfig{
+          .key = key,
+          .octaves = 1,
+          .hand = HandSelection::HandsTogether,
+          .exercise = WarmUpExerciseKind::ChromaticOnly,
+      });
+      REQUIRE(chrom.steps().size() == 25);
+      REQUIRE(chrom.steps().front().station == WarmUpStation::ChromaticScale);
+      REQUIRE(chrom.steps()[0].expected_midi == chrom.steps()[24].expected_midi);
+      for (std::size_t i = 0; i < 12; ++i) {
+        REQUIRE(chrom.steps()[i + 1].expected_midi[1] == chrom.steps()[i].expected_midi[1] + 1);
+      }
+      for (const auto& step : chrom.steps()) {
+        for (const auto& n : step.notes) {
+          REQUIRE(n.finger >= 1);
+          REQUIRE(n.finger <= 3);
+        }
+      }
+    }
+
+    SECTION("SeventhArpeggios covers V7 and vii°7 up & down with valid fingerings") {
+      WarmUpEngine arp7(WarmUpConfig{
+          .key = key,
+          .octaves = 1,
+          .hand = HandSelection::HandsTogether,
+          .exercise = WarmUpExerciseKind::SeventhArpeggiosOnly,
+      });
+      // V7: 5 notes up + 4 down = 9; vii°7: 5 notes up + 4 down = 9 -> 18 steps total
+      REQUIRE(arp7.steps().size() == 18);
+      REQUIRE(arp7.steps().front().station == WarmUpStation::SeventhArpeggios);
+      for (const auto& step : arp7.steps()) {
+        for (const auto& n : step.notes) {
+          REQUIRE(n.finger >= 1);
+          REQUIRE(n.finger <= 5);
+        }
+      }
+    }
+
+    SECTION("ContraryScale moves RH up while LH moves down symmetrically") {
+      WarmUpEngine con(WarmUpConfig{
+          .key = key,
+          .octaves = 1,
+          .hand = HandSelection::HandsTogether,
+          .exercise = WarmUpExerciseKind::ContraryScaleOnly,
+      });
+      REQUIRE(con.steps().size() == 15);
+      REQUIRE(con.steps().front().station == WarmUpStation::ContraryScale);
+      const auto& s0 = con.steps()[0];
+      const auto& s7 = con.steps()[7];
+      // At apex (step 7), RH went up 12 semitones and LH went down 12 semitones
+      REQUIRE(s7.expected_midi[1] == s0.expected_midi[1] + 12);
+      REQUIRE(s7.expected_midi[0] + 12 == s0.expected_midi[0]);
+    }
+
+    SECTION("LhStrideJumps creates 12 bass-clef 3/4 steps (I -> IV -> V -> I)") {
+      WarmUpEngine stride(WarmUpConfig{
+          .key = key,
+          .octaves = 1,
+          .hand = HandSelection::HandsTogether,
+          .exercise = WarmUpExerciseKind::LhStrideOnly,
+      });
+      REQUIRE(stride.steps().size() == 12);
+      REQUIRE(stride.steps().front().station == WarmUpStation::LhStrideJumps);
+      for (std::size_t bar = 0; bar < 4; ++bar) {
+        const auto& bass_hit = stride.steps()[bar * 3 + 0];
+        const auto& chord1 = stride.steps()[bar * 3 + 1];
+        const auto& chord2 = stride.steps()[bar * 3 + 2];
+        REQUIRE(bass_hit.solo_hand_clef == Clef::Bass);
+        REQUIRE(chord1.notes.size() == 3);
+        REQUIRE(chord2.notes.size() == 3);
+        REQUIRE(bass_hit.expected_midi.front() < chord1.expected_midi.front());
+      }
+    }
+  }
+
+  SECTION("RomanticCircuit chains ParallelScale, Chromatic, SeventhArpeggios, and LhStrideJumps") {
+    WarmUpEngine rom(WarmUpConfig{
+        .key = KeySignature{.fifths = -2, .mode = Mode::Minor},
+        .octaves = 1,
+        .hand = HandSelection::HandsTogether,
+        .exercise = WarmUpExerciseKind::RomanticCircuit,
+    });
+    REQUIRE(rom.steps().size() == 15 + 25 + 18 + 12);
+    REQUIRE(rom.steps()[0].station == WarmUpStation::ParallelScale);
+    REQUIRE(rom.steps()[15].station == WarmUpStation::ChromaticScale);
+    REQUIRE(rom.steps()[40].station == WarmUpStation::SeventhArpeggios);
+    REQUIRE(rom.steps()[58].station == WarmUpStation::LhStrideJumps);
+  }
+}

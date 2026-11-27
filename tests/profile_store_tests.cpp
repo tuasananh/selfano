@@ -147,6 +147,8 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   profile.preferences.sync_weekly_key_to_lesson = false;
   profile.preferences.lesson_show_fingerings = false;
   profile.preferences.lesson_show_harmony = true;
+  profile.preferences.warmup_circuit = WarmUpCircuitPreset::Romantic;
+  profile.preferences.warmup_show_fingerings = false;
 
   const std::string json_text = to_json_string(profile);
   const auto parsed = from_json_string(json_text);
@@ -188,6 +190,8 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res->preferences.sync_weekly_key_to_lesson);
     REQUIRE(res->preferences.lesson_show_fingerings);
     REQUIRE(res->preferences.lesson_show_harmony);
+    REQUIRE(res->preferences.warmup_circuit == WarmUpCircuitPreset::Foundation);
+    REQUIRE(res->preferences.warmup_show_fingerings);
     REQUIRE(res->warmup_key_bpm.empty());
   }
 

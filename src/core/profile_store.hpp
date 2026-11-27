@@ -6,6 +6,7 @@
 #include "core/flashcard_engine.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/srs_deck.hpp"
+#include "core/warmup_engine.hpp"
 #include "core/weekly_key.hpp"
 
 #include <cstdint>
@@ -38,6 +39,8 @@ struct UserPreferences {
   bool sync_weekly_key_to_lesson{true};
   bool lesson_show_fingerings{true};
   bool lesson_show_harmony{true};
+  WarmUpCircuitPreset warmup_circuit{WarmUpCircuitPreset::Foundation};
+  bool warmup_show_fingerings{true};
 
   bool operator==(const UserPreferences&) const = default;
 };
