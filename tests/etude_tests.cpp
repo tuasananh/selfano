@@ -1,12 +1,14 @@
 #include "core/etude_engine.hpp"
 #include "core/key_signature.hpp"
 #include "core/pitch.hpp"
+#include "core/sight_reading_corpus.hpp"
 
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <set>
 #include <vector>
@@ -272,4 +274,94 @@ TEST_CASE("EtudeEngine Wait-for-Note mode holds playhead on error and promotes c
   REQUIRE(engine.active_system().measures[0].bar_number == expected_next_bar);
   REQUIRE(engine.preview_system().measures[0].bar_number == 9U);
   REQUIRE(engine.hit_targets() == n_targets - 1); // Target 0 had prior error
+}
+
+TEST_CASE("Phase 30: 5-tier multi-meter EtudeEngine and HybridClassical SightReadingCorpus",
+          "[etude][phase30]") {
+  REQUIRE(suggested_etude_level_for_tier(1) == EtudeDifficultyLevel::Level1Foundations);
+  REQUIRE(suggested_etude_level_for_tier(2) == EtudeDifficultyLevel::Level2EighthsAndWaltz);
+  REQUIRE(suggested_etude_level_for_tier(4) == EtudeDifficultyLevel::Level3CompoundAndDotted);
+  REQUIRE(suggested_etude_level_for_tier(6) == EtudeDifficultyLevel::Level4AlbertiAndAccidentals);
+  REQUIRE(suggested_etude_level_for_tier(9) == EtudeDifficultyLevel::Level5RomanticTextures);
+
+  SECTION("All 5 difficulty levels produce valid multi-meter systems and targets") {
+    const std::array<std::pair<EtudeDifficultyLevel, TimeSignature>, 5> kExpected{{
+        {EtudeDifficultyLevel::Level1Foundations, {.numerator = 4, .denominator = 4}},
+        {EtudeDifficultyLevel::Level2EighthsAndWaltz, {.numerator = 3, .denominator = 4}},
+        {EtudeDifficultyLevel::Level3CompoundAndDotted, {.numerator = 6, .denominator = 8}},
+        {EtudeDifficultyLevel::Level4AlbertiAndAccidentals, {.numerator = 4, .denominator = 4}},
+        {EtudeDifficultyLevel::Level5RomanticTextures, {.numerator = 6, .denominator = 4}},
+    }};
+    for (const auto& [lvl, expected_meter] : kExpected) {
+      EtudeEngine engine(EtudeConfig{
+          .key = KeySignature{.fifths = -2, .mode = Mode::Minor},
+          .hand_mode = EtudeHandMode::EasyHandsTogether,
+          .timing_mode = EtudeTimingMode::WaitForNote,
+          .difficulty = lvl,
+          .seed = 4242U,
+      });
+      const auto& sys = engine.active_system();
+      REQUIRE(sys.time_signature == expected_meter);
+      REQUIRE_FALSE(sys.targets.empty());
+      for (const auto& m : sys.measures) {
+        int sum_t = 0;
+        for (const auto& ev : m.treble_events) {
+          sum_t += ev.rhythmic_value.ticks();
+        }
+        REQUIRE(sum_t == expected_meter.measure_ticks());
+      }
+      // Verify WaitForNote promotes cleanly across the system
+      (void)engine.start();
+      const std::size_t n = sys.targets.size();
+      for (std::size_t i = 0; i < n; ++i) {
+        const auto r = engine.submit_played_notes(engine.active_system().targets[i].expected_midi);
+        REQUIRE(r.status == EtudeInputStatus::Hit);
+        REQUIRE(r.system_promoted == (i + 1 == n));
+      }
+      REQUIRE(engine.completed_systems() == 1U);
+    }
+  }
+
+  SECTION(
+      "SightReadingCorpus loads >=30 excerpts across Levels 1-5 and interleaves in Hybrid mode") {
+    const auto corpus_res = load_sight_reading_corpus(
+        std::filesystem::path(SELFANO_SOURCE_ASSETS_DIR) / "sight_reading" / "corpus.json");
+    REQUIRE(corpus_res.has_value());
+    const auto& corpus = *corpus_res;
+    REQUIRE(corpus.excerpts.size() >= 30U);
+
+    std::array<std::size_t, 5> per_level{};
+    for (const auto& ex : corpus.excerpts) {
+      REQUIRE(ex.level >= 1);
+      REQUIRE(ex.level <= 5);
+      ++per_level[static_cast<std::size_t>(ex.level - 1)];
+      const int expected_ticks = ex.time_signature.measure_ticks();
+      for (const auto& m : ex.measures) {
+        int tr_ticks = 0;
+        for (const auto& ev : m.treble_events) {
+          tr_ticks += ev.event_ticks();
+          for (const auto& n : ev.notes) {
+            REQUIRE(to_midi(n.spelled) == n.midi);
+          }
+        }
+        REQUIRE(tr_ticks == expected_ticks);
+      }
+    }
+    for (const std::size_t cnt : per_level) {
+      REQUIRE(cnt >= 5U);
+    }
+
+    const auto transposed = transpose_excerpt_to_key(
+        corpus.excerpts.front(), KeySignature{.fifths = 2, .mode = Mode::Major});
+    REQUIRE(transposed.key == KeySignature{.fifths = 2, .mode = Mode::Major});
+
+    EtudeEngine hybrid(EtudeConfig{
+        .key = KeySignature{.fifths = 0, .mode = Mode::Major},
+        .difficulty = EtudeDifficultyLevel::Level2EighthsAndWaltz,
+        .source_mode = EtudeSourceMode::HybridClassical,
+        .seed = 100U,
+    });
+    hybrid.set_corpus(&corpus);
+    REQUIRE_FALSE(hybrid.active_system().source_label.empty());
+  }
 }

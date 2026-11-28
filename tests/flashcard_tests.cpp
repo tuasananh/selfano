@@ -213,3 +213,55 @@ TEST_CASE("FlashcardEngine evaluates single-step and melodic 2-step prompts dete
     REQUIRE(e1.session_avg_reaction_ms() == 1200.0);
   }
 }
+
+TEST_CASE("Phase 30: Romantic FlashcardLevel adds 7th chords, extreme ledgers, chromatic notes, "
+          "and two-hand grabs",
+          "[flashcards][phase30]") {
+  REQUIRE(flashcard_shape_bank(FlashcardLevel::Foundation).size() == 40U);
+  const auto rom_bank = flashcard_shape_bank(FlashcardLevel::Romantic);
+  REQUIRE(rom_bank.size() == 64U);
+
+  std::size_t sevenths = 0;
+  std::size_t ledgers = 0;
+  std::size_t chromatics = 0;
+  std::size_t two_hand = 0;
+  for (const auto& meta : rom_bank) {
+    if (meta.kind == FlashcardShapeKind::SeventhChord) {
+      ++sevenths;
+    } else if (meta.kind == FlashcardShapeKind::LedgerLandmark) {
+      ++ledgers;
+    } else if (meta.kind == FlashcardShapeKind::ChromaticAlteration) {
+      ++chromatics;
+    } else if (meta.kind == FlashcardShapeKind::TwoHandGrab) {
+      ++two_hand;
+    }
+  }
+  REQUIRE(sevenths == 8U);
+  REQUIRE(ledgers == 6U);
+  REQUIRE(chromatics == 6U);
+  REQUIRE(two_hand == 4U);
+
+  for (std::size_t k = 0; k < kWeeklyKeyCycle.size(); ++k) {
+    FlashcardEngine engine(weekly_key_at(k), 700U + static_cast<std::uint32_t>(k), 0.0,
+                           MinorScaleMode::Harmonic);
+    engine.set_level(FlashcardLevel::Romantic, 10.0);
+    REQUIRE(engine.level() == FlashcardLevel::Romantic);
+    for (int i = 0; i < 20; ++i) {
+      const auto& p = engine.current_prompt();
+      REQUIRE_FALSE(p.steps.empty());
+      for (const auto& st : p.steps) {
+        REQUIRE_FALSE(st.expected_midi.empty());
+        for (const MidiPitch m : st.expected_midi) {
+          REQUIRE(m >= kPianoLowestMidi);
+          REQUIRE(m <= kPianoHighestMidi);
+        }
+        if (p.kind == FlashcardShapeKind::TwoHandGrab) {
+          REQUIRE(st.note_clefs.size() == st.notes.size());
+          REQUIRE(std::ranges::find(st.note_clefs, Clef::Bass) != st.note_clefs.end());
+          REQUIRE(std::ranges::find(st.note_clefs, Clef::Treble) != st.note_clefs.end());
+        }
+      }
+      engine.next_card(20.0 + static_cast<double>(i) * 10.0);
+    }
+  }
+}

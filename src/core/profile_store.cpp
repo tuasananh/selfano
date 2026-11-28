@@ -330,6 +330,9 @@ std::string to_json_string(const UserProfile& profile) {
       {"lesson_show_harmony", profile.preferences.lesson_show_harmony},
       {"warmup_circuit", static_cast<int>(profile.preferences.warmup_circuit)},
       {"warmup_show_fingerings", profile.preferences.warmup_show_fingerings},
+      {"flashcard_level", static_cast<int>(profile.preferences.flashcard_level)},
+      {"etude_level", static_cast<int>(profile.preferences.etude_level)},
+      {"etude_source_mode", static_cast<int>(profile.preferences.etude_source_mode)},
   };
 
   return j.dump(2);
@@ -592,6 +595,9 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
     int hm_int = static_cast<int>(p.preferences.hand_mode);
     int mm_int = static_cast<int>(p.preferences.minor_scale_mode);
     int wc_int = static_cast<int>(p.preferences.warmup_circuit);
+    int fcl_int = static_cast<int>(p.preferences.flashcard_level);
+    int etl_int = static_cast<int>(p.preferences.etude_level);
+    int ets_int = static_cast<int>(p.preferences.etude_source_mode);
     if (!read_double_field(pref, "default_bpm", p.preferences.default_bpm, err) ||
         !read_double_field(pref, "chord_window_ms", p.preferences.chord_window_ms, err) ||
         !read_string_field(pref, "preferred_midi_in", p.preferences.preferred_midi_in, err) ||
@@ -613,7 +619,10 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
         !read_bool_field(pref, "lesson_show_harmony", p.preferences.lesson_show_harmony, err) ||
         !read_int_field(pref, "warmup_circuit", wc_int, err) ||
         !read_bool_field(pref, "warmup_show_fingerings", p.preferences.warmup_show_fingerings,
-                         err)) {
+                         err) ||
+        !read_int_field(pref, "flashcard_level", fcl_int, err) ||
+        !read_int_field(pref, "etude_level", etl_int, err) ||
+        !read_int_field(pref, "etude_source_mode", ets_int, err)) {
       return std::unexpected(err);
     }
     p.preferences.default_bpm = std::clamp(p.preferences.default_bpm, 40.0, 120.0);
@@ -623,6 +632,9 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
     p.preferences.hand_mode = static_cast<EtudeHandMode>(std::clamp(hm_int, 0, 2));
     p.preferences.minor_scale_mode = static_cast<MinorScaleMode>(std::clamp(mm_int, 0, 1));
     p.preferences.warmup_circuit = static_cast<WarmUpCircuitPreset>(std::clamp(wc_int, 0, 1));
+    p.preferences.flashcard_level = static_cast<FlashcardLevel>(std::clamp(fcl_int, 0, 1));
+    p.preferences.etude_level = static_cast<EtudeDifficultyLevel>(std::clamp(etl_int, 1, 5));
+    p.preferences.etude_source_mode = static_cast<EtudeSourceMode>(std::clamp(ets_int, 0, 1));
   }
 
   return p;

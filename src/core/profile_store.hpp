@@ -41,6 +41,9 @@ struct UserPreferences {
   bool lesson_show_harmony{true};
   WarmUpCircuitPreset warmup_circuit{WarmUpCircuitPreset::Foundation};
   bool warmup_show_fingerings{true};
+  FlashcardLevel flashcard_level{FlashcardLevel::Foundation};
+  EtudeDifficultyLevel etude_level{EtudeDifficultyLevel::Level1Foundations};
+  EtudeSourceMode etude_source_mode{EtudeSourceMode::Procedural};
 
   bool operator==(const UserPreferences&) const = default;
 };

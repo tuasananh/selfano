@@ -185,6 +185,13 @@ void EtudeEngine::configure(EtudeConfig config) {
   rebuild_systems();
 }
 
+void EtudeEngine::set_corpus(const SightReadingCorpus* corpus) {
+  corpus_ = corpus;
+  if (config_.source_mode == EtudeSourceMode::HybridClassical) {
+    rebuild_systems();
+  }
+}
+
 void EtudeEngine::regenerate(std::uint32_t new_seed) {
   config_.seed = new_seed;
   rebuild_systems();
@@ -217,7 +224,8 @@ EtudeTickOutput EtudeEngine::start() {
   if (config_.timing_mode == EtudeTimingMode::SteadyPulse) {
     state_ = EtudePlaybackState::CountIn;
     count_in_beats_ = 0.0;
-    playhead_beat_ = -4.0;
+    const double ci_beats = static_cast<double>(active_system_.time_signature.pulse_count());
+    playhead_beat_ = -ci_beats;
     out.metronome_click = true;
     out.metronome_accent = true;
   } else {
@@ -261,13 +269,15 @@ EtudeTickOutput EtudeEngine::update(double dt_ms) {
   }
 
   const double beats_delta = (dt_ms / 1000.0) * (config_.bpm / 60.0);
+  const int bar_pulses = std::max(1, active_system_.time_signature.pulse_count());
+  const double ci_beats = static_cast<double>(bar_pulses);
 
   if (state_ == EtudePlaybackState::CountIn) {
     const int prev_ci = static_cast<int>(std::floor(count_in_beats_ + 1e-9));
     count_in_beats_ += beats_delta;
-    if (count_in_beats_ < 4.0 - 1e-9) {
+    if (count_in_beats_ < ci_beats - 1e-9) {
       const int cur_ci = static_cast<int>(std::floor(count_in_beats_ + 1e-9));
-      playhead_beat_ = count_in_beats_ - 4.0;
+      playhead_beat_ = count_in_beats_ - ci_beats;
       if (cur_ci > prev_ci) {
         out.metronome_click = true;
         out.metronome_accent = false;
@@ -276,7 +286,7 @@ EtudeTickOutput EtudeEngine::update(double dt_ms) {
     }
 
     state_ = EtudePlaybackState::Playing;
-    playhead_beat_ = std::max(0.0, count_in_beats_ - 4.0);
+    playhead_beat_ = std::max(0.0, count_in_beats_ - ci_beats);
     out.metronome_click = true;
     out.metronome_accent = true;
   } else {
@@ -285,7 +295,7 @@ EtudeTickOutput EtudeEngine::update(double dt_ms) {
     const int cur_beat_int = static_cast<int>(std::floor(playhead_beat_ + 1e-9));
     if (cur_beat_int > prev_beat_int) {
       out.metronome_click = true;
-      out.metronome_accent = (cur_beat_int % 4 == 0);
+      out.metronome_accent = (cur_beat_int % bar_pulses == 0);
     }
   }
 
@@ -302,7 +312,8 @@ EtudeTickOutput EtudeEngine::update(double dt_ms) {
 
   mark_expired_targets();
 
-  while (playhead_beat_ >= 16.0 - 1e-9) {
+  const double sys_beats = static_cast<double>(bar_pulses * 4);
+  while (playhead_beat_ >= sys_beats - 1e-9) {
     for (auto& target : active_system_.targets) {
       if (target.status == EtudeTargetStatus::Pending) {
         target.status = EtudeTargetStatus::Missed;
@@ -311,7 +322,7 @@ EtudeTickOutput EtudeEngine::update(double dt_ms) {
       }
     }
     promote_system();
-    playhead_beat_ = std::max(0.0, playhead_beat_ - 16.0);
+    playhead_beat_ = std::max(0.0, playhead_beat_ - sys_beats);
     out.system_promoted = true;
     mark_expired_targets();
   }
@@ -418,7 +429,8 @@ int EtudeEngine::count_in_beat_number() const noexcept {
   if (state_ != EtudePlaybackState::CountIn) {
     return 0;
   }
-  return std::clamp(static_cast<int>(std::floor(count_in_beats_ + 1e-9)) + 1, 1, 4);
+  const int bar_pulses = std::max(1, active_system_.time_signature.pulse_count());
+  return std::clamp(static_cast<int>(std::floor(count_in_beats_ + 1e-9)) + 1, 1, bar_pulses);
 }
 
 std::size_t EtudeEngine::expected_cardinality() const noexcept {
@@ -470,6 +482,7 @@ void EtudeEngine::rebuild_systems() {
   stop();
   rng_.seed(config_.seed);
   next_bar_number_ = 1;
+  corpus_cursor_ = 0;
   last_melody_pool_idx_.reset();
   completed_bars_ = 0;
   completed_systems_ = 0;
@@ -491,6 +504,275 @@ void EtudeEngine::promote_system() {
 }
 
 EtudeSystem EtudeEngine::generate_system(std::uint32_t first_bar_number) {
+  if (config_.source_mode == EtudeSourceMode::HybridClassical && corpus_ != nullptr &&
+      !corpus_->excerpts.empty()) {
+    std::vector<const SightReadingExcerpt*> matching;
+    const int target_lvl = static_cast<int>(config_.difficulty);
+    for (const auto& ex : corpus_->excerpts) {
+      if (ex.level == target_lvl) {
+        matching.push_back(&ex);
+      }
+    }
+    if (matching.empty()) {
+      for (const auto& ex : corpus_->excerpts) {
+        matching.push_back(&ex);
+      }
+    }
+    if (!matching.empty()) {
+      const std::size_t idx = corpus_cursor_ % matching.size();
+      ++corpus_cursor_;
+      const auto transposed = transpose_excerpt_to_key(*matching[idx], config_.key);
+      EtudeSystem sys{};
+      sys.time_signature = transposed.time_signature;
+      sys.source_label = std::format("{} — {}", transposed.title, transposed.composer);
+      const double beat_ticks_d = static_cast<double>(std::max(1, sys.time_signature.beat_ticks()));
+      const int bar_pulses = std::max(1, sys.time_signature.pulse_count());
+
+      for (std::size_t b = 0; b < 4U; ++b) {
+        auto& em = sys.measures[b];
+        em.bar_number = first_bar_number + static_cast<std::uint32_t>(b);
+        const auto& lm = transposed.measures[b];
+        auto convert_evs = [&](std::span<const LessonEvent> src,
+                               std::vector<EtudeVoiceEvent>& dst) {
+          for (const auto& lev : src) {
+            EtudeVoiceEvent ev{};
+            ev.start_tick = lev.start_tick;
+            ev.beat_start = lev.start_tick / std::max(1, sys.time_signature.beat_ticks());
+            ev.rhythmic_value = lev.duration;
+            ev.is_rest = lev.is_rest;
+            if (lev.duration.base == NoteBaseDuration::Whole) {
+              ev.duration = EtudeDurationBeats::Whole;
+            } else if (lev.duration.base == NoteBaseDuration::Half) {
+              ev.duration = EtudeDurationBeats::Half;
+            } else {
+              ev.duration = EtudeDurationBeats::Quarter;
+            }
+            for (const auto& ln : lev.notes) {
+              if (ln.tie_start) {
+                ev.tie_start = true;
+              }
+              if (ln.tie_stop) {
+                ev.tie_stop = true;
+              }
+              ev.notes.push_back(ln.spelled);
+              ev.midi.push_back(ln.midi);
+            }
+            dst.push_back(std::move(ev));
+          }
+        };
+        if (config_.hand_mode != EtudeHandMode::LeftHand) {
+          convert_evs(lm.treble_events, em.treble_events);
+        }
+        if (config_.hand_mode != EtudeHandMode::RightHand) {
+          convert_evs(lm.bass_events, em.bass_events);
+        }
+        std::map<int, std::vector<MidiPitch>> tick_midi;
+        auto collect_targets = [&](const std::vector<EtudeVoiceEvent>& evs) {
+          for (const auto& ev : evs) {
+            if (!ev.is_rest && !ev.tie_stop) {
+              auto& vec = tick_midi[ev.start_tick];
+              vec.insert(vec.end(), ev.midi.begin(), ev.midi.end());
+            }
+          }
+        };
+        collect_targets(em.treble_events);
+        collect_targets(em.bass_events);
+        for (auto& [tick, mlist] : tick_midi) {
+          sys.targets.push_back(EtudeBeatTarget{
+              .bar_index = b,
+              .beat_in_bar = tick / std::max(1, sys.time_signature.beat_ticks()),
+              .tick_in_bar = tick,
+              .system_beat = static_cast<double>(b * static_cast<std::size_t>(bar_pulses)) +
+                             static_cast<double>(tick) / beat_ticks_d,
+              .expected_midi = normalize_midi_set(mlist),
+              .status = EtudeTargetStatus::Pending,
+              .had_error = false,
+              .played_midi = {},
+          });
+        }
+      }
+      return sys;
+    }
+  }
+
+  if (config_.difficulty != EtudeDifficultyLevel::Level1Foundations) {
+    EtudeSystem sys{};
+    switch (config_.difficulty) {
+    case EtudeDifficultyLevel::Level2EighthsAndWaltz:
+      sys.time_signature = {.numerator = 3, .denominator = 4};
+      break;
+    case EtudeDifficultyLevel::Level3CompoundAndDotted:
+      sys.time_signature = {.numerator = 6, .denominator = 8};
+      break;
+    case EtudeDifficultyLevel::Level4AlbertiAndAccidentals:
+      sys.time_signature = {.numerator = 4, .denominator = 4};
+      break;
+    case EtudeDifficultyLevel::Level5RomanticTextures:
+      sys.time_signature = {.numerator = 6, .denominator = 4};
+      break;
+    default:
+      sys.time_signature = {.numerator = 4, .denominator = 4};
+      break;
+    }
+
+    const bool melody_is_bass = (config_.hand_mode == EtudeHandMode::LeftHand);
+    const auto melody_pool = melody_is_bass ? build_diatonic_pool(config_.key, 41, 60)
+                                            : build_diatonic_pool(config_.key, 60, 79);
+    if (!last_melody_pool_idx_.has_value() || *last_melody_pool_idx_ >= melody_pool.size()) {
+      last_melody_pool_idx_ = melody_pool.empty() ? 0U : (melody_pool.size() / 3U);
+    }
+    const int max_jump = static_cast<int>(config_.max_jump);
+    auto next_note = [&]() -> PoolNote {
+      if (melody_pool.empty()) {
+        return PoolNote{.spelled = {NoteLetter::C, Accidental::Natural, 4}, .midi = 60};
+      }
+      const int cur = static_cast<int>(*last_melody_pool_idx_);
+      const int lo = std::max(0, cur - max_jump);
+      const int hi = std::min(static_cast<int>(melody_pool.size()) - 1, cur + max_jump);
+      std::uniform_int_distribution<int> d(lo, hi);
+      *last_melody_pool_idx_ = static_cast<std::size_t>(d(rng_));
+      return melody_pool[*last_melody_pool_idx_];
+    };
+
+    const int beat_ticks = std::max(1, sys.time_signature.beat_ticks());
+    const double beat_ticks_d = static_cast<double>(beat_ticks);
+    const int bar_pulses = std::max(1, sys.time_signature.pulse_count());
+    static constexpr std::array<int, 4> kProg{1, 4, 5, 1};
+
+    for (std::size_t b = 0; b < 4U; ++b) {
+      auto& measure = sys.measures[b];
+      measure.bar_number = first_bar_number + static_cast<std::uint32_t>(b);
+      const int deg = kProg[b];
+      const auto triad =
+          build_diatonic_triad(config_.key, deg, 3, Inversion::Root, true).value_or(Triad{});
+
+      auto emit_mel_ev = [&](int st_tick, RhythmicValue rv, bool tie_s = false,
+                             bool tie_e = false) {
+        const PoolNote pn = next_note();
+        EtudeVoiceEvent ev{};
+        ev.start_tick = st_tick;
+        ev.beat_start = st_tick / beat_ticks;
+        ev.rhythmic_value = rv;
+        ev.tie_start = tie_s;
+        ev.tie_stop = tie_e;
+        ev.notes.push_back(pn.spelled);
+        ev.midi.push_back(pn.midi);
+        return ev;
+      };
+
+      std::vector<EtudeVoiceEvent> mel_evs;
+      if (config_.difficulty == EtudeDifficultyLevel::Level2EighthsAndWaltz) {
+        // 3/4: Quarter + 2 Eighths + Quarter (1440 ticks)
+        mel_evs.push_back(emit_mel_ev(0, {.base = NoteBaseDuration::Quarter}));
+        mel_evs.push_back(emit_mel_ev(480, {.base = NoteBaseDuration::Eighth}));
+        mel_evs.push_back(emit_mel_ev(720, {.base = NoteBaseDuration::Eighth}));
+        mel_evs.push_back(emit_mel_ev(960, {.base = NoteBaseDuration::Quarter}));
+      } else if (config_.difficulty == EtudeDifficultyLevel::Level3CompoundAndDotted) {
+        // 6/8: Dotted Quarter + 3 Eighths (1440 ticks); Bar 0->1 tied across barline
+        mel_evs.push_back(
+            emit_mel_ev(0, {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 1}));
+        mel_evs.push_back(emit_mel_ev(720, {.base = NoteBaseDuration::Eighth}));
+        mel_evs.push_back(emit_mel_ev(960, {.base = NoteBaseDuration::Eighth}));
+        mel_evs.push_back(emit_mel_ev(1200, {.base = NoteBaseDuration::Eighth}, b == 0U, false));
+        if (b == 1U && !sys.measures[0].treble_events.empty()) {
+          mel_evs.front().notes = sys.measures[0].treble_events.back().notes;
+          mel_evs.front().midi = sys.measures[0].treble_events.back().midi;
+          mel_evs.front().tie_stop = true;
+        }
+      } else if (config_.difficulty == EtudeDifficultyLevel::Level4AlbertiAndAccidentals) {
+        // 4/4: 4x16ths + Quarter + Half (1920 ticks)
+        mel_evs.push_back(emit_mel_ev(0, {.base = NoteBaseDuration::Sixteenth}));
+        mel_evs.push_back(emit_mel_ev(120, {.base = NoteBaseDuration::Sixteenth}));
+        mel_evs.push_back(emit_mel_ev(240, {.base = NoteBaseDuration::Sixteenth}));
+        mel_evs.push_back(emit_mel_ev(360, {.base = NoteBaseDuration::Sixteenth}));
+        mel_evs.push_back(emit_mel_ev(480, {.base = NoteBaseDuration::Quarter}));
+        mel_evs.push_back(emit_mel_ev(960, {.base = NoteBaseDuration::Half}));
+      } else {
+        // Level 5 (6/4): Dotted Half + Quarter + Half (2880 ticks)
+        mel_evs.push_back(
+            emit_mel_ev(0, {.base = NoteBaseDuration::Half, .dotted = true, .dots = 1}));
+        mel_evs.push_back(emit_mel_ev(1440, {.base = NoteBaseDuration::Quarter}));
+        mel_evs.push_back(emit_mel_ev(1920, {.base = NoteBaseDuration::Half}));
+      }
+
+      if (config_.hand_mode == EtudeHandMode::RightHand) {
+        measure.treble_events = std::move(mel_evs);
+      } else if (config_.hand_mode == EtudeHandMode::LeftHand) {
+        measure.bass_events = std::move(mel_evs);
+      } else {
+        measure.treble_events = std::move(mel_evs);
+        auto make_bass_ev = [&](int st_tick, RhythmicValue rv,
+                                std::initializer_list<SpelledNote> sns) {
+          EtudeVoiceEvent bev{};
+          bev.start_tick = st_tick;
+          bev.beat_start = st_tick / beat_ticks;
+          bev.rhythmic_value = rv;
+          for (const auto& sn : sns) {
+            if (const auto m = to_midi(sn); m.has_value()) {
+              bev.notes.push_back(sn);
+              bev.midi.push_back(*m);
+            }
+          }
+          return bev;
+        };
+        if (config_.difficulty == EtudeDifficultyLevel::Level2EighthsAndWaltz) {
+          measure.bass_events.push_back(
+              make_bass_ev(0, {.base = NoteBaseDuration::Quarter}, {triad.notes[0]}));
+          measure.bass_events.push_back(make_bass_ev(480, {.base = NoteBaseDuration::Quarter},
+                                                     {triad.notes[1], triad.notes[2]}));
+          measure.bass_events.push_back(make_bass_ev(960, {.base = NoteBaseDuration::Quarter},
+                                                     {triad.notes[1], triad.notes[2]}));
+        } else if (config_.difficulty == EtudeDifficultyLevel::Level3CompoundAndDotted) {
+          measure.bass_events.push_back(make_bass_ev(
+              0, {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 1}, {triad.notes[0]}));
+          measure.bass_events.push_back(
+              make_bass_ev(720, {.base = NoteBaseDuration::Quarter, .dotted = true, .dots = 1},
+                           {triad.notes[1], triad.notes[2]}));
+        } else if (config_.difficulty == EtudeDifficultyLevel::Level4AlbertiAndAccidentals) {
+          const std::array<SpelledNote, 4> alb{triad.notes[0], triad.notes[2], triad.notes[1],
+                                               triad.notes[2]};
+          for (int k = 0; k < 8; ++k) {
+            measure.bass_events.push_back(make_bass_ev(k * 240, {.base = NoteBaseDuration::Eighth},
+                                                       {alb[static_cast<std::size_t>(k % 4)]}));
+          }
+        } else {
+          // Level 5 (6/4) sweeping barcarolle bass
+          for (int k = 0; k < 6; ++k) {
+            measure.bass_events.push_back(
+                make_bass_ev(k * 480, {.base = NoteBaseDuration::Quarter},
+                             {triad.notes[static_cast<std::size_t>(k % 3)]}));
+          }
+        }
+      }
+
+      std::map<int, std::vector<MidiPitch>> tick_midi;
+      auto collect_t = [&](const std::vector<EtudeVoiceEvent>& evs) {
+        for (const auto& ev : evs) {
+          if (!ev.is_rest && !ev.tie_stop) {
+            auto& vec = tick_midi[ev.start_tick];
+            vec.insert(vec.end(), ev.midi.begin(), ev.midi.end());
+          }
+        }
+      };
+      collect_t(measure.treble_events);
+      collect_t(measure.bass_events);
+      for (auto& [tick, mlist] : tick_midi) {
+        sys.targets.push_back(EtudeBeatTarget{
+            .bar_index = b,
+            .beat_in_bar = tick / beat_ticks,
+            .tick_in_bar = tick,
+            .system_beat = static_cast<double>(b * static_cast<std::size_t>(bar_pulses)) +
+                           static_cast<double>(tick) / beat_ticks_d,
+            .expected_midi = normalize_midi_set(mlist),
+            .status = EtudeTargetStatus::Pending,
+            .had_error = false,
+            .played_midi = {},
+        });
+      }
+    }
+    return sys;
+  }
+
   static constexpr std::array<std::array<int, 4>, 4> kProgressions{{
       {1, 4, 5, 1},
       {1, 6, 4, 5},
@@ -573,7 +855,13 @@ EtudeSystem EtudeEngine::generate_system(std::uint32_t first_bar_number) {
       const auto& slot = melody_rhythm[s];
       EtudeVoiceEvent ev{};
       ev.beat_start = slot.beat_start;
+      ev.start_tick = slot.beat_start * kTicksPerQuarter;
       ev.duration = slot.duration;
+      ev.rhythmic_value.base =
+          (slot.duration == EtudeDurationBeats::Whole)
+              ? NoteBaseDuration::Whole
+              : ((slot.duration == EtudeDurationBeats::Half) ? NoteBaseDuration::Half
+                                                             : NoteBaseDuration::Quarter);
       ev.is_rest = slot.is_rest;
       if (!slot.is_rest && !melody_pool.empty()) {
         const bool prefer_cad = is_cadence_bar && (s == last_note_slot_idx);

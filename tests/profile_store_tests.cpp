@@ -149,6 +149,9 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   profile.preferences.lesson_show_harmony = true;
   profile.preferences.warmup_circuit = WarmUpCircuitPreset::Romantic;
   profile.preferences.warmup_show_fingerings = false;
+  profile.preferences.flashcard_level = FlashcardLevel::Romantic;
+  profile.preferences.etude_level = EtudeDifficultyLevel::Level4AlbertiAndAccidentals;
+  profile.preferences.etude_source_mode = EtudeSourceMode::HybridClassical;
 
   const std::string json_text = to_json_string(profile);
   const auto parsed = from_json_string(json_text);
@@ -192,6 +195,9 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res->preferences.lesson_show_harmony);
     REQUIRE(res->preferences.warmup_circuit == WarmUpCircuitPreset::Foundation);
     REQUIRE(res->preferences.warmup_show_fingerings);
+    REQUIRE(res->preferences.flashcard_level == FlashcardLevel::Foundation);
+    REQUIRE(res->preferences.etude_level == EtudeDifficultyLevel::Level1Foundations);
+    REQUIRE(res->preferences.etude_source_mode == EtudeSourceMode::Procedural);
     REQUIRE(res->warmup_key_bpm.empty());
   }
 

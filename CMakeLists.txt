@@ -175,6 +175,7 @@ add_library(piano_core STATIC
   src/core/weekly_key.cpp
   src/core/warmup_engine.cpp
   src/core/flashcard_engine.cpp
+  src/core/sight_reading_corpus.cpp
   src/core/etude_engine.cpp
   src/core/chord_symbol.cpp
   src/core/companion_matcher.cpp
