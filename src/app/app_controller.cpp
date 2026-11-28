@@ -708,6 +708,12 @@ bool AppController::init(const CliOptions& cli_opts) {
   if (cli_.etude_source_override.has_value()) {
     etude_view_.set_source_mode(*cli_.etude_source_override);
   }
+  if (cli_.ear_mode_override.has_value()) {
+    ear_trainer_view_.set_drill_mode(*cli_.ear_mode_override);
+  }
+  if (cli_.autopilot_preset_override.has_value()) {
+    profile_.preferences.autopilot_duration = *cli_.autopilot_preset_override;
+  }
   if (cli_.simulate_coach.has_value()) {
     ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
     if (*cli_.simulate_coach == SmokeCoachMode::Imperfect) {
@@ -1190,6 +1196,7 @@ void AppController::render_ui(double now_ms, std::int64_t today_epoch_day) {
       const ui::SidebarViewState sb_state{
           .active_section = to_shell_section(app_mode_),
           .active_free_stage = free_stage_,
+          .autopilot_preset = profile_.preferences.autopilot_duration,
           .show_piano_dock = show_piano_dock_,
           .due_srs_count = srs_view_.deck().due_cards(today_epoch_day).size(),
           .due_lessons_count = due_lessons,

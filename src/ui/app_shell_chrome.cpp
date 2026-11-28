@@ -76,11 +76,13 @@ ShellChromeActions draw_sidebar(const SidebarViewState& state,
                             autopilot.state() == core::AutopilotState::Paused);
     std::string ap_badge;
     if (ap_active) {
-      const int tot_rem = static_cast<int>(std::ceil(
-          std::max(0.0, core::kTotalAutopilotDurationSec - autopilot.total_elapsed_sec())));
+      const int tot_rem = static_cast<int>(
+          std::ceil(std::max(0.0, autopilot.total_duration_sec() - autopilot.total_elapsed_sec())));
       ap_badge = std::format("{:02d}:{:02d}", tot_rem / 60, tot_rem % 60);
     }
-    if (sidebar_nav_item("##nav_autopilot", "30-Min Session", IconId::PlayCircle,
+    const std::string ap_label =
+        std::format("{}-Min Session", core::autopilot_preset_minutes(state.autopilot_preset));
+    if (sidebar_nav_item("##nav_autopilot", ap_label.c_str(), IconId::PlayCircle,
                          state.active_section == ShellSection::Autopilot,
                          ap_badge.empty() ? nullptr : ap_badge.c_str(), ap_active, "B0")) {
       if (autopilot.state() == core::AutopilotState::Idle ||

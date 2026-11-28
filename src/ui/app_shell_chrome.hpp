@@ -27,6 +27,7 @@ enum class ShellSection : std::uint8_t {
 struct SidebarViewState {
   ShellSection active_section{ShellSection::Home};
   core::AutopilotStage active_free_stage{core::AutopilotStage::Stage1WarmUp};
+  core::AutopilotDurationPreset autopilot_preset{core::AutopilotDurationPreset::Standard30};
   bool show_piano_dock{true};
   std::size_t due_srs_count{0};
   std::size_t due_lessons_count{0};

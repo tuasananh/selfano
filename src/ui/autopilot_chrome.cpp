@@ -46,11 +46,13 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
   const auto& c = colors();
   const float scale = ImGui::GetStyle().FontScaleDpi;
 
+  const auto& blocks = autopilot.blocks();
+  const double total_dur = std::max(1.0, autopilot.total_duration_sec());
   const auto& blk = autopilot.current_block();
   const std::size_t active_idx = autopilot.current_block_index();
   const int blk_rem = static_cast<int>(std::ceil(autopilot.block_remaining_sec()));
-  const int tot_rem = static_cast<int>(
-      std::ceil(std::max(0.0, core::kTotalAutopilotDurationSec - autopilot.total_elapsed_sec())));
+  const int tot_rem =
+      static_cast<int>(std::ceil(std::max(0.0, total_dur - autopilot.total_elapsed_sec())));
   const bool is_paused = (autopilot.state() == core::AutopilotState::Paused);
 
   begin_card("##autopilot_header_card", ImVec2(0.0f, 0.0f), 12.0f, 14.0f, true, true);
@@ -64,8 +66,7 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
     ImGui::SameLine(0.0f, 10.0f * scale);
   }
 
-  const std::string badge_str =
-      std::format("Block {} of {}", active_idx + 1U, core::kAutopilotBlocks.size());
+  const std::string badge_str = std::format("Block {} of {}", active_idx + 1U, blocks.size());
   status_pill(badge_str, StatusTone::Accent);
   ImGui::SameLine(0.0f, 10.0f * scale);
 
@@ -140,8 +141,7 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
   ImGui::Dummy(ImVec2(bar_w, seg_h + label_row_h + 2.0f * scale));
 
   ImDrawList* dl = ImGui::GetWindowDrawList();
-  const float usable_w =
-      std::max(100.0f, bar_w - gap * static_cast<float>(core::kAutopilotBlocks.size() - 1U));
+  const float usable_w = std::max(100.0f, bar_w - gap * static_cast<float>(blocks.size() - 1U));
   float cur_x = bar_pos.x;
 
   const double block_dur = std::max(1.0, static_cast<double>(blk.duration_sec));
@@ -151,10 +151,10 @@ AutopilotBarActions draw_autopilot_bar(const core::AutopilotSession& autopilot,
   ImFont* cap_font = font_for_style(TypeStyle::Caption);
   const float cap_px = draw_font_size(type_base_size(TypeStyle::Caption));
 
-  for (std::size_t i = 0; i < core::kAutopilotBlocks.size(); ++i) {
-    const auto& b = core::kAutopilotBlocks[i];
-    const float seg_w = usable_w * static_cast<float>(static_cast<double>(b.duration_sec) /
-                                                      core::kTotalAutopilotDurationSec);
+  for (std::size_t i = 0; i < blocks.size(); ++i) {
+    const auto& b = blocks[i];
+    const float seg_w =
+        usable_w * static_cast<float>(static_cast<double>(b.duration_sec) / total_dur);
     const ImVec2 smin(cur_x, bar_pos.y);
     const ImVec2 smax(cur_x + seg_w, bar_pos.y + seg_h);
 

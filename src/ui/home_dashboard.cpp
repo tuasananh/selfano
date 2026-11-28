@@ -146,7 +146,36 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
 
   ImGui::Dummy(ImVec2(0.0f, 10.0f * scale));
 
-  // 2. Hero Card: Daily 30-Minute Autopilot Session
+  // 2. Hero Card: Tier-Adaptive Daily Autopilot Session
+  int active_tier = 1;
+  if (lesson_library != nullptr) {
+    if (const auto* active_score = lesson_library->find_lesson(profile.active_lesson_id);
+        active_score != nullptr) {
+      active_tier = active_score->meta.tier;
+    }
+  }
+  double avg_fc_rt_ms = flashcard_engine.session_avg_reaction_ms();
+  if (avg_fc_rt_ms <= 0.0 && !profile.flashcard_telemetry.empty()) {
+    double sum_rt = 0.0;
+    std::size_t rt_count = 0;
+    for (const auto& [shape_id, tel] : profile.flashcard_telemetry) {
+      (void)shape_id;
+      if (tel.attempts > 0 && tel.ema_reaction_ms > 0.0) {
+        sum_rt += tel.ema_reaction_ms;
+        ++rt_count;
+      }
+    }
+    if (rt_count > 0U) {
+      avg_fc_rt_ms = sum_rt / static_cast<double>(rt_count);
+    }
+  }
+  const auto ap_schedule = core::build_autopilot_schedule(profile.preferences.autopilot_duration,
+                                                          active_tier, avg_fc_rt_ms);
+  double ap_total_sec = 0.0;
+  for (const auto& blk : ap_schedule) {
+    ap_total_sec += blk.duration_sec;
+  }
+
   begin_card("##home_hero_card", ImVec2(max_w, 0.0f), 22.0f, 16.0f, true, true);
   {
     const float hero_inner_w = ImGui::GetContentRegionAvail().x;
@@ -154,22 +183,45 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
     section_kicker("DAILY PRACTICE");
     ImGui::Spacing();
 
+    const int preset_mins = core::autopilot_preset_minutes(profile.preferences.autopilot_duration);
+    const std::string hero_title = std::format("{}-Minute Guided Session", preset_mins);
+    const float preset_w = 150.0f;
     const float cta_w = show_piano_key_hints() ? 216.0f : 186.0f;
     {
       ScopedFont tf(TypeStyle::Title);
-      ImGui::TextUnformatted("30-Minute Guided Session");
+      ImGui::TextUnformatted(hero_title.c_str());
     }
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale, hero_inner_w - cta_w * scale));
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 12.0f * scale,
+                             hero_inner_w - (cta_w + preset_w + 10.0f) * scale));
+    static constexpr std::array<std::string_view, 3> kPresets{"30m", "45m", "60m"};
+    int preset_idx = static_cast<int>(profile.preferences.autopilot_duration);
+    if (segmented_control("##home_ap_preset", &preset_idx, kPresets, preset_w, 34.0f)) {
+      profile.preferences.autopilot_duration =
+          static_cast<core::AutopilotDurationPreset>(preset_idx);
+    }
+    ImGui::SameLine(0.0f, 10.0f * scale);
     if (pill_button("Start Session##home_start", ButtonTone::Primary, IconId::Play, 38.0f, cta_w,
                     true, "B0")) {
       actions.start_autopilot = true;
     }
 
+    auto fmt_mins = [](double sec) -> std::string {
+      const double m = sec / 60.0;
+      const double rounded_half = std::round(m * 2.0) * 0.5;
+      if (std::abs(rounded_half - std::round(rounded_half)) < 0.05) {
+        return std::format("{:.0f}m", std::round(rounded_half));
+      }
+      return std::format("{:.1f}m", rounded_half);
+    };
+    const std::string split_summary = std::format(
+        "Warm-Up {}  \xC2\xB7  Flashcards {}  \xC2\xB7  Etudes {}  \xC2\xB7  Lessons {}  \xC2\xB7  "
+        "SRS {}  \xC2\xB7  Ear {}",
+        fmt_mins(ap_schedule[0].duration_sec), fmt_mins(ap_schedule[1].duration_sec),
+        fmt_mins(ap_schedule[2].duration_sec), fmt_mins(ap_schedule[3].duration_sec),
+        fmt_mins(ap_schedule[4].duration_sec), fmt_mins(ap_schedule[5].duration_sec));
     {
       ScopedFont sub(TypeStyle::Subheadline);
-      ImGui::TextColored(c.text_secondary,
-                         "Warm-Up  \xC2\xB7  Flashcards  \xC2\xB7  Continuous Etudes  \xC2\xB7  "
-                         "Guided Lessons  \xC2\xB7  Retention Deck  \xC2\xB7  Ear Trainer");
+      ImGui::TextColored(c.text_secondary, "%s", split_summary.c_str());
     }
 
     ImGui::Dummy(ImVec2(0.0f, 8.0f * scale));
@@ -181,16 +233,14 @@ HomeDashboardActions draw_home_dashboard(core::UserProfile& profile,
     ImGui::Dummy(ImVec2(hero_inner_w, bar_h));
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const float usable =
-        hero_inner_w - seg_gap * static_cast<float>(core::kAutopilotBlocks.size() - 1U);
+    const float usable = hero_inner_w - seg_gap * static_cast<float>(ap_schedule.size() - 1U);
     const std::array<ImVec4, 6> seg_cols{
         c.accent, c.indigo, c.success, c.accent, c.warning, c.success,
     };
     float sx = bar_pos.x;
-    for (std::size_t i = 0; i < core::kAutopilotBlocks.size(); ++i) {
+    for (std::size_t i = 0; i < ap_schedule.size(); ++i) {
       const float sw =
-          usable * static_cast<float>(static_cast<double>(core::kAutopilotBlocks[i].duration_sec) /
-                                      core::kTotalAutopilotDurationSec);
+          usable * static_cast<float>(ap_schedule[i].duration_sec / std::max(1.0, ap_total_sec));
       dl->AddRectFilled(ImVec2(sx, bar_pos.y), ImVec2(sx + sw, bar_pos.y + bar_h),
                         with_alpha(seg_cols[i], is_dark_theme() ? 0.72f : 0.65f), bar_h * 0.5f);
       sx += sw + seg_gap;

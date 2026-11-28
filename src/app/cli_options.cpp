@@ -263,6 +263,25 @@ CliOptions parse_cli(int argc, char* argv[]) {
       } else if (src == "hybrid") {
         opts.etude_source_override = core::EtudeSourceMode::HybridClassical;
       }
+    } else if (arg == "--ear-mode" && i + 1 < argc) {
+      const std::string_view em = argv[++i];
+      if (em == "melody") {
+        opts.ear_mode_override = core::EarDrillMode::Melody;
+      } else if (em == "chords") {
+        opts.ear_mode_override = core::EarDrillMode::ChordQuality;
+      } else if (em == "progressions") {
+        opts.ear_mode_override = core::EarDrillMode::Progression;
+      }
+    } else if (arg == "--autopilot-preset" && i + 1 < argc) {
+      if (const auto mins = parse_strict_int(argv[++i]); mins.has_value()) {
+        if (*mins == 30) {
+          opts.autopilot_preset_override = core::AutopilotDurationPreset::Standard30;
+        } else if (*mins == 45) {
+          opts.autopilot_preset_override = core::AutopilotDurationPreset::Focused45;
+        } else if (*mins == 60) {
+          opts.autopilot_preset_override = core::AutopilotDurationPreset::Conservatory60;
+        }
+      }
     }
   }
   return opts;

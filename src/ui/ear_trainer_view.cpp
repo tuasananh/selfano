@@ -65,6 +65,21 @@ void EarTrainerView::load_progress(core::EarTrainerProgress progress) {
   last_guess_midi_.reset();
 }
 
+void EarTrainerView::set_drill_mode(core::EarDrillMode mode) {
+  if (engine_.drill_mode() == mode) {
+    return;
+  }
+  engine_.set_drill_mode(mode);
+  last_guess_midi_.reset();
+  if (mode == core::EarDrillMode::Melody) {
+    status_banner_ = "Listen to the tonic anchor + melody and play it back";
+  } else if (mode == core::EarDrillMode::ChordQuality) {
+    status_banner_ = "Listen and select the chord quality (or play it on MIDI)";
+  } else {
+    status_banner_ = "Listen and identify the harmonic progression (or play on MIDI)";
+  }
+}
+
 void EarTrainerView::append_playback(std::span<const core::EarPlaybackEvent> events, double now_ms,
                                      std::vector<midi::ScheduledMidiNote>& out_playback) const {
   for (const auto& ev : events) {
@@ -94,6 +109,25 @@ void EarTrainerView::on_played_chord(const midi::PlayedChord& chord) {
   if (chord.notes.empty()) {
     return;
   }
+  if (engine_.drill_mode() != core::EarDrillMode::Melody) {
+    const auto res = engine_.submit_chord(chord.notes);
+    if (res.status == core::EarEvalStatus::Ignored) {
+      return;
+    }
+    last_guess_midi_ = chord.notes.front();
+    if (res.status == core::EarEvalStatus::WrongNote) {
+      last_guess_correct_ = false;
+      status_banner_ = res.hint_text;
+    } else if (res.status == core::EarEvalStatus::CorrectNote) {
+      last_guess_correct_ = true;
+      status_banner_ = std::format("Chord {}/{} matched!", engine_.matched_count(),
+                                   engine_.current_prompt().chord_sequence.size());
+    } else if (res.status == core::EarEvalStatus::SolvedAndRevealed) {
+      last_guess_correct_ = true;
+      status_banner_ = "Harmony revealed! Press New for the next prompt";
+    }
+    return;
+  }
   const core::MidiPitch played = chord.notes.front();
   const auto res = engine_.submit_note(played);
   if (res.status == core::EarEvalStatus::Ignored) {
@@ -120,9 +154,18 @@ EarTrainerView::virtual_piano_highlights(const std::array<bool, 128>& held_notes
   VirtualPianoHighlights hi{};
   hi.held = held_notes;
   if (engine_.state() == core::EarTrainerState::Revealed) {
-    for (const core::MidiPitch m : engine_.current_prompt().melody_midi) {
-      if (m < 128U) {
-        hi.correct[m] = true;
+    const auto& prompt = engine_.current_prompt();
+    if (prompt.mode == core::EarDrillMode::Melody) {
+      for (const core::MidiPitch m : prompt.melody_midi) {
+        if (m < 128U) {
+          hi.correct[m] = true;
+        }
+      }
+    } else if (!prompt.chord_sequence.empty()) {
+      for (const core::MidiPitch m : prompt.chord_sequence.back().midi) {
+        if (m < 128U) {
+          hi.correct[m] = true;
+        }
       }
     }
   } else if (last_guess_midi_.has_value() && *last_guess_midi_ < 128U) {
@@ -149,7 +192,16 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     ImGui::TextUnformatted("Ear Trainer");
   }
   ImGui::SameLine(0.0f, 12.0f * scale);
-  status_pill(ear_tier_pill(prog.tier), StatusTone::Accent);
+  static constexpr std::array<std::string_view, 3> kModes{"Melody", "Chords", "Progressions"};
+  int mode_idx = static_cast<int>(prog.drill_mode);
+  if (segmented_control("##ear_mode_seg", &mode_idx, kModes, 250.0f, 30.0f)) {
+    set_drill_mode(static_cast<core::EarDrillMode>(mode_idx));
+    append_playback(engine_.build_playback_events(), now_ms, out_playback);
+  }
+  if (prog.drill_mode == core::EarDrillMode::Melody) {
+    ImGui::SameLine(0.0f, 8.0f * scale);
+    status_pill(ear_tier_pill(prog.tier), StatusTone::Accent);
+  }
   ImGui::SameLine(0.0f, 8.0f * scale);
   status_pill(std::format("Tonic {}", prompt.tonic_chord_symbol), StatusTone::Neutral);
 
@@ -164,12 +216,22 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     trigger_replay(now_ms, out_playback);
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
-  if (pill_button("New Melody##ear_new", ButtonTone::Secondary, IconId::Refresh, 32.0f, 0.0f, false,
-                  "A7")) {
+  const char* new_lbl =
+      (prog.drill_mode == core::EarDrillMode::Melody)
+          ? "New Melody##ear_new"
+          : ((prog.drill_mode == core::EarDrillMode::ChordQuality) ? "New Chord##ear_new"
+                                                                   : "New Progression##ear_new");
+  if (pill_button(new_lbl, ButtonTone::Secondary, IconId::Refresh, 32.0f, 0.0f, false, "A7")) {
     engine_.next_prompt();
     last_guess_midi_.reset();
     append_playback(engine_.build_playback_events(), now_ms, out_playback);
-    status_banner_ = "Listen to the tonic anchor + melody and play it back";
+    if (prog.drill_mode == core::EarDrillMode::Melody) {
+      status_banner_ = "Listen to the tonic anchor + melody and play it back";
+    } else if (prog.drill_mode == core::EarDrillMode::ChordQuality) {
+      status_banner_ = "Listen and select the chord quality (or play it on MIDI)";
+    } else {
+      status_banner_ = "Listen and identify the harmonic progression (or play on MIDI)";
+    }
   }
   ImGui::SameLine(0.0f, 8.0f * scale);
   if (pill_button("Options##ear_opts", ButtonTone::Secondary, IconId::Sliders, 32.0f)) {
@@ -205,8 +267,10 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
 
   ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
 
-  // Visual Melody Note Progress Slots + Hint Pill
-  const std::size_t total_notes = prompt.melody_midi.size();
+  // Visual Progress Slots + Hint Pill
+  const std::size_t total_notes = (prompt.mode == core::EarDrillMode::Melody)
+                                      ? prompt.melody_midi.size()
+                                      : prompt.chord_sequence.size();
   const std::size_t matched = engine_.matched_count();
   const float slot_r = 14.0f * scale;
   const float slot_gap = 10.0f * scale;
@@ -274,8 +338,10 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   opts.light_paper_theme = light_paper_theme_;
 
   if (engine_.state() == core::EarTrainerState::Listening) {
-    const float listen_h = std::clamp(ImGui::GetContentRegionAvail().y - 12.0f,
-                                      std::min(460.0f, 24.9f * opts.staff_space), 460.0f);
+    const float choices_reserve =
+        (prompt.mode == core::EarDrillMode::Melody) ? 12.0f : 116.0f * scale;
+    const float listen_h = std::clamp(ImGui::GetContentRegionAvail().y - choices_reserve,
+                                      std::min(360.0f, 20.0f * opts.staff_space), 420.0f);
     const ImVec2 p0 = ImGui::GetCursorScreenPos();
     const ImVec2 p1(p0.x + canvas_w, p0.y + listen_h);
     ImGui::InvisibleButton("##ear_hidden_staff", ImVec2(canvas_w, listen_h));
@@ -300,25 +366,77 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     }
 
     if (sb_font != nullptr && ui_font != nullptr) {
-      const char* hdr = "Listen & Play Back by Ear";
+      const char* hdr = (prompt.mode == core::EarDrillMode::Melody)
+                            ? "Listen & Play Back by Ear"
+                            : ((prompt.mode == core::EarDrillMode::ChordQuality)
+                                   ? "Identify the Chord Quality"
+                                   : "Identify the Harmonic Progression");
       const float h_px = draw_font_size(18.0f);
       const ImVec2 hsz = sb_font->CalcTextSizeA(h_px, FLT_MAX, 0.0f, hdr);
       dl->AddText(sb_font, h_px,
                   ImVec2(std::round(mid.x - hsz.x * 0.5f), std::round(mid.y + 46.0f * scale)),
                   to_u32(c.text_primary), hdr);
 
-      const char* sub = "Notation stays hidden until you match every note  \xC2\xB7  Press Space "
-                        "or CC 67 to replay";
+      const char* sub =
+          (prompt.mode == core::EarDrillMode::Melody)
+              ? "Notation stays hidden until you match every note  \xC2\xB7  Press Space or CC "
+                "67 to replay"
+              : "Choose an answer below or play the harmony on your MIDI piano  \xC2\xB7  Space / "
+                "CC 67 to replay";
       const float s_px = draw_font_size(13.5f);
       const ImVec2 ssz = ui_font->CalcTextSizeA(s_px, FLT_MAX, 0.0f, sub);
       dl->AddText(ui_font, s_px,
                   ImVec2(std::round(mid.x - ssz.x * 0.5f), std::round(mid.y + 72.0f * scale)),
                   to_u32(c.text_secondary), sub);
     }
+
+    if (prompt.mode == core::EarDrillMode::ChordQuality) {
+      ImGui::Dummy(ImVec2(0.0f, 10.0f * scale));
+      static constexpr std::array<core::EarChordQuality, 6> kQuals{
+          core::EarChordQuality::Major,           core::EarChordQuality::Minor,
+          core::EarChordQuality::Dominant7,       core::EarChordQuality::Diminished7,
+          core::EarChordQuality::HalfDiminished7, core::EarChordQuality::Neapolitan6,
+      };
+      const float gap = 8.0f * scale;
+      const float pill_w = std::max(100.0f, (canvas_w - gap * 5.0f) / 6.0f);
+      for (std::size_t i = 0; i < kQuals.size(); ++i) {
+        if (i > 0U) {
+          ImGui::SameLine(0.0f, gap);
+        }
+        const std::string lbl =
+            std::format("{}##eq_{}", core::ear_chord_quality_label(kQuals[i]), i);
+        if (pill_button(lbl.c_str(), ButtonTone::Secondary, IconId::None, 36.0f, pill_w / scale)) {
+          const auto res = engine_.submit_quality_choice(kQuals[i]);
+          if (res.status == core::EarEvalStatus::WrongNote) {
+            status_banner_ = res.hint_text;
+          } else if (res.status == core::EarEvalStatus::SolvedAndRevealed) {
+            status_banner_ = "Chord quality identified! Notation revealed below";
+          }
+        }
+      }
+    } else if (prompt.mode == core::EarDrillMode::Progression) {
+      ImGui::Dummy(ImVec2(0.0f, 10.0f * scale));
+      const float gap = 10.0f * scale;
+      const float col_w = (canvas_w - gap) * 0.5f;
+      for (std::size_t i = 0; i < prompt.progression_choices.size(); ++i) {
+        if (i % 2U == 1U) {
+          ImGui::SameLine(0.0f, gap);
+        }
+        const std::string lbl = std::format("{}##ep_{}", prompt.progression_choices[i], i);
+        if (pill_button(lbl.c_str(), ButtonTone::Secondary, IconId::None, 36.0f, col_w / scale)) {
+          const auto res = engine_.submit_progression_choice(i);
+          if (res.status == core::EarEvalStatus::WrongNote) {
+            status_banner_ = res.hint_text;
+          } else if (res.status == core::EarEvalStatus::SolvedAndRevealed) {
+            status_banner_ = "Progression identified! Notation revealed below";
+          }
+        }
+      }
+    }
     return;
   }
 
-  // Revealed state: Bar 1 = Tonic Anchor Chord, Bar 2 = Solved Melody
+  // Revealed state: Bar 1 = Tonic Anchor Chord, Bar 2 = Solved Melody or Harmonic Sequence
   StaffMeasure m_tonic{};
   StaffChord tonic_chord{};
   tonic_chord.duration = NoteDuration::Whole;
@@ -335,18 +453,40 @@ void EarTrainerView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   m_tonic.chords.push_back(std::move(tonic_chord));
 
   StaffMeasure m_melody{};
-  for (const auto& sn : prompt.melody_notes) {
-    StaffChord c_note{};
-    c_note.duration = NoteDuration::Quarter;
-    c_note.annotation = core::format_note(sn);
-    c_note.notes.push_back(StaffNote{
-        .note = sn,
-        .clef = core::Clef::Treble,
-        .feedback = NoteFeedback::Correct,
-        .played_label = {},
-        .duration = std::nullopt,
-    });
-    m_melody.chords.push_back(std::move(c_note));
+  if (prompt.mode == core::EarDrillMode::Melody) {
+    for (const auto& sn : prompt.melody_notes) {
+      StaffChord c_note{};
+      c_note.duration = NoteDuration::Quarter;
+      c_note.annotation = core::format_note(sn);
+      c_note.notes.push_back(StaffNote{
+          .note = sn,
+          .clef = core::Clef::Treble,
+          .feedback = NoteFeedback::Correct,
+          .played_label = {},
+          .duration = std::nullopt,
+      });
+      m_melody.chords.push_back(std::move(c_note));
+    }
+  } else {
+    for (const auto& ev : prompt.chord_sequence) {
+      StaffChord c_chord{};
+      c_chord.duration = (prompt.mode == core::EarDrillMode::ChordQuality) ? NoteDuration::Whole
+                                                                           : NoteDuration::Quarter;
+      c_chord.annotation = (prompt.mode == core::EarDrillMode::ChordQuality)
+                               ? std::format("{} ({})", ev.roman_label, ev.chord_symbol)
+                               : ev.roman_label;
+      for (std::size_t n = 0; n < ev.spelled.size(); ++n) {
+        const core::MidiPitch mp = (n < ev.midi.size()) ? ev.midi[n] : 60U;
+        c_chord.notes.push_back(StaffNote{
+            .note = ev.spelled[n],
+            .clef = (mp < 60U) ? core::Clef::Bass : core::Clef::Treble,
+            .feedback = NoteFeedback::Correct,
+            .played_label = {},
+            .duration = std::nullopt,
+        });
+      }
+      m_melody.chords.push_back(std::move(c_chord));
+    }
   }
 
   std::array<StaffMeasure, 2> measures{std::move(m_tonic), std::move(m_melody)};

@@ -258,7 +258,30 @@ void AppController::start_autopilot_session(double now_ms) {
   session_recap_persisted_ = false;
   app_mode_ = AppMode::Autopilot;
   sidebar_collapsed_ = true;
-  autopilot_.start(core::format_key_name(core::weekly_key_at(profile_.weekly_key.key_index)));
+  int active_tier = 1;
+  if (const auto* active_score = lesson_library_.find_lesson(profile_.active_lesson_id);
+      active_score != nullptr) {
+    active_tier = active_score->meta.tier;
+  }
+  double avg_fc_rt_ms = flashcard_view_.engine().session_avg_reaction_ms();
+  if (avg_fc_rt_ms <= 0.0 && !profile_.flashcard_telemetry.empty()) {
+    double sum_rt = 0.0;
+    std::size_t rt_count = 0;
+    for (const auto& [shape_id, tel] : profile_.flashcard_telemetry) {
+      (void)shape_id;
+      if (tel.attempts > 0 && tel.ema_reaction_ms > 0.0) {
+        sum_rt += tel.ema_reaction_ms;
+        ++rt_count;
+      }
+    }
+    if (rt_count > 0U) {
+      avg_fc_rt_ms = sum_rt / static_cast<double>(rt_count);
+    }
+  }
+  const auto schedule = core::build_autopilot_schedule(profile_.preferences.autopilot_duration,
+                                                       active_tier, avg_fc_rt_ms);
+  autopilot_.start(core::format_key_name(core::weekly_key_at(profile_.weekly_key.key_index)),
+                   schedule, profile_.preferences.autopilot_duration);
 }
 
 void AppController::enter_stage3_autopilot_block(std::int64_t today_epoch_day, double now_ms) {
