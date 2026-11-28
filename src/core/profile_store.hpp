@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/autopilot.hpp"
 #include "core/companion_matcher.hpp"
 #include "core/ear_trainer.hpp"
 #include "core/etude_engine.hpp"
@@ -44,6 +45,7 @@ struct UserPreferences {
   FlashcardLevel flashcard_level{FlashcardLevel::Foundation};
   EtudeDifficultyLevel etude_level{EtudeDifficultyLevel::Level1Foundations};
   EtudeSourceMode etude_source_mode{EtudeSourceMode::Procedural};
+  AutopilotDurationPreset autopilot_duration{AutopilotDurationPreset::Standard30};
 
   bool operator==(const UserPreferences&) const = default;
 };

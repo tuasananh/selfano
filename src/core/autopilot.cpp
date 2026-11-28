@@ -7,11 +7,77 @@
 
 namespace selfano::core {
 
+std::array<AutopilotBlockSpec, 6> build_autopilot_schedule(AutopilotDurationPreset preset,
+                                                           int current_tier,
+                                                           double avg_flashcard_rt_ms) noexcept {
+  std::array<AutopilotBlockSpec, 6> blocks = kAutopilotBlocks;
+
+  const bool is_beginner = (current_tier <= 2 || avg_flashcard_rt_ms >= 1100.0);
+  const bool is_advanced =
+      (current_tier >= 3 && avg_flashcard_rt_ms > 0.0 && avg_flashcard_rt_ms < 950.0);
+
+  std::array<double, 6> durs{};
+  if (is_beginner) {
+    switch (preset) {
+    case AutopilotDurationPreset::Standard30:
+      durs = {300.0, 180.0, 420.0, 600.0, 150.0, 150.0};
+      break;
+    case AutopilotDurationPreset::Focused45:
+      durs = {360.0, 240.0, 540.0, 1080.0, 240.0, 240.0};
+      break;
+    case AutopilotDurationPreset::Conservatory60:
+      durs = {480.0, 300.0, 660.0, 1560.0, 300.0, 300.0};
+      break;
+    }
+  } else if (is_advanced) {
+    switch (preset) {
+    case AutopilotDurationPreset::Standard30:
+      durs = {300.0, 90.0, 210.0, 900.0, 120.0, 180.0};
+      break;
+    case AutopilotDurationPreset::Focused45:
+      durs = {360.0, 90.0, 270.0, 1440.0, 240.0, 300.0};
+      break;
+    case AutopilotDurationPreset::Conservatory60:
+      durs = {480.0, 120.0, 360.0, 2040.0, 240.0, 360.0};
+      break;
+    }
+  } else {
+    switch (preset) {
+    case AutopilotDurationPreset::Standard30:
+      durs = {300.0, 120.0, 300.0, 780.0, 150.0, 150.0};
+      break;
+    case AutopilotDurationPreset::Focused45:
+      durs = {360.0, 180.0, 420.0, 1260.0, 240.0, 240.0};
+      break;
+    case AutopilotDurationPreset::Conservatory60:
+      durs = {480.0, 180.0, 480.0, 1860.0, 300.0, 300.0};
+      break;
+    }
+  }
+
+  for (std::size_t i = 0; i < 6; ++i) {
+    blocks[i].duration_sec = durs[i];
+  }
+  return blocks;
+}
+
 AutopilotSession::AutopilotSession(double transition_banner_sec) noexcept
     : transition_banner_sec_{std::max(0.0, transition_banner_sec)} {
 }
 
 void AutopilotSession::start(std::string weekly_key_name) {
+  start(std::move(weekly_key_name), kAutopilotBlocks, AutopilotDurationPreset::Standard30);
+}
+
+void AutopilotSession::start(std::string weekly_key_name,
+                             const std::array<AutopilotBlockSpec, 6>& schedule,
+                             AutopilotDurationPreset preset) {
+  blocks_ = schedule;
+  preset_ = preset;
+  total_duration_sec_ = 0.0;
+  for (const auto& blk : blocks_) {
+    total_duration_sec_ += blk.duration_sec;
+  }
   state_ = AutopilotState::Running;
   current_block_index_ = 0;
   block_elapsed_sec_ = 0.0;
@@ -50,7 +116,7 @@ AutopilotTickResult AutopilotSession::skip_block() noexcept {
   block_overtime_ = false;
   transition_elapsed_sec_ = 0.0;
 
-  if (current_block_index_ + 1U >= kAutopilotBlocks.size()) {
+  if (current_block_index_ + 1U >= blocks_.size()) {
     state_ = AutopilotState::Completed;
     summary_.duration_sec = static_cast<int>(total_elapsed_sec_);
     out.session_completed = true;
@@ -100,7 +166,7 @@ void AutopilotSession::dismiss_transition() noexcept {
   if (state_ != AutopilotState::TransitionBanner) {
     return;
   }
-  if (current_block_index_ + 1U >= kAutopilotBlocks.size()) {
+  if (current_block_index_ + 1U >= blocks_.size()) {
     state_ = AutopilotState::Completed;
     summary_.duration_sec = static_cast<int>(total_elapsed_sec_);
     return;
@@ -128,7 +194,7 @@ AutopilotTickResult AutopilotSession::update(double dt_sec, bool safe_boundary) 
       const double overtime = block_elapsed_sec_ - target_dur;
       if (safe_boundary || overtime >= 15.0) {
         block_overtime_ = false;
-        if (current_block_index_ + 1U >= kAutopilotBlocks.size()) {
+        if (current_block_index_ + 1U >= blocks_.size()) {
           state_ = AutopilotState::Completed;
           out.session_completed = true;
           return out;
@@ -174,10 +240,10 @@ void AutopilotSession::update_metrics(const SessionSummary& metrics) {
 }
 
 std::optional<AutopilotBlockSpec> AutopilotSession::next_block() const noexcept {
-  if (current_block_index_ + 1U >= kAutopilotBlocks.size()) {
+  if (current_block_index_ + 1U >= blocks_.size()) {
     return std::nullopt;
   }
-  return kAutopilotBlocks[current_block_index_ + 1U];
+  return blocks_[current_block_index_ + 1U];
 }
 
 double AutopilotSession::block_remaining_sec() const noexcept {
@@ -185,7 +251,10 @@ double AutopilotSession::block_remaining_sec() const noexcept {
 }
 
 double AutopilotSession::total_progress_ratio() const noexcept {
-  return std::clamp(total_elapsed_sec_ / kTotalAutopilotDurationSec, 0.0, 1.0);
+  if (total_duration_sec_ <= 0.0) {
+    return 0.0;
+  }
+  return std::clamp(total_elapsed_sec_ / total_duration_sec_, 0.0, 1.0);
 }
 
 double AutopilotSession::transition_remaining_sec() const noexcept {

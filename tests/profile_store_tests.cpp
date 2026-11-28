@@ -250,3 +250,23 @@ TEST_CASE("save_profile_file and load_profile_file perform atomic disk round-tri
 
   std::filesystem::remove_all(temp_dir, ec);
 }
+
+TEST_CASE("UserProfile round-trips Phase 31 ear drill_mode and autopilot_duration with v1 defaults",
+          "[profile_store]") {
+  UserProfile profile = make_default_profile(20500);
+  profile.ear_progress.drill_mode = EarDrillMode::Progression;
+  profile.preferences.autopilot_duration = AutopilotDurationPreset::Focused45;
+
+  const std::string json = to_json_string(profile);
+  const auto parsed = from_json_string(json);
+  REQUIRE(parsed.has_value());
+  REQUIRE(parsed->ear_progress.drill_mode == EarDrillMode::Progression);
+  REQUIRE(parsed->preferences.autopilot_duration == AutopilotDurationPreset::Focused45);
+
+  // Legacy v1 JSON lacking Phase 31 fields defaults safely
+  const std::string legacy_json = R"({"schema_version":1,"preferences":{"default_bpm":72}})";
+  const auto legacy_parsed = from_json_string(legacy_json);
+  REQUIRE(legacy_parsed.has_value());
+  REQUIRE(legacy_parsed->ear_progress.drill_mode == EarDrillMode::Melody);
+  REQUIRE(legacy_parsed->preferences.autopilot_duration == AutopilotDurationPreset::Standard30);
+}

@@ -217,6 +217,7 @@ std::string to_json_string(const UserProfile& profile) {
       {"tier", static_cast<int>(profile.ear_progress.tier)},
       {"consecutive_clean_solves", profile.ear_progress.consecutive_clean_solves},
       {"manual_tier_override", profile.ear_progress.manual_tier_override},
+      {"drill_mode", static_cast<int>(profile.ear_progress.drill_mode)},
   };
 
   j["active_lesson_id"] = profile.active_lesson_id;
@@ -333,6 +334,7 @@ std::string to_json_string(const UserProfile& profile) {
       {"flashcard_level", static_cast<int>(profile.preferences.flashcard_level)},
       {"etude_level", static_cast<int>(profile.preferences.etude_level)},
       {"etude_source_mode", static_cast<int>(profile.preferences.etude_source_mode)},
+      {"autopilot_duration", static_cast<int>(profile.preferences.autopilot_duration)},
   };
 
   return j.dump(2);
@@ -409,14 +411,17 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
       return std::unexpected("Field 'ear_progress' must be an object");
     }
     int tier_int = static_cast<int>(p.ear_progress.tier);
+    int drill_mode_int = static_cast<int>(p.ear_progress.drill_mode);
     if (!read_int_field(ep, "tier", tier_int, err) ||
         !read_int_field(ep, "consecutive_clean_solves", p.ear_progress.consecutive_clean_solves,
                         err) ||
-        !read_bool_field(ep, "manual_tier_override", p.ear_progress.manual_tier_override, err)) {
+        !read_bool_field(ep, "manual_tier_override", p.ear_progress.manual_tier_override, err) ||
+        !read_int_field(ep, "drill_mode", drill_mode_int, err)) {
       return std::unexpected(err);
     }
     tier_int = std::clamp(tier_int, 1, 3);
     p.ear_progress.tier = static_cast<EarDifficultyTier>(tier_int);
+    p.ear_progress.drill_mode = static_cast<EarDrillMode>(std::clamp(drill_mode_int, 0, 2));
   }
 
   if (!read_string_field(root, "active_lesson_id", p.active_lesson_id, err)) {
@@ -598,6 +603,7 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
     int fcl_int = static_cast<int>(p.preferences.flashcard_level);
     int etl_int = static_cast<int>(p.preferences.etude_level);
     int ets_int = static_cast<int>(p.preferences.etude_source_mode);
+    int apd_int = static_cast<int>(p.preferences.autopilot_duration);
     if (!read_double_field(pref, "default_bpm", p.preferences.default_bpm, err) ||
         !read_double_field(pref, "chord_window_ms", p.preferences.chord_window_ms, err) ||
         !read_string_field(pref, "preferred_midi_in", p.preferences.preferred_midi_in, err) ||
@@ -622,7 +628,8 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
                          err) ||
         !read_int_field(pref, "flashcard_level", fcl_int, err) ||
         !read_int_field(pref, "etude_level", etl_int, err) ||
-        !read_int_field(pref, "etude_source_mode", ets_int, err)) {
+        !read_int_field(pref, "etude_source_mode", ets_int, err) ||
+        !read_int_field(pref, "autopilot_duration", apd_int, err)) {
       return std::unexpected(err);
     }
     p.preferences.default_bpm = std::clamp(p.preferences.default_bpm, 40.0, 120.0);
@@ -635,6 +642,8 @@ std::expected<UserProfile, std::string> from_json_string(std::string_view json_t
     p.preferences.flashcard_level = static_cast<FlashcardLevel>(std::clamp(fcl_int, 0, 1));
     p.preferences.etude_level = static_cast<EtudeDifficultyLevel>(std::clamp(etl_int, 1, 5));
     p.preferences.etude_source_mode = static_cast<EtudeSourceMode>(std::clamp(ets_int, 0, 1));
+    p.preferences.autopilot_duration =
+        static_cast<AutopilotDurationPreset>(std::clamp(apd_int, 0, 2));
   }
 
   return p;
