@@ -183,3 +183,100 @@ TEST_CASE("EarTrainer auto-promotes tier after 3 clean first-try solves unless m
   }
   REQUIRE(trainer.progress().tier == EarDifficultyTier::Tier1Steps);
 }
+
+TEST_CASE("EarTrainer ChordQuality mode generates all 6 qualities and grades choice & MIDI",
+          "[ear_trainer]") {
+  EarTrainerProgress prog{};
+  prog.drill_mode = EarDrillMode::ChordQuality;
+  EarTrainer trainer(KeySignature{.fifths = -2, .mode = Mode::Minor}, 777U, prog);
+
+  REQUIRE(trainer.drill_mode() == EarDrillMode::ChordQuality);
+  std::set<EarChordQuality> seen_qualities;
+
+  for (int round = 0; round < 18; ++round) {
+    const auto& prompt = trainer.current_prompt();
+    REQUIRE(prompt.mode == EarDrillMode::ChordQuality);
+    REQUIRE(prompt.chord_sequence.size() == 1U);
+    REQUIRE(prompt.chord_sequence[0].midi.size() >= 3U);
+    REQUIRE(prompt.chord_sequence[0].spelled.size() == prompt.chord_sequence[0].midi.size());
+    REQUIRE_FALSE(prompt.chord_sequence[0].roman_label.empty());
+    seen_qualities.insert(prompt.target_quality);
+
+    const auto playback = trainer.build_playback_events();
+    REQUIRE(playback.size() == 3U + prompt.chord_sequence[0].midi.size());
+
+    if (round % 2 == 0) {
+      const EarChordQuality wrong_q = (prompt.target_quality == EarChordQuality::Major)
+                                          ? EarChordQuality::Minor
+                                          : EarChordQuality::Major;
+      const auto wrong_res = trainer.submit_quality_choice(wrong_q);
+      REQUIRE(wrong_res.status == EarEvalStatus::WrongNote);
+      REQUIRE(trainer.state() == EarTrainerState::Listening);
+
+      const auto ok_res = trainer.submit_quality_choice(prompt.target_quality);
+      REQUIRE(ok_res.status == EarEvalStatus::SolvedAndRevealed);
+      REQUIRE(trainer.state() == EarTrainerState::Revealed);
+    } else {
+      std::vector<MidiPitch> shifted;
+      for (const MidiPitch m : prompt.chord_sequence[0].midi) {
+        shifted.push_back(static_cast<MidiPitch>(m + 12U));
+      }
+      const auto ok_res = trainer.submit_chord(shifted);
+      REQUIRE(ok_res.status == EarEvalStatus::SolvedAndRevealed);
+      REQUIRE(trainer.state() == EarTrainerState::Revealed);
+    }
+
+    trainer.next_prompt();
+  }
+
+  REQUIRE(seen_qualities.size() == 6U);
+}
+
+TEST_CASE("EarTrainer Progression mode generates 3-4 chord progressions and grades choice & MIDI",
+          "[ear_trainer]") {
+  for (const auto key : {KeySignature{.fifths = 0, .mode = Mode::Major},
+                         KeySignature{.fifths = -2, .mode = Mode::Minor}}) {
+    EarTrainerProgress prog{};
+    prog.drill_mode = EarDrillMode::Progression;
+    EarTrainer trainer(key, 909U, prog);
+
+    const auto& p = trainer.current_prompt();
+    REQUIRE(p.mode == EarDrillMode::Progression);
+    REQUIRE(p.chord_sequence.size() >= 3U);
+    REQUIRE(p.chord_sequence.size() <= 4U);
+    REQUIRE(p.progression_choices.size() == 4U);
+    REQUIRE(p.correct_choice_index < 4U);
+
+    const std::set<std::string> unique_choices(p.progression_choices.begin(),
+                                               p.progression_choices.end());
+    REQUIRE(unique_choices.size() == 4U);
+
+    const auto playback = trainer.build_playback_events();
+    REQUIRE(playback.size() > p.tonic_chord_midi.size() + p.chord_sequence.size());
+
+    const std::size_t wrong_idx = (p.correct_choice_index + 1U) % 4U;
+    REQUIRE(trainer.submit_progression_choice(wrong_idx).status == EarEvalStatus::WrongNote);
+    REQUIRE(trainer.state() == EarTrainerState::Listening);
+
+    REQUIRE(trainer.submit_progression_choice(p.correct_choice_index).status ==
+            EarEvalStatus::SolvedAndRevealed);
+    REQUIRE(trainer.state() == EarTrainerState::Revealed);
+
+    trainer.next_prompt();
+    const auto& p2 = trainer.current_prompt();
+    for (std::size_t i = 0; i < p2.chord_sequence.size(); ++i) {
+      const auto res = trainer.submit_chord(p2.chord_sequence[i].midi);
+      if (i + 1U < p2.chord_sequence.size()) {
+        REQUIRE(res.status == EarEvalStatus::CorrectNote);
+        REQUIRE(trainer.matched_count() == i + 1U);
+      } else {
+        REQUIRE(res.status == EarEvalStatus::SolvedAndRevealed);
+        REQUIRE(trainer.state() == EarTrainerState::Revealed);
+      }
+    }
+
+    const auto replay = trainer.request_replay();
+    REQUIRE_FALSE(replay.empty());
+    REQUIRE(trainer.replay_count() >= 1U);
+  }
+}

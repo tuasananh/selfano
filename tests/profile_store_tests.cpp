@@ -147,6 +147,11 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
   profile.preferences.sync_weekly_key_to_lesson = false;
   profile.preferences.lesson_show_fingerings = false;
   profile.preferences.lesson_show_harmony = true;
+  profile.preferences.warmup_circuit = WarmUpCircuitPreset::Romantic;
+  profile.preferences.warmup_show_fingerings = false;
+  profile.preferences.flashcard_level = FlashcardLevel::Romantic;
+  profile.preferences.etude_level = EtudeDifficultyLevel::Level4AlbertiAndAccidentals;
+  profile.preferences.etude_source_mode = EtudeSourceMode::HybridClassical;
 
   const std::string json_text = to_json_string(profile);
   const auto parsed = from_json_string(json_text);
@@ -188,6 +193,11 @@ TEST_CASE("UserProfile JSON round-trip, missing fields, empty arrays, and malfor
     REQUIRE(res->preferences.sync_weekly_key_to_lesson);
     REQUIRE(res->preferences.lesson_show_fingerings);
     REQUIRE(res->preferences.lesson_show_harmony);
+    REQUIRE(res->preferences.warmup_circuit == WarmUpCircuitPreset::Foundation);
+    REQUIRE(res->preferences.warmup_show_fingerings);
+    REQUIRE(res->preferences.flashcard_level == FlashcardLevel::Foundation);
+    REQUIRE(res->preferences.etude_level == EtudeDifficultyLevel::Level1Foundations);
+    REQUIRE(res->preferences.etude_source_mode == EtudeSourceMode::Procedural);
     REQUIRE(res->warmup_key_bpm.empty());
   }
 
@@ -239,4 +249,24 @@ TEST_CASE("save_profile_file and load_profile_file perform atomic disk round-tri
   REQUIRE(*loaded == original);
 
   std::filesystem::remove_all(temp_dir, ec);
+}
+
+TEST_CASE("UserProfile round-trips Phase 31 ear drill_mode and autopilot_duration with v1 defaults",
+          "[profile_store]") {
+  UserProfile profile = make_default_profile(20500);
+  profile.ear_progress.drill_mode = EarDrillMode::Progression;
+  profile.preferences.autopilot_duration = AutopilotDurationPreset::Focused45;
+
+  const std::string json = to_json_string(profile);
+  const auto parsed = from_json_string(json);
+  REQUIRE(parsed.has_value());
+  REQUIRE(parsed->ear_progress.drill_mode == EarDrillMode::Progression);
+  REQUIRE(parsed->preferences.autopilot_duration == AutopilotDurationPreset::Focused45);
+
+  // Legacy v1 JSON lacking Phase 31 fields defaults safely
+  const std::string legacy_json = R"({"schema_version":1,"preferences":{"default_bpm":72}})";
+  const auto legacy_parsed = from_json_string(legacy_json);
+  REQUIRE(legacy_parsed.has_value());
+  REQUIRE(legacy_parsed->ear_progress.drill_mode == EarDrillMode::Melody);
+  REQUIRE(legacy_parsed->preferences.autopilot_duration == AutopilotDurationPreset::Standard30);
 }

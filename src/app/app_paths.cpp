@@ -35,6 +35,22 @@ std::filesystem::path resolve_lessons_dir() {
   return std::filesystem::path("assets") / "lessons";
 }
 
+std::filesystem::path resolve_sight_reading_dir() {
+  std::vector<std::filesystem::path> candidates;
+  if (const char* base_path = SDL_GetBasePath(); base_path != nullptr) {
+    candidates.emplace_back(std::filesystem::path(base_path) / "assets" / "sight_reading");
+  }
+  candidates.emplace_back(std::filesystem::path("assets") / "sight_reading");
+  candidates.emplace_back(std::filesystem::path("/assets") / "sight_reading");
+  std::error_code ec;
+  for (const auto& c : candidates) {
+    if (std::filesystem::exists(c / "corpus.json", ec) && !ec) {
+      return c;
+    }
+  }
+  return std::filesystem::path("assets") / "sight_reading";
+}
+
 std::filesystem::path resolve_profile_path(const std::string& cli_override) {
   if (!cli_override.empty()) {
     return {cli_override};

@@ -6,6 +6,7 @@
 #include "core/lesson_score.hpp"
 #include "core/piano_remote.hpp"
 #include "core/profile_store.hpp"
+#include "core/sight_reading_corpus.hpp"
 
 #include "midi/audio_synth.hpp"
 #include "midi/chord_grouper.hpp"
@@ -145,6 +146,7 @@ private:
   ui::FlashcardView flashcard_view_;
   ui::EtudeView etude_view_;
   core::LessonLibrary lesson_library_;
+  core::SightReadingCorpus sight_reading_corpus_;
   ui::LessonView lesson_view_;
   ui::CompanionView companion_view_;
   ui::SrsView srs_view_;

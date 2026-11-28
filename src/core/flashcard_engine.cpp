@@ -192,17 +192,171 @@ inline constexpr std::array<FlashcardShapeMeta, 40> kShapeBank{{
      .clef = Clef::Bass},
 }};
 
+inline constexpr std::array<FlashcardShapeMeta, 64> kRomanticShapeBank{{
+    // Copy of 40 Foundation shapes:
+    kShapeBank[0],
+    kShapeBank[1],
+    kShapeBank[2],
+    kShapeBank[3],
+    kShapeBank[4],
+    kShapeBank[5],
+    kShapeBank[6],
+    kShapeBank[7],
+    kShapeBank[8],
+    kShapeBank[9],
+    kShapeBank[10],
+    kShapeBank[11],
+    kShapeBank[12],
+    kShapeBank[13],
+    kShapeBank[14],
+    kShapeBank[15],
+    kShapeBank[16],
+    kShapeBank[17],
+    kShapeBank[18],
+    kShapeBank[19],
+    kShapeBank[20],
+    kShapeBank[21],
+    kShapeBank[22],
+    kShapeBank[23],
+    kShapeBank[24],
+    kShapeBank[25],
+    kShapeBank[26],
+    kShapeBank[27],
+    kShapeBank[28],
+    kShapeBank[29],
+    kShapeBank[30],
+    kShapeBank[31],
+    kShapeBank[32],
+    kShapeBank[33],
+    kShapeBank[34],
+    kShapeBank[35],
+    kShapeBank[36],
+    kShapeBank[37],
+    kShapeBank[38],
+    kShapeBank[39],
+
+    // 8 Seventh Chords (Root & Inversions)
+    {.shape_id = "seventh:treble:V7:root",
+     .display_name = "Treble V7 (Root)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Treble},
+    {.shape_id = "seventh:treble:V7:inv1",
+     .display_name = "Treble V6/5 (1st Inv)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Treble},
+    {.shape_id = "seventh:treble:dim7:root",
+     .display_name = "Treble vii\xC2\xB0"
+                     "7 (Dim 7th)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Treble},
+    {.shape_id = "seventh:treble:halfdim7:root",
+     .display_name = "Treble ii\xC3\xB8"
+                     "7 (Half-Dim 7th)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Treble},
+    {.shape_id = "seventh:bass:V7:root",
+     .display_name = "Bass V7 (Root)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Bass},
+    {.shape_id = "seventh:bass:V7:inv2",
+     .display_name = "Bass V4/3 (2nd Inv)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Bass},
+    {.shape_id = "seventh:bass:dim7:root",
+     .display_name = "Bass vii\xC2\xB0"
+                     "7 (Dim 7th)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Bass},
+    {.shape_id = "seventh:bass:halfdim7:root",
+     .display_name = "Bass ii\xC3\xB8"
+                     "7 (Half-Dim 7th)",
+     .kind = FlashcardShapeKind::SeventhChord,
+     .clef = Clef::Bass},
+
+    // 6 Extreme Ledger-Line Landmarks
+    {.shape_id = "ledger:treble:A5",
+     .display_name = "Ledger: High A5",
+     .kind = FlashcardShapeKind::LedgerLandmark,
+     .clef = Clef::Treble},
+    {.shape_id = "ledger:treble:D6",
+     .display_name = "Ledger: High D6",
+     .kind = FlashcardShapeKind::LedgerLandmark,
+     .clef = Clef::Treble},
+    {.shape_id = "ledger:treble:E6",
+     .display_name = "Ledger: High E6",
+     .kind = FlashcardShapeKind::LedgerLandmark,
+     .clef = Clef::Treble},
+    {.shape_id = "ledger:bass:E2",
+     .display_name = "Ledger: Low E2",
+     .kind = FlashcardShapeKind::LedgerLandmark,
+     .clef = Clef::Bass},
+    {.shape_id = "ledger:bass:B1",
+     .display_name = "Ledger: Low B1",
+     .kind = FlashcardShapeKind::LedgerLandmark,
+     .clef = Clef::Bass},
+    {.shape_id = "ledger:bass:A1",
+     .display_name = "Ledger: Low A1",
+     .kind = FlashcardShapeKind::LedgerLandmark,
+     .clef = Clef::Bass},
+
+    // 6 Chromatic Alterations
+    {.shape_id = "chromatic:treble:leading",
+     .display_name = "Chromatic: Raised Leading Tone",
+     .kind = FlashcardShapeKind::ChromaticAlteration,
+     .clef = Clef::Treble},
+    {.shape_id = "chromatic:treble:neapolitan",
+     .display_name = "Chromatic: Neapolitan bII",
+     .kind = FlashcardShapeKind::ChromaticAlteration,
+     .clef = Clef::Treble},
+    {.shape_id = "chromatic:treble:sec_dom",
+     .display_name = "Chromatic: Raised 4th (#4)",
+     .kind = FlashcardShapeKind::ChromaticAlteration,
+     .clef = Clef::Treble},
+    {.shape_id = "chromatic:bass:leading",
+     .display_name = "Bass Chromatic: Leading Tone",
+     .kind = FlashcardShapeKind::ChromaticAlteration,
+     .clef = Clef::Bass},
+    {.shape_id = "chromatic:bass:neapolitan",
+     .display_name = "Bass Chromatic: Neapolitan bII",
+     .kind = FlashcardShapeKind::ChromaticAlteration,
+     .clef = Clef::Bass},
+    {.shape_id = "chromatic:bass:sec_dom",
+     .display_name = "Bass Chromatic: Raised 4th (#4)",
+     .kind = FlashcardShapeKind::ChromaticAlteration,
+     .clef = Clef::Bass},
+
+    // 4 Two-Hand Vertical Grabs
+    {.shape_id = "twohand:tonic:root",
+     .display_name = "Grand Staff: Tonic Grab",
+     .kind = FlashcardShapeKind::TwoHandGrab,
+     .clef = Clef::Treble},
+    {.shape_id = "twohand:subdom:root",
+     .display_name = "Grand Staff: Subdominant Grab",
+     .kind = FlashcardShapeKind::TwoHandGrab,
+     .clef = Clef::Treble},
+    {.shape_id = "twohand:dominant:V7",
+     .display_name = "Grand Staff: Dominant 7th Grab",
+     .kind = FlashcardShapeKind::TwoHandGrab,
+     .clef = Clef::Treble},
+    {.shape_id = "twohand:neapolitan:bII6",
+     .display_name = "Grand Staff: Neapolitan bII6 Grab",
+     .kind = FlashcardShapeKind::TwoHandGrab,
+     .clef = Clef::Treble},
+}};
+
 [[nodiscard]] bool matches_category(FlashcardShapeKind kind, FlashcardCategory cat) noexcept {
   switch (cat) {
   case FlashcardCategory::All:
     return true;
   case FlashcardCategory::Landmarks:
-    return kind == FlashcardShapeKind::Landmark;
+    return kind == FlashcardShapeKind::Landmark || kind == FlashcardShapeKind::LedgerLandmark ||
+           kind == FlashcardShapeKind::ChromaticAlteration;
   case FlashcardCategory::Intervals:
     return kind == FlashcardShapeKind::HarmonicInterval ||
            kind == FlashcardShapeKind::MelodicInterval;
   case FlashcardCategory::Triads:
-    return kind == FlashcardShapeKind::TriadInversion;
+    return kind == FlashcardShapeKind::TriadInversion || kind == FlashcardShapeKind::SeventhChord ||
+           kind == FlashcardShapeKind::TwoHandGrab;
   }
   return true;
 }
@@ -378,6 +532,12 @@ std::span<const FlashcardShapeMeta> flashcard_shape_bank() noexcept {
   return kShapeBank;
 }
 
+std::span<const FlashcardShapeMeta> flashcard_shape_bank(FlashcardLevel level) noexcept {
+  return (level == FlashcardLevel::Romantic)
+             ? std::span<const FlashcardShapeMeta>(kRomanticShapeBank)
+             : std::span<const FlashcardShapeMeta>(kShapeBank);
+}
+
 FlashcardEngine::FlashcardEngine(KeySignature key, std::uint32_t seed, double initial_now_ms,
                                  MinorScaleMode minor_mode)
     : key_{key}, minor_mode_{minor_mode}, rng_{seed}, prompt_shown_ms_{initial_now_ms} {
@@ -395,13 +555,22 @@ void FlashcardEngine::set_category(FlashcardCategory category, double now_ms) {
   next_card(now_ms);
 }
 
+void FlashcardEngine::set_level(FlashcardLevel level, double now_ms) {
+  if (level_ == level) {
+    return;
+  }
+  level_ = level;
+  next_card(now_ms);
+}
+
 void FlashcardEngine::next_card(double now_ms) {
+  const auto active_bank = flashcard_shape_bank(level_);
   std::vector<const FlashcardShapeMeta*> candidates;
   std::vector<double> weights;
-  candidates.reserve(kShapeBank.size());
-  weights.reserve(kShapeBank.size());
+  candidates.reserve(active_bank.size());
+  weights.reserve(active_bank.size());
 
-  for (const auto& meta : kShapeBank) {
+  for (const auto& meta : active_bank) {
     if (!matches_category(meta.kind, category_)) {
       continue;
     }
@@ -526,9 +695,10 @@ void FlashcardEngine::load_telemetry(std::map<std::string, ShapeTelemetry> telem
 }
 
 std::vector<WeakShapeSummary> FlashcardEngine::weakest_shapes(std::size_t max_count) const {
+  const auto active_bank = flashcard_shape_bank(level_);
   std::vector<WeakShapeSummary> list;
-  list.reserve(kShapeBank.size());
-  for (const auto& meta : kShapeBank) {
+  list.reserve(active_bank.size());
+  for (const auto& meta : active_bank) {
     ShapeTelemetry tel{};
     if (const auto it = telemetry_.find(std::string(meta.shape_id)); it != telemetry_.end()) {
       tel = it->second;
@@ -667,6 +837,164 @@ FlashcardPrompt FlashcardEngine::instantiate_shape(const FlashcardShapeMeta& met
           .clef = meta.clef,
       });
     }
+    return prompt;
+  }
+
+  if (meta.kind == FlashcardShapeKind::LedgerLandmark) {
+    NoteLetter letter = NoteLetter::A;
+    int octave = 5;
+    if (meta.shape_id.ends_with(":A5")) {
+      letter = NoteLetter::A;
+      octave = 5;
+    } else if (meta.shape_id.ends_with(":D6")) {
+      letter = NoteLetter::D;
+      octave = 6;
+    } else if (meta.shape_id.ends_with(":E6")) {
+      letter = NoteLetter::E;
+      octave = 6;
+    } else if (meta.shape_id.ends_with(":E2")) {
+      letter = NoteLetter::E;
+      octave = 2;
+    } else if (meta.shape_id.ends_with(":B1")) {
+      letter = NoteLetter::B;
+      octave = 1;
+    } else if (meta.shape_id.ends_with(":A1")) {
+      letter = NoteLetter::A;
+      octave = 1;
+    }
+    const SpelledNote note{
+        .letter = letter, .accidental = key_accidental_for(key_, letter), .octave = octave};
+    const MidiPitch m = to_midi(note).value_or(kMiddleCMidi);
+    prompt.detail_label = format_note(note);
+    prompt.steps.push_back(FlashcardStep{.notes = {note}, .expected_midi = {m}, .clef = meta.clef});
+    return prompt;
+  }
+
+  if (meta.kind == FlashcardShapeKind::ChromaticAlteration) {
+    const int oct = (meta.clef == Clef::Treble) ? 4 : 3;
+    const auto t = tonic_of(key_);
+    int target_midi =
+        static_cast<int>(to_midi(SpelledNote{t.letter, t.accidental, oct}).value_or(60));
+    std::string tag;
+    if (meta.shape_id.ends_with(":leading")) {
+      target_midi += 11;
+      tag = "Leading tone";
+    } else if (meta.shape_id.ends_with(":neapolitan")) {
+      target_midi += 1;
+      tag = "bII";
+    } else {
+      target_midi += 6;
+      tag = "#4";
+    }
+    if (meta.clef == Clef::Treble && target_midi < 60) {
+      target_midi += 12;
+    }
+    if (meta.clef == Clef::Bass && target_midi > 58) {
+      target_midi -= 12;
+    }
+    const MidiPitch m = static_cast<MidiPitch>(std::clamp(target_midi, 36, 84));
+    const SpelledNote sn =
+        spell_midi_in_key(m, key_).value_or(SpelledNote{t.letter, t.accidental, oct});
+    prompt.detail_label = std::format("{} ({})", format_note(sn), tag);
+    prompt.steps.push_back(FlashcardStep{.notes = {sn}, .expected_midi = {m}, .clef = meta.clef});
+    return prompt;
+  }
+
+  if (meta.kind == FlashcardShapeKind::SeventhChord) {
+    const int base_oct = (meta.clef == Clef::Treble) ? 4 : 2;
+    const auto t = tonic_of(key_);
+    int root_m =
+        static_cast<int>(to_midi(SpelledNote{t.letter, t.accidental, base_oct}).value_or(60));
+    std::array<int, 4> ivs{0, 4, 7, 10};
+    std::string chord_tag = "V7";
+    if (meta.shape_id.find(":V7:") != std::string_view::npos) {
+      root_m += 7;
+      if (meta.shape_id.ends_with(":inv1")) {
+        ivs = {4, 7, 10, 12};
+        chord_tag = "V6/5";
+      } else if (meta.shape_id.ends_with(":inv2")) {
+        ivs = {7, 10, 12, 16};
+        chord_tag = "V4/3";
+      }
+    } else if (meta.shape_id.find(":dim7:") != std::string_view::npos) {
+      root_m -= 1;
+      ivs = {0, 3, 6, 9};
+      chord_tag = "vii\xC2\xB0"
+                  "7";
+    } else {
+      root_m += 2;
+      ivs = {0, 3, 6, 10};
+      chord_tag = "ii\xC3\xB8"
+                  "7";
+    }
+    if (meta.clef == Clef::Treble && root_m > 68) {
+      root_m -= 12;
+    }
+    if (meta.clef == Clef::Bass && root_m < 40) {
+      root_m += 12;
+    }
+    std::vector<SpelledNote> notes;
+    std::vector<MidiPitch> expected;
+    for (const int d : ivs) {
+      const MidiPitch m = static_cast<MidiPitch>(std::clamp(root_m + d, 36, 84));
+      expected.push_back(m);
+      notes.push_back(spell_midi_in_key(m, key_).value_or(SpelledNote{}));
+    }
+    prompt.detail_label = chord_tag;
+    prompt.steps.push_back(FlashcardStep{.notes = std::move(notes),
+                                         .expected_midi = normalize_midi_set(expected),
+                                         .clef = meta.clef});
+    return prompt;
+  }
+
+  if (meta.kind == FlashcardShapeKind::TwoHandGrab) {
+    const auto t = tonic_of(key_);
+    const int rh_tonic_m =
+        static_cast<int>(to_midi(SpelledNote{t.letter, t.accidental, 4}).value_or(60));
+    int bass_m = rh_tonic_m - 12;
+    std::array<int, 3> rh_ivs{0, (key_.mode == Mode::Minor) ? 3 : 4, 7};
+    int rh_root = rh_tonic_m;
+    std::string tag = "I";
+    if (meta.shape_id.find(":subdom:") != std::string_view::npos) {
+      bass_m = rh_tonic_m - 12 + 5;
+      rh_root = rh_tonic_m + 5;
+      rh_ivs = {0, (key_.mode == Mode::Minor) ? 3 : 4, 7};
+      tag = (key_.mode == Mode::Minor) ? "iv" : "IV";
+    } else if (meta.shape_id.find(":dominant:") != std::string_view::npos) {
+      bass_m = rh_tonic_m - 12 + 7;
+      rh_root = rh_tonic_m + 7;
+      rh_ivs = {0, 4, 10};
+      tag = "V7";
+    } else if (meta.shape_id.find(":neapolitan:") != std::string_view::npos) {
+      bass_m = rh_tonic_m - 12 + 5;
+      rh_root = rh_tonic_m + 1;
+      rh_ivs = {0, 4, 7};
+      tag = "bII6";
+    }
+    if (bass_m > 55) {
+      bass_m -= 12;
+    }
+    if (rh_root > 68) {
+      rh_root -= 12;
+    }
+    std::vector<SpelledNote> notes;
+    std::vector<Clef> clefs;
+    std::vector<MidiPitch> expected;
+    const MidiPitch bm = static_cast<MidiPitch>(std::clamp(bass_m, 36, 56));
+    notes.push_back(spell_midi_in_key(bm, key_).value_or(SpelledNote{}));
+    clefs.push_back(Clef::Bass);
+    expected.push_back(bm);
+    for (const int d : rh_ivs) {
+      const MidiPitch rm = static_cast<MidiPitch>(std::clamp(rh_root + d, 58, 84));
+      notes.push_back(spell_midi_in_key(rm, key_).value_or(SpelledNote{}));
+      clefs.push_back(Clef::Treble);
+      expected.push_back(rm);
+    }
+    prompt.detail_label = std::format("{} ({})", tag, format_key_name(key_));
+    prompt.steps.push_back(FlashcardStep{.notes = std::move(notes),
+                                         .expected_midi = normalize_midi_set(expected),
+                                         .clef = Clef::Treble,
+                                         .note_clefs = std::move(clefs)});
     return prompt;
   }
 

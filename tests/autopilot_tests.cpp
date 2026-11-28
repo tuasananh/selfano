@@ -126,3 +126,44 @@ TEST_CASE("AutopilotSession handles non-abrupt transitions, pause, repeat, skip,
     REQUIRE(session.summary().ear_melodies_solved == 3);
   }
 }
+
+TEST_CASE("build_autopilot_schedule adapts to tier and flashcard RT across 30/45/60m presets",
+          "[autopilot]") {
+  auto sum_sec = [](const auto& blocks) {
+    double total = 0.0;
+    for (const auto& b : blocks) {
+      total += b.duration_sec;
+    }
+    return total;
+  };
+
+  // Beginner keeps classic 30m split
+  const auto beg30 = build_autopilot_schedule(AutopilotDurationPreset::Standard30, 1, 1350.0);
+  REQUIRE(sum_sec(beg30) == 1800.0);
+  REQUIRE(beg30[0].duration_sec == 300.0);
+  REQUIRE(beg30[1].duration_sec == 180.0);
+  REQUIRE(beg30[2].duration_sec == 420.0);
+  REQUIRE(beg30[3].duration_sec == 600.0);
+
+  // Intermediate-Advanced (Tier >= 3 & RT < 950ms) tapers Stage 2 and boosts Stage 3 Lessons
+  const auto adv30 = build_autopilot_schedule(AutopilotDurationPreset::Standard30, 4, 820.0);
+  REQUIRE(sum_sec(adv30) == 1800.0);
+  REQUIRE(adv30[1].duration_sec == 90.0);
+  REQUIRE(adv30[2].duration_sec == 210.0);
+  REQUIRE(adv30[3].duration_sec == 900.0);
+
+  const auto adv45 = build_autopilot_schedule(AutopilotDurationPreset::Focused45, 5, 780.0);
+  REQUIRE(sum_sec(adv45) == 2700.0);
+  REQUIRE(adv45[3].duration_sec == 1440.0);
+
+  const auto adv60 = build_autopilot_schedule(AutopilotDurationPreset::Conservatory60, 6, 750.0);
+  REQUIRE(sum_sec(adv60) == 3600.0);
+  REQUIRE(adv60[3].duration_sec == 2040.0);
+
+  // Session honors custom schedule and preset
+  AutopilotSession session(2.0);
+  session.start("G Minor", adv45, AutopilotDurationPreset::Focused45);
+  REQUIRE(session.total_duration_sec() == 2700.0);
+  REQUIRE(session.preset() == AutopilotDurationPreset::Focused45);
+  REQUIRE(session.current_block().duration_sec == 360.0);
+}

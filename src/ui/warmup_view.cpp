@@ -45,9 +45,9 @@ partition_warmup_bars(std::span<const core::WarmUpStep> steps) {
     const std::size_t start = i;
     const auto station = steps[i].station;
     const auto hand_clef = steps[i].solo_hand_clef;
-    constexpr std::size_t kMaxInBar = 4U;
+    const std::size_t max_in_bar = (station == core::WarmUpStation::LhStrideJumps) ? 3U : 4U;
     while (i < steps.size() && steps[i].station == station &&
-           steps[i].solo_hand_clef == hand_clef && (i - start) < kMaxInBar) {
+           steps[i].solo_hand_clef == hand_clef && (i - start) < max_in_bar) {
       ++i;
     }
     bars.push_back(PagedStaffBar{.step_start = start, .step_count = i - start});
@@ -72,6 +72,16 @@ partition_warmup_bars(std::span<const core::WarmUpStep> steps) {
   case core::WarmUpStation::VoiceLedCadence:
     return "STATION 4  \xC2\xB7  VOICE-LED CADENCE (I \xE2\x86\x92 IV \xE2\x86\x92 V \xE2\x86\x92 "
            "I)";
+  case core::WarmUpStation::ChromaticScale:
+    return "STATION 2  \xC2\xB7  CHROMATIC SCALE (1\xE2\x80\x93"
+           "2\xE2\x80\x93"
+           "3 FINGERING)";
+  case core::WarmUpStation::SeventhArpeggios:
+    return "STATION 3  \xC2\xB7  DOMINANT 7TH & DIMINISHED 7TH ARPEGGIOS";
+  case core::WarmUpStation::ContraryScale:
+    return "CONTRARY MOTION SCALE (OUTWARD & INWARD)";
+  case core::WarmUpStation::LhStrideJumps:
+    return "STATION 4  \xC2\xB7  LH STRIDE JUMPS (3/4 BLIND LEAPS)";
   }
   return "WARM-UP";
 }
@@ -79,19 +89,29 @@ partition_warmup_bars(std::span<const core::WarmUpStep> steps) {
 [[nodiscard]] const char* exercise_label(core::WarmUpExerciseKind kind) noexcept {
   switch (kind) {
   case core::WarmUpExerciseKind::FullCircuit:
-    return "Full Circuit (4 Stations)";
+    return "Foundation Circuit (4 Stations)";
+  case core::WarmUpExerciseKind::RomanticCircuit:
+    return "Romantic Circuit (4 Stations)";
   case core::WarmUpExerciseKind::ScaleAndCadence:
     return "Scale + Cadence";
   case core::WarmUpExerciseKind::ScaleOnly:
     return "Scale Only";
   case core::WarmUpExerciseKind::ArpeggioOnly:
-    return "Arpeggio Only";
+    return "Tonic Arpeggio Only";
   case core::WarmUpExerciseKind::InversionsOnly:
     return "Triad Inversions Only";
   case core::WarmUpExerciseKind::CadenceOnly:
     return "Voice-Led Cadence Only";
+  case core::WarmUpExerciseKind::ChromaticOnly:
+    return "Chromatic Scale Only";
+  case core::WarmUpExerciseKind::SeventhArpeggiosOnly:
+    return "Dom7 & Dim7 Arpeggios Only";
+  case core::WarmUpExerciseKind::ContraryScaleOnly:
+    return "Contrary Motion Scale Only";
+  case core::WarmUpExerciseKind::LhStrideOnly:
+    return "LH Stride Jumps Only";
   }
-  return "Full Circuit";
+  return "Foundation Circuit";
 }
 
 } // namespace
@@ -106,6 +126,41 @@ WarmUpView::WarmUpView()
           .start_bpm = core::kDefaultWarmUpBpm,
           .auto_continue_passes = true,
       }) {
+}
+
+void WarmUpView::set_circuit_preset(core::WarmUpCircuitPreset preset) {
+  auto cfg = engine_.config();
+  const auto target_ex = (preset == core::WarmUpCircuitPreset::Romantic)
+                             ? core::WarmUpExerciseKind::RomanticCircuit
+                             : core::WarmUpExerciseKind::FullCircuit;
+  if (cfg.exercise == target_ex) {
+    return;
+  }
+  cfg.exercise = target_ex;
+  engine_.configure(cfg);
+  last_feedback_ = NoteFeedback::Neutral;
+}
+
+core::WarmUpCircuitPreset WarmUpView::circuit_preset() const noexcept {
+  const auto ex = engine_.config().exercise;
+  if (ex == core::WarmUpExerciseKind::RomanticCircuit ||
+      ex == core::WarmUpExerciseKind::ChromaticOnly ||
+      ex == core::WarmUpExerciseKind::SeventhArpeggiosOnly ||
+      ex == core::WarmUpExerciseKind::ContraryScaleOnly ||
+      ex == core::WarmUpExerciseKind::LhStrideOnly) {
+    return core::WarmUpCircuitPreset::Romantic;
+  }
+  return core::WarmUpCircuitPreset::Foundation;
+}
+
+void WarmUpView::set_exercise(core::WarmUpExerciseKind exercise) {
+  auto cfg = engine_.config();
+  if (cfg.exercise == exercise) {
+    return;
+  }
+  cfg.exercise = exercise;
+  engine_.configure(cfg);
+  last_feedback_ = NoteFeedback::Neutral;
 }
 
 void WarmUpView::set_weekly_key(core::KeySignature key, core::MinorScaleMode minor_mode,
@@ -129,7 +184,7 @@ bool WarmUpView::on_played_chord(const midi::PlayedChord& chord) {
   if (chord.notes.empty()) {
     return false;
   }
-  const auto res = engine_.submit_played_notes(chord.notes);
+  const auto res = engine_.submit_played_notes(chord.notes, chord.velocities, chord.from_hardware);
   const auto key = engine_.config().key;
 
   switch (res.status) {
@@ -384,14 +439,35 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     ImGui::Spacing();
     {
       ScopedFont sub(TypeStyle::Subheadline);
-      ImGui::TextColored(c.text_secondary, "Circuit / Drill");
+      ImGui::TextColored(c.text_secondary, "Circuit Preset");
+    }
+    static constexpr std::array<std::string_view, 2> kCircuits{"Foundation", "Romantic"};
+    int circ_idx = static_cast<int>(circuit_preset());
+    if (segmented_control("##wu_circ_seg", &circ_idx, kCircuits, pop_w / scale, 28.0f)) {
+      cfg.exercise = (circ_idx == 1) ? core::WarmUpExerciseKind::RomanticCircuit
+                                     : core::WarmUpExerciseKind::FullCircuit;
+      config_changed = true;
+    }
+
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Station / Drill");
     }
     ImGui::SetNextItemWidth(pop_w);
     if (ImGui::BeginCombo("##wu_ex_combo", exercise_label(cfg.exercise))) {
-      constexpr std::array<core::WarmUpExerciseKind, 6> kKinds{
-          core::WarmUpExerciseKind::FullCircuit,  core::WarmUpExerciseKind::ScaleOnly,
-          core::WarmUpExerciseKind::ArpeggioOnly, core::WarmUpExerciseKind::InversionsOnly,
-          core::WarmUpExerciseKind::CadenceOnly,  core::WarmUpExerciseKind::ScaleAndCadence,
+      constexpr std::array<core::WarmUpExerciseKind, 11> kKinds{
+          core::WarmUpExerciseKind::FullCircuit,
+          core::WarmUpExerciseKind::RomanticCircuit,
+          core::WarmUpExerciseKind::ScaleOnly,
+          core::WarmUpExerciseKind::ChromaticOnly,
+          core::WarmUpExerciseKind::ArpeggioOnly,
+          core::WarmUpExerciseKind::SeventhArpeggiosOnly,
+          core::WarmUpExerciseKind::ContraryScaleOnly,
+          core::WarmUpExerciseKind::InversionsOnly,
+          core::WarmUpExerciseKind::CadenceOnly,
+          core::WarmUpExerciseKind::LhStrideOnly,
+          core::WarmUpExerciseKind::ScaleAndCadence,
       };
       for (const auto k : kKinds) {
         const bool sel = (cfg.exercise == k);
@@ -461,6 +537,7 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     }
 
     hairline_separator(8.0f);
+    settings_toggle_row("Show Scale Fingerings", "##wu_fing_sw", &show_fingerings_);
     settings_toggle_row("Warm Ivory Paper Staff", "##wu_paper_sw", &light_paper_theme_);
     ImGui::EndPopup();
   }
@@ -477,23 +554,21 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
 
   // Compact 4-Station Circuit Stepper (shown when exercise contains multiple stations)
   if (cfg.exercise == core::WarmUpExerciseKind::FullCircuit ||
+      cfg.exercise == core::WarmUpExerciseKind::RomanticCircuit ||
       cfg.exercise == core::WarmUpExerciseKind::ScaleAndCadence) {
     ImGui::Dummy(ImVec2(0.0f, 3.0f * scale));
     bool first_pill = true;
-    constexpr std::array<core::WarmUpStation, 4> kAllStations{
-        core::WarmUpStation::ParallelScale,
-        core::WarmUpStation::TonicArpeggio,
-        core::WarmUpStation::TriadInversions,
-        core::WarmUpStation::VoiceLedCadence,
-    };
+    std::vector<core::WarmUpStation> circuit_stations;
+    for (const auto& s : steps) {
+      if (circuit_stations.empty() || circuit_stations.back() != s.station) {
+        if (std::ranges::find(circuit_stations, s.station) == circuit_stations.end()) {
+          circuit_stations.push_back(s.station);
+        }
+      }
+    }
     const auto active_st = engine_.active_station();
     int display_num = 1;
-    for (const auto st : kAllStations) {
-      const bool present =
-          std::ranges::any_of(steps, [st](const auto& s) { return s.station == st; });
-      if (!present) {
-        continue;
-      }
+    for (const auto st : circuit_stations) {
       bool all_done = true;
       for (std::size_t i = 0; i < steps.size(); ++i) {
         if (steps[i].station == st &&
@@ -567,12 +642,22 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
                                       engine_.completed_runs(), engine_.accuracy_ratio() * 100.0);
   if (engine_.pacing_mode() == core::WarmUpPacingMode::GuidedPulse &&
       engine_.pass_evenness_ratio() > 0.0) {
-    stats_lbl += std::format("  \xC2\xB7  Pulse {:.0f}%", engine_.pass_evenness_ratio() * 100.0);
+    stats_lbl += std::format("  \xC2\xB7  Evenness {:.0f}%", engine_.pass_evenness_ratio() * 100.0);
   }
   {
     ScopedFont sub(TypeStyle::Subheadline);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f * scale);
     ImGui::TextColored(c.text_secondary, "%s", stats_lbl.c_str());
+  }
+  if (engine_.tone_smoothness_available()) {
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    if (engine_.pass_thumb_spikes() == 0U) {
+      status_pill(std::format("Smoothness {:.0f}%", engine_.pass_tone_smoothness_ratio() * 100.0),
+                  StatusTone::Success, IconId::None, true);
+    } else {
+      status_pill(std::format("Thumb spikes: {}", engine_.pass_thumb_spikes()), StatusTone::Warning,
+                  IconId::None, true);
+    }
   }
 
   ImGui::Spacing();
@@ -635,7 +720,12 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
             .feedback = fb,
             .played_label = (n == 0) ? played_lbl : std::string{},
             .duration = std::nullopt,
+            .finger = step.notes[n].finger,
         });
+      }
+      if (step.station == core::WarmUpStation::LhStrideJumps) {
+        sm.beats_per_measure = 3.0f;
+        sm.measure_ticks = core::kTicksPerQuarter * 3;
       }
       sm.chords.push_back(std::move(chord));
     }
@@ -665,6 +755,13 @@ bool WarmUpView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   opts.staff_space = std::clamp((avail_y - 16.0f) / total_spaces, 12.0f, 20.0f);
   opts.grand_staff_gap_spaces = 6.5f;
   opts.light_paper_theme = light_paper_theme_;
+  opts.show_fingerings = show_fingerings_;
+  if (!steps.empty()) {
+    const std::size_t st_idx = std::min(cur_step, steps.size() - 1U);
+    if (steps[st_idx].station == core::WarmUpStation::LhStrideJumps) {
+      opts.time_signature = core::TimeSignature{.numerator = 3, .denominator = 4};
+    }
+  }
 
   const float canvas_w = std::max(460.0f, ImGui::GetContentRegionAvail().x);
 

@@ -48,10 +48,10 @@ Live session state: [`docs/STATE.md`](./STATE.md)
 | **Phase 25** | Grace Notes, Mid-Piece Clef Changes & `8va`/`8vb` Ottava *(Track B)* | [phase-25-grace-notes-clef-changes-and-ottava.md](./phases/phase-25-grace-notes-clef-changes-and-ottava.md) | `[ ] Planned` |
 | **Phase 26** | Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode *(Track B)* | [phase-26-tempo-maps-rolled-chords-and-rubato.md](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md) | `[ ] Planned` |
 | **Phase 27** | Automatic Harmonic Analyzer for Imported Scores *(Track B)* | [phase-27-auto-harmonic-analyzer-for-imports.md](./phases/phase-27-auto-harmonic-analyzer-for-imports.md) | `[ ] Planned` |
-| **Phase 28** | Advanced Warm-Up Circuits & Printed Scale Fingerings *(Track C)* | [phase-28-advanced-warmups-and-scale-fingerings.md](./phases/phase-28-advanced-warmups-and-scale-fingerings.md) | `[ ] Planned` |
-| **Phase 29** | MIDI Evenness, Thumb-Crossing & Dynamic Contour Coaching *(Track C)* | [phase-29-midi-evenness-and-dynamic-coaching.md](./phases/phase-29-midi-evenness-and-dynamic-coaching.md) | `[ ] Planned` |
-| **Phase 30** | Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus *(Track C)* | [phase-30-tiered-sight-reading-and-hybrid-corpus.md](./phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md) | `[ ] Planned` |
-| **Phase 31** | Harmonic Ear Training & Tier-Adaptive Autopilot *(Track C)* | [phase-31-harmonic-ear-training-and-adaptive-autopilot.md](./phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md) | `[ ] Planned` |
+| **Phase 28** | Advanced Warm-Up Circuits & Printed Scale Fingerings *(Track C)* | [phase-28-advanced-warmups-and-scale-fingerings.md](./phases/phase-28-advanced-warmups-and-scale-fingerings.md) | `[x] Complete` |
+| **Phase 29** | MIDI Evenness, Thumb-Crossing & Dynamic Contour Coaching *(Track C)* | [phase-29-midi-evenness-and-dynamic-coaching.md](./phases/phase-29-midi-evenness-and-dynamic-coaching.md) | `[x] Complete` |
+| **Phase 30** | Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus *(Track C)* | [phase-30-tiered-sight-reading-and-hybrid-corpus.md](./phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md) | `[x] Complete` |
+| **Phase 31** | Harmonic Ear Training & Tier-Adaptive Autopilot *(Track C)* | [phase-31-harmonic-ear-training-and-adaptive-autopilot.md](./phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md) | `[x] Complete` |
 | **Phase 32** | Tier 7: Counterpoint & Classical Velocity (Henle 4–5) *(Track D)* | [phase-32-tier7-counterpoint-and-classical-velocity.md](./phases/phase-32-tier7-counterpoint-and-classical-velocity.md) | `[ ] Planned` |
 | **Phase 33** | Tier 8: Romantic Texture, Rubato & Wide LH Strides (Henle 5–6) *(Track D)* | [phase-33-tier8-romantic-texture-and-lh-strides.md](./phases/phase-33-tier8-romantic-texture-and-lh-strides.md) | `[ ] Planned` |
 | **Phase 34** | Tier 9: Chopin Technique Lab & Étude Excerpts (Henle 6–7) *(Track D)* | [phase-34-tier9-chopin-technique-lab-etudes.md](./phases/phase-34-tier9-chopin-technique-lab-etudes.md) | `[ ] Planned` |
@@ -122,8 +122,8 @@ Phase 0 (Workflow/Repo)
     - [x] [Phase 26 — Multi-Section Tempo Maps, Rolled Chords & Elastic Rubato Mode](./phases/phase-26-tempo-maps-rolled-chords-and-rubato.md)
     - [x] [Phase 27 — Automatic Harmonic Analyzer for Imported Scores](./phases/phase-27-auto-harmonic-analyzer-for-imports.md)
   - **Track C — Daily Drills & MIDI Technique Diagnostics (Phases 28–31):**
-    - [Phase 28 — Advanced Warm-Up Circuits & Printed Scale Fingerings](./phases/phase-28-advanced-warmups-and-scale-fingerings.md)
-    - [Phase 29 — MIDI Evenness, Thumb-Crossing & Dynamic Contour Coaching](./phases/phase-29-midi-evenness-and-dynamic-coaching.md)
+    - [x] [Phase 28 — Advanced Warm-Up Circuits & Printed Scale Fingerings](./phases/phase-28-advanced-warmups-and-scale-fingerings.md)
+    - [x] [Phase 29 — MIDI Evenness, Thumb-Crossing & Dynamic Contour Coaching](./phases/phase-29-midi-evenness-and-dynamic-coaching.md)
     - [Phase 30 — Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus](./phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md)
     - [Phase 31 — Harmonic Ear Training & Tier-Adaptive Autopilot](./phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md)
   - **Track D — Curriculum Expansion: Missing Middle to Full *Ballade No. 1* (Phases 32–36):**

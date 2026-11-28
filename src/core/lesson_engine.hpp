@@ -108,6 +108,11 @@ struct LessonTarget {
   std::vector<SpelledNote> expected_spelled;
   std::vector<MidiPitch> treble_midi{};
   std::vector<MidiPitch> bass_midi{};
+  std::vector<MidiPitch> melody_midi{};
+  std::vector<std::pair<MidiPitch, std::uint8_t>> note_fingers{};
+  int nominal_duration_ticks{kTicksPerQuarter};
+  bool is_accented{false};
+  DynamicLevel expected_dynamic{DynamicLevel::MF};
   std::vector<std::pair<MidiPitch, int>> sustained_durations{};
   std::uint16_t pitch_class_mask{0};
   bool pitch_class_match{false};
@@ -194,6 +199,18 @@ struct MusicalityMetrics {
   std::uint32_t pedal_changes_checked{0};
   std::uint32_t pedal_changes_clean{0};
   double pedal_clean_rate{0.0};
+
+  bool evenness_available{false};
+  double ioi_evenness_score{0.0};
+
+  bool vel_smoothness_available{false};
+  std::uint32_t thumb_spike_count{0};
+  std::uint32_t vel_smoothness_samples{0};
+
+  bool dynamics_available{false};
+  double soft_avg_velocity{0.0};
+  double loud_avg_velocity{0.0};
+  bool dynamic_contrast_ok{false};
 
   std::string coach_tip{};
 
@@ -480,6 +497,26 @@ private:
   std::uint32_t accomp_vel_count_{0};
   std::uint8_t hw_min_vel_{255};
   std::uint8_t hw_max_vel_{0};
+
+  // Phase 29: IOI evenness, thumb-crossing velocity spikes, and dynamic contour
+  double elapsed_play_ms_{0.0};
+  double last_ioi_hit_ms_{-1.0};
+  int last_ioi_hit_tick_{-1};
+  int last_ioi_dur_ticks_{0};
+  std::vector<double> current_ioi_run_;
+  double ioi_score_sum_{0.0};
+  std::uint32_t ioi_run_count_{0};
+
+  std::vector<double> vel_rolling_window_;
+  std::uint8_t prev_unaccented_finger_{0};
+  DynamicLevel prev_unaccented_dynamic_{DynamicLevel::MF};
+  std::uint32_t thumb_spike_count_{0};
+  std::uint32_t vel_smoothness_samples_{0};
+
+  std::uint64_t soft_vel_sum_{0};
+  std::uint32_t soft_vel_count_{0};
+  std::uint64_t loud_vel_sum_{0};
+  std::uint32_t loud_vel_count_{0};
 
   std::vector<ActiveSustainedNote> active_sustained_;
   std::uint32_t sustained_checked_{0};

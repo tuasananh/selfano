@@ -1,7 +1,9 @@
 #pragma once
 
 #include "core/key_signature.hpp"
+#include "core/lesson_score.hpp"
 #include "core/pitch.hpp"
+#include "core/sight_reading_corpus.hpp"
 #include "core/weekly_key.hpp"
 
 #include <array>
@@ -10,9 +12,40 @@
 #include <optional>
 #include <random>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace selfano::core {
+
+enum class EtudeDifficultyLevel : std::uint8_t {
+  Level1Foundations = 1,
+  Level2EighthsAndWaltz = 2,
+  Level3CompoundAndDotted = 3,
+  Level4AlbertiAndAccidentals = 4,
+  Level5RomanticTextures = 5,
+};
+
+enum class EtudeSourceMode : std::uint8_t {
+  Procedural = 0,
+  HybridClassical = 1,
+};
+
+[[nodiscard]] constexpr EtudeDifficultyLevel
+suggested_etude_level_for_tier(int curriculum_tier) noexcept {
+  if (curriculum_tier <= 1) {
+    return EtudeDifficultyLevel::Level1Foundations;
+  }
+  if (curriculum_tier == 2) {
+    return EtudeDifficultyLevel::Level2EighthsAndWaltz;
+  }
+  if (curriculum_tier <= 4) {
+    return EtudeDifficultyLevel::Level3CompoundAndDotted;
+  }
+  if (curriculum_tier <= 6) {
+    return EtudeDifficultyLevel::Level4AlbertiAndAccidentals;
+  }
+  return EtudeDifficultyLevel::Level5RomanticTextures;
+}
 
 enum class EtudeHandMode : std::uint8_t {
   RightHand = 0,
@@ -51,6 +84,8 @@ struct EtudeConfig {
   EtudeHandMode hand_mode{EtudeHandMode::EasyHandsTogether};
   EtudeTimingMode timing_mode{EtudeTimingMode::SteadyPulse};
   EtudeMaxJump max_jump{EtudeMaxJump::Thirds};
+  EtudeDifficultyLevel difficulty{EtudeDifficultyLevel::Level1Foundations};
+  EtudeSourceMode source_mode{EtudeSourceMode::Procedural};
   double bpm{72.0};
   double hit_window_fraction{0.40};
   std::uint32_t seed{1337U};
@@ -60,8 +95,12 @@ struct EtudeConfig {
 
 struct EtudeVoiceEvent {
   int beat_start{0};
+  int start_tick{0};
   EtudeDurationBeats duration{EtudeDurationBeats::Quarter};
+  RhythmicValue rhythmic_value{.base = NoteBaseDuration::Quarter};
   bool is_rest{false};
+  bool tie_start{false};
+  bool tie_stop{false};
   std::vector<SpelledNote> notes;
   std::vector<MidiPitch> midi;
 };
@@ -81,6 +120,7 @@ enum class EtudeTargetStatus : std::uint8_t {
 struct EtudeBeatTarget {
   std::size_t bar_index{0};
   int beat_in_bar{0};
+  int tick_in_bar{0};
   double system_beat{0.0};
   std::vector<MidiPitch> expected_midi;
   EtudeTargetStatus status{EtudeTargetStatus::Pending};
@@ -91,6 +131,8 @@ struct EtudeBeatTarget {
 struct EtudeSystem {
   std::array<EtudeMeasure, 4> measures{};
   std::vector<EtudeBeatTarget> targets;
+  TimeSignature time_signature{.numerator = 4, .denominator = 4};
+  std::string source_label{};
 };
 
 struct EtudeTickOutput {
@@ -117,6 +159,7 @@ public:
   explicit EtudeEngine(EtudeConfig config = {});
 
   void configure(EtudeConfig config);
+  void set_corpus(const SightReadingCorpus* corpus);
   void regenerate(std::uint32_t new_seed);
   void set_bpm(double bpm) noexcept;
   void set_timing_mode(EtudeTimingMode mode) noexcept;
@@ -161,6 +204,8 @@ private:
   EtudeSystem preview_system_{};
   std::uint32_t next_bar_number_{1};
   std::optional<std::size_t> last_melody_pool_idx_{};
+  const SightReadingCorpus* corpus_{nullptr};
+  std::size_t corpus_cursor_{0};
 
   std::uint32_t completed_bars_{0};
   std::uint32_t completed_systems_{0};

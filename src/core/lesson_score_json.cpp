@@ -125,6 +125,9 @@ using json = nlohmann::json;
     if (n.tie_stop) {
       nj["tie_stop"] = true;
     }
+    if (n.is_melody) {
+      nj["is_melody"] = true;
+    }
     notes_arr.push_back(std::move(nj));
   }
   const std::uint8_t dots = ev.duration.effective_dots();
@@ -327,6 +330,12 @@ using json = nlohmann::json;
           return std::unexpected("Note 'tie_stop' must be boolean");
         }
         ln.tie_stop = nobj.at("tie_stop").get<bool>();
+      }
+      if (nobj.contains("is_melody")) {
+        if (!nobj.at("is_melody").is_boolean()) {
+          return std::unexpected("Note 'is_melody' must be boolean");
+        }
+        ln.is_melody = nobj.at("is_melody").get<bool>();
       }
       ev.notes.push_back(ln);
     }

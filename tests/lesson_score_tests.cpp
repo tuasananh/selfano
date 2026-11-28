@@ -643,3 +643,28 @@ TEST_CASE("TempoEvent round-trips in JSON and validates bounds", "[lesson_score]
   bad_bpm.measures[1].tempo_changes[0].bpm = 350.0;
   REQUIRE_FALSE(validate_lesson_score(bad_bpm).has_value());
 }
+
+TEST_CASE("LessonNote is_melody flag round-trips in JSON with false default",
+          "[lesson_score][phase29]") {
+  LessonScore score{};
+  score.meta.id = "p29_mel_flag";
+  score.meta.title = "Melody Tag";
+  LessonMeasure m{};
+  m.bar_number = 1;
+  m.treble_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole},
+       .notes = {LessonNote{
+           .spelled = {NoteLetter::E, Accidental::Natural, 4}, .midi = 64, .is_melody = false}}}};
+  m.bass_events = {
+      {.start_tick = 0,
+       .duration = {.base = NoteBaseDuration::Whole},
+       .notes = {LessonNote{
+           .spelled = {NoteLetter::C, Accidental::Natural, 3}, .midi = 48, .is_melody = true}}}};
+  score.measures.push_back(m);
+
+  const auto reparsed = lesson_score_from_json(lesson_score_to_json(score));
+  REQUIRE(reparsed.has_value());
+  REQUIRE_FALSE(reparsed->measures[0].treble_events[0].notes[0].is_melody);
+  REQUIRE(reparsed->measures[0].bass_events[0].notes[0].is_melody);
+}

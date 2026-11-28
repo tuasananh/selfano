@@ -127,6 +127,198 @@ void finalize_expected_midi(WarmUpStep& step) {
   step.expected_midi = normalize_midi_set(raw);
 }
 
+// Standard classical 2-octave ascending scale fingerings indexed by (fifths + 7) in [0..14].
+// Thumb (1) never lands on a black key in any standard key.
+using ScaleFingerSeq = std::array<std::uint8_t, 15>;
+
+constexpr ScaleFingerSeq kRhCGroup{1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 5};
+constexpr ScaleFingerSeq kRhFGroup{1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4};
+constexpr ScaleFingerSeq kRhBbGroup{4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4};
+constexpr ScaleFingerSeq kRhEbGroup{3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3};
+constexpr ScaleFingerSeq kRhAbGroup{3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3};
+constexpr ScaleFingerSeq kRhDbGroup{2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2};
+constexpr ScaleFingerSeq kRhGbGroup{2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2};
+constexpr ScaleFingerSeq kRhFsmGroup{2, 3, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3};
+
+constexpr ScaleFingerSeq kLhCGroup{5, 4, 3, 2, 1, 3, 2, 1, 4, 3, 2, 1, 3, 2, 1};
+constexpr ScaleFingerSeq kLhBGroup{4, 3, 2, 1, 4, 3, 2, 1, 3, 2, 1, 4, 3, 2, 1};
+constexpr ScaleFingerSeq kLhBbGroup{3, 2, 1, 4, 3, 2, 1, 3, 2, 1, 4, 3, 2, 1, 3};
+constexpr ScaleFingerSeq kLhGbGroup{4, 3, 2, 1, 3, 2, 1, 4, 3, 2, 1, 3, 2, 1, 4};
+constexpr ScaleFingerSeq kLhGsmGroup{3, 2, 1, 3, 2, 1, 4, 3, 2, 1, 3, 2, 1, 4, 3};
+constexpr ScaleFingerSeq kLhEbmGroup{2, 1, 4, 3, 2, 1, 3, 2, 1, 4, 3, 2, 1, 3, 2};
+constexpr ScaleFingerSeq kLhBbmGroup{2, 1, 3, 2, 1, 4, 3, 2, 1, 3, 2, 1, 4, 3, 2};
+
+constexpr std::array<ScaleFingerSeq, 15> kRhMajorFingerings{{
+    kRhCGroup,  // -7 Cb (same as B)
+    kRhGbGroup, // -6 Gb
+    kRhDbGroup, // -5 Db
+    kRhAbGroup, // -4 Ab
+    kRhEbGroup, // -3 Eb
+    kRhBbGroup, // -2 Bb
+    kRhFGroup,  // -1 F
+    kRhCGroup,  //  0 C
+    kRhCGroup,  // +1 G
+    kRhCGroup,  // +2 D
+    kRhCGroup,  // +3 A
+    kRhCGroup,  // +4 E
+    kRhCGroup,  // +5 B
+    kRhGbGroup, // +6 F#
+    kRhDbGroup, // +7 C#
+}};
+
+constexpr std::array<ScaleFingerSeq, 15> kLhMajorFingerings{{
+    kLhBGroup,  // -7 Cb
+    kLhGbGroup, // -6 Gb
+    kLhBbGroup, // -5 Db
+    kLhBbGroup, // -4 Ab
+    kLhBbGroup, // -3 Eb
+    kLhBbGroup, // -2 Bb
+    kLhCGroup,  // -1 F
+    kLhCGroup,  //  0 C
+    kLhCGroup,  // +1 G
+    kLhCGroup,  // +2 D
+    kLhCGroup,  // +3 A
+    kLhCGroup,  // +4 E
+    kLhBGroup,  // +5 B
+    kLhGbGroup, // +6 F#
+    kLhBbGroup, // +7 C#
+}};
+
+constexpr std::array<ScaleFingerSeq, 15> kRhMinorFingerings{{
+    kRhAbGroup,  // -7 Abm
+    kRhEbGroup,  // -6 Ebm
+    kRhBbGroup,  // -5 Bbm
+    kRhFGroup,   // -4 Fm
+    kRhCGroup,   // -3 Cm
+    kRhCGroup,   // -2 Gm
+    kRhCGroup,   // -1 Dm
+    kRhCGroup,   //  0 Am
+    kRhCGroup,   // +1 Em
+    kRhCGroup,   // +2 Bm
+    kRhFsmGroup, // +3 F#m
+    kRhAbGroup,  // +4 C#m
+    kRhAbGroup,  // +5 G#m
+    kRhEbGroup,  // +6 D#m
+    kRhBbGroup,  // +7 A#m
+}};
+
+constexpr std::array<ScaleFingerSeq, 15> kLhMinorFingerings{{
+    kLhGsmGroup, // -7 Abm
+    kLhEbmGroup, // -6 Ebm
+    kLhBbmGroup, // -5 Bbm
+    kLhCGroup,   // -4 Fm
+    kLhCGroup,   // -3 Cm
+    kLhCGroup,   // -2 Gm
+    kLhCGroup,   // -1 Dm
+    kLhCGroup,   //  0 Am
+    kLhCGroup,   // +1 Em
+    kLhBGroup,   // +2 Bm
+    kLhGbGroup,  // +3 F#m
+    kLhBbGroup,  // +4 C#m
+    kLhGsmGroup, // +5 G#m
+    kLhEbmGroup, // +6 D#m
+    kLhBbmGroup, // +7 A#m
+}};
+
+[[nodiscard]] std::uint8_t scale_finger_at(KeySignature key, bool is_rh, int octaves,
+                                           std::size_t asc_idx) noexcept {
+  const int f_idx = std::clamp(key.fifths + 7, 0, 14);
+  const auto& seq = (key.mode == Mode::Major)
+                        ? (is_rh ? kRhMajorFingerings[static_cast<std::size_t>(f_idx)]
+                                 : kLhMajorFingerings[static_cast<std::size_t>(f_idx)])
+                        : (is_rh ? kRhMinorFingerings[static_cast<std::size_t>(f_idx)]
+                                 : kLhMinorFingerings[static_cast<std::size_t>(f_idx)]);
+  const std::size_t idx = std::min<std::size_t>(asc_idx, seq.size() - 1U);
+  if (octaves == 1 && idx == 7U && is_rh && seq[7] == 1U) {
+    return (seq[6] == 4U) ? 5U : 4U;
+  }
+  return seq[idx];
+}
+
+[[nodiscard]] std::uint8_t tonic_arpeggio_finger(bool is_rh, std::size_t asc_idx,
+                                                 std::size_t total_asc) noexcept {
+  if (is_rh) {
+    if (asc_idx + 1U >= total_asc) {
+      return 5U;
+    }
+    constexpr std::array<std::uint8_t, 3> kPat{1U, 2U, 3U};
+    return kPat[asc_idx % 3U];
+  }
+  constexpr std::array<std::uint8_t, 3> kLhPat{5U, 4U, 2U};
+  if (asc_idx == 0U) {
+    return 5U;
+  }
+  if (asc_idx + 1U >= total_asc) {
+    return 1U;
+  }
+  return (asc_idx % 3U == 0U) ? 1U : kLhPat[asc_idx % 3U];
+}
+
+[[nodiscard]] std::uint8_t seventh_arpeggio_finger(bool is_rh, std::size_t asc_idx,
+                                                   std::size_t total_asc) noexcept {
+  if (is_rh) {
+    if (asc_idx + 1U >= total_asc) {
+      return 5U;
+    }
+    return static_cast<std::uint8_t>((asc_idx % 4U) + 1U);
+  }
+  if (asc_idx == 0U) {
+    return 5U;
+  }
+  if (asc_idx + 1U >= total_asc) {
+    return 1U;
+  }
+  return static_cast<std::uint8_t>(4U - ((asc_idx - 1U) % 4U));
+}
+
+[[nodiscard]] SpelledNote spell_chromatic_midi(MidiPitch midi, bool ascending) noexcept {
+  const int oct = static_cast<int>(midi) / 12 - 1;
+  const int pc = static_cast<int>(midi) % 12;
+  constexpr std::array<std::pair<NoteLetter, Accidental>, 12> kSharpSpell{{
+      {NoteLetter::C, Accidental::Natural},
+      {NoteLetter::C, Accidental::Sharp},
+      {NoteLetter::D, Accidental::Natural},
+      {NoteLetter::D, Accidental::Sharp},
+      {NoteLetter::E, Accidental::Natural},
+      {NoteLetter::F, Accidental::Natural},
+      {NoteLetter::F, Accidental::Sharp},
+      {NoteLetter::G, Accidental::Natural},
+      {NoteLetter::G, Accidental::Sharp},
+      {NoteLetter::A, Accidental::Natural},
+      {NoteLetter::A, Accidental::Sharp},
+      {NoteLetter::B, Accidental::Natural},
+  }};
+  constexpr std::array<std::pair<NoteLetter, Accidental>, 12> kFlatSpell{{
+      {NoteLetter::C, Accidental::Natural},
+      {NoteLetter::D, Accidental::Flat},
+      {NoteLetter::D, Accidental::Natural},
+      {NoteLetter::E, Accidental::Flat},
+      {NoteLetter::E, Accidental::Natural},
+      {NoteLetter::F, Accidental::Natural},
+      {NoteLetter::G, Accidental::Flat},
+      {NoteLetter::G, Accidental::Natural},
+      {NoteLetter::A, Accidental::Flat},
+      {NoteLetter::A, Accidental::Natural},
+      {NoteLetter::B, Accidental::Flat},
+      {NoteLetter::B, Accidental::Natural},
+  }};
+  const auto [letter, acc] = ascending ? kSharpSpell[static_cast<std::size_t>(pc)]
+                                       : kFlatSpell[static_cast<std::size_t>(pc)];
+  return SpelledNote{.letter = letter, .accidental = acc, .octave = oct};
+}
+
+[[nodiscard]] std::uint8_t chromatic_finger(MidiPitch midi, bool is_rh) noexcept {
+  const int pc = static_cast<int>(midi) % 12;
+  const bool is_black = (pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10);
+  if (is_black) {
+    return 3U;
+  }
+  if (is_rh) {
+    return (pc == 0 || pc == 5) ? 2U : 1U;
+  }
+  return (pc == 4 || pc == 11) ? 2U : 1U;
+}
+
 } // namespace
 
 WarmUpEngine::WarmUpEngine(WarmUpConfig config) : config_{config} {
@@ -162,6 +354,13 @@ void WarmUpEngine::reset() {
   phase_state_ = WarmUpPhaseState::Playing;
   count_in_beats_done_ = 0;
   beat_phase_ms_ = 0.0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  vel_rolling_window_.clear();
+  prev_rh_finger_ = 0;
+  prev_lh_finger_ = 0;
+  vel_samples_ = 0;
+  thumb_spikes_ = 0;
   metronome_beat_index_ = 0;
   paused_ = false;
 }
@@ -214,6 +413,13 @@ void WarmUpEngine::begin_pass(WarmUpPacingMode mode, double bpm, bool with_count
   beat_phase_ms_ = 0.0;
   metronome_beat_index_ = 0;
   transition_elapsed_ms_ = 0.0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  vel_rolling_window_.clear();
+  prev_rh_finger_ = 0;
+  prev_lh_finger_ = 0;
+  vel_samples_ = 0;
+  thumb_spikes_ = 0;
   if (with_count_in && mode == WarmUpPacingMode::GuidedPulse) {
     phase_state_ = WarmUpPhaseState::CountIn;
     count_in_beats_done_ = 1;
@@ -224,6 +430,12 @@ void WarmUpEngine::begin_pass(WarmUpPacingMode mode, double bpm, bool with_count
 }
 
 WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> played_midi) {
+  return submit_played_notes(played_midi, {}, false);
+}
+
+WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> played_midi,
+                                                   std::span<const std::uint8_t> played_velocities,
+                                                   bool from_hardware) {
   auto normalized = normalize_midi_set(played_midi);
   if (normalized.empty()) {
     return WarmUpEvalResult{};
@@ -253,6 +465,48 @@ WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> pl
     ++correct_attempts_;
     ++pass_correct_;
     feedback_[idx] = WarmUpStepFeedback::Correct;
+
+    if (from_hardware && played_velocities.size() == played_midi.size() && !step.is_cadence) {
+      double vel_sum = 0.0;
+      for (const std::uint8_t v : played_velocities) {
+        hw_min_vel_ = std::min(hw_min_vel_, v);
+        hw_max_vel_ = std::max(hw_max_vel_, v);
+        vel_sum += static_cast<double>(v);
+      }
+      const double mean_vel = vel_sum / static_cast<double>(played_velocities.size());
+      std::uint8_t rh_f = 0;
+      std::uint8_t lh_f = 0;
+      for (const auto& wn : step.notes) {
+        if (wn.clef == Clef::Treble) {
+          rh_f = wn.finger;
+        } else {
+          lh_f = wn.finger;
+        }
+      }
+      if (vel_rolling_window_.size() >= 2U) {
+        double sum_w = 0.0;
+        for (const double w : vel_rolling_window_) {
+          sum_w += w;
+        }
+        const double avg = sum_w / static_cast<double>(vel_rolling_window_.size());
+        const bool rh_thumb_cross =
+            (rh_f == 1U && (prev_rh_finger_ == 3U || prev_rh_finger_ == 4U));
+        const bool lh_thumb_cross =
+            (lh_f == 1U && (prev_lh_finger_ == 3U || prev_lh_finger_ == 4U));
+        if ((rh_thumb_cross || lh_thumb_cross) && mean_vel > avg + 18.0) {
+          ++thumb_spikes_;
+        } else if (mean_vel > avg + 20.0) {
+          ++thumb_spikes_;
+        }
+      }
+      vel_rolling_window_.push_back(mean_vel);
+      if (vel_rolling_window_.size() > 4U) {
+        vel_rolling_window_.erase(vel_rolling_window_.begin());
+      }
+      prev_rh_finger_ = rh_f;
+      prev_lh_finger_ = lh_f;
+      ++vel_samples_;
+    }
 
     if (pacing_mode_ == WarmUpPacingMode::GuidedPulse && idx > 0) {
       const double beat_ms = 60000.0 / current_bpm_;
@@ -321,6 +575,9 @@ WarmUpEvalResult WarmUpEngine::submit_played_notes(std::span<const MidiPitch> pl
           .bpm_increased = bpm_bumped,
           .next_pacing_mode = next_mode,
           .next_bpm = next_bpm,
+          .tone_smoothness_available = tone_smoothness_available(),
+          .tone_smoothness_ratio = pass_tone_smoothness_ratio(),
+          .thumb_spikes = thumb_spikes_,
       };
       if (config_.auto_continue_passes) {
         phase_state_ = WarmUpPhaseState::PassTransition;
@@ -453,6 +710,15 @@ double WarmUpEngine::pass_evenness_ratio() const noexcept {
   return evenness_sum_ / static_cast<double>(evenness_samples_);
 }
 
+double WarmUpEngine::pass_tone_smoothness_ratio() const noexcept {
+  if (vel_samples_ == 0U) {
+    return 1.0;
+  }
+  const double penalty = static_cast<double>(thumb_spikes_) /
+                         static_cast<double>(std::max<std::uint32_t>(1U, vel_samples_));
+  return std::clamp(1.0 - penalty * 2.0, 0.0, 1.0);
+}
+
 double WarmUpEngine::transition_remaining_ms() const noexcept {
   if (phase_state_ != WarmUpPhaseState::PassTransition) {
     return 0.0;
@@ -486,6 +752,13 @@ void WarmUpEngine::rebuild_steps() {
   transition_elapsed_ms_ = 0.0;
   count_in_beats_done_ = 0;
   beat_phase_ms_ = 0.0;
+  hw_min_vel_ = 255;
+  hw_max_vel_ = 0;
+  vel_rolling_window_.clear();
+  prev_rh_finger_ = 0;
+  prev_lh_finger_ = 0;
+  vel_samples_ = 0;
+  thumb_spikes_ = 0;
 
   const bool include_rh =
       (config_.hand == HandSelection::HandsTogether || config_.hand == HandSelection::RightOnly);
@@ -493,6 +766,7 @@ void WarmUpEngine::rebuild_steps() {
       (config_.hand == HandSelection::HandsTogether || config_.hand == HandSelection::LeftOnly);
 
   const bool include_scale = (config_.exercise == WarmUpExerciseKind::FullCircuit ||
+                              config_.exercise == WarmUpExerciseKind::RomanticCircuit ||
                               config_.exercise == WarmUpExerciseKind::ScaleAndCadence ||
                               config_.exercise == WarmUpExerciseKind::ScaleOnly);
   const bool include_arpeggio = (config_.exercise == WarmUpExerciseKind::FullCircuit ||
@@ -502,6 +776,13 @@ void WarmUpEngine::rebuild_steps() {
   const bool include_cadence = (config_.exercise == WarmUpExerciseKind::FullCircuit ||
                                 config_.exercise == WarmUpExerciseKind::ScaleAndCadence ||
                                 config_.exercise == WarmUpExerciseKind::CadenceOnly);
+  const bool include_chromatic = (config_.exercise == WarmUpExerciseKind::RomanticCircuit ||
+                                  config_.exercise == WarmUpExerciseKind::ChromaticOnly);
+  const bool include_seventh_arp = (config_.exercise == WarmUpExerciseKind::RomanticCircuit ||
+                                    config_.exercise == WarmUpExerciseKind::SeventhArpeggiosOnly);
+  const bool include_contrary = (config_.exercise == WarmUpExerciseKind::ContraryScaleOnly);
+  const bool include_stride = (config_.exercise == WarmUpExerciseKind::RomanticCircuit ||
+                               config_.exercise == WarmUpExerciseKind::LhStrideOnly);
 
   const ScaleType scale_type =
       (config_.key.mode == Mode::Major)
@@ -524,7 +805,7 @@ void WarmUpEngine::rebuild_steps() {
 
   std::optional<std::vector<SpelledNote>> rh_scale_cache;
   std::optional<std::vector<SpelledNote>> lh_scale_cache;
-  if (include_scale || include_arpeggio) {
+  if (include_scale || include_arpeggio || include_contrary) {
     if (const auto s = build_scale(config_.key, scale_type, scale_rh_oct, config_.octaves);
         s.has_value()) {
       rh_scale_cache = *s;
@@ -536,7 +817,8 @@ void WarmUpEngine::rebuild_steps() {
   }
 
   auto emit_parallel_note_step = [&](const SpelledNote& rh_sn, const SpelledNote& lh_sn,
-                                     WarmUpStation station, bool descending) {
+                                     WarmUpStation station, bool descending,
+                                     std::uint8_t rh_finger = 0, std::uint8_t lh_finger = 0) {
     WarmUpStep step{};
     step.station = station;
     step.beat_duration = 1;
@@ -544,12 +826,14 @@ void WarmUpEngine::rebuild_steps() {
     step.is_descending = descending;
     if (include_lh) {
       if (const auto midi = to_midi(lh_sn); midi.has_value()) {
-        step.notes.push_back(WarmUpNote{.spelled = lh_sn, .clef = Clef::Bass, .midi = *midi});
+        step.notes.push_back(
+            WarmUpNote{.spelled = lh_sn, .clef = Clef::Bass, .midi = *midi, .finger = lh_finger});
       }
     }
     if (include_rh) {
       if (const auto midi = to_midi(rh_sn); midi.has_value()) {
-        step.notes.push_back(WarmUpNote{.spelled = rh_sn, .clef = Clef::Treble, .midi = *midi});
+        step.notes.push_back(
+            WarmUpNote{.spelled = rh_sn, .clef = Clef::Treble, .midi = *midi, .finger = rh_finger});
       }
     }
     step.label = include_rh ? format_note(rh_sn) : format_note(lh_sn);
@@ -563,11 +847,15 @@ void WarmUpEngine::rebuild_steps() {
     const std::size_t n = rh_scale_cache->size();
     for (std::size_t i = 0; i < n; ++i) {
       emit_parallel_note_step((*rh_scale_cache)[i], (*lh_scale_cache)[i],
-                              WarmUpStation::ParallelScale, false);
+                              WarmUpStation::ParallelScale, false,
+                              scale_finger_at(config_.key, true, config_.octaves, i),
+                              scale_finger_at(config_.key, false, config_.octaves, i));
     }
     for (std::size_t i = n - 1; i-- > 0;) {
       emit_parallel_note_step((*rh_scale_cache)[i], (*lh_scale_cache)[i],
-                              WarmUpStation::ParallelScale, true);
+                              WarmUpStation::ParallelScale, true,
+                              scale_finger_at(config_.key, true, config_.octaves, i),
+                              scale_finger_at(config_.key, false, config_.octaves, i));
     }
   }
 
@@ -584,13 +872,15 @@ void WarmUpEngine::rebuild_steps() {
     const std::size_t m = arp_indices.size();
     for (std::size_t k = 0; k < m; ++k) {
       const std::size_t idx = arp_indices[k];
-      emit_parallel_note_step((*rh_scale_cache)[idx], (*lh_scale_cache)[idx],
-                              WarmUpStation::TonicArpeggio, false);
+      emit_parallel_note_step(
+          (*rh_scale_cache)[idx], (*lh_scale_cache)[idx], WarmUpStation::TonicArpeggio, false,
+          tonic_arpeggio_finger(true, k, m), tonic_arpeggio_finger(false, k, m));
     }
     for (std::size_t k = m - 1; k-- > 0;) {
       const std::size_t idx = arp_indices[k];
       emit_parallel_note_step((*rh_scale_cache)[idx], (*lh_scale_cache)[idx],
-                              WarmUpStation::TonicArpeggio, true);
+                              WarmUpStation::TonicArpeggio, true, tonic_arpeggio_finger(true, k, m),
+                              tonic_arpeggio_finger(false, k, m));
     }
   }
 
@@ -613,15 +903,26 @@ void WarmUpEngine::rebuild_steps() {
         Triad triad;
         std::string_view suffix;
         bool descending;
+        std::array<std::uint8_t, 3> fingers;
       };
+      constexpr std::array<std::uint8_t, 3> kRhRootF{1, 3, 5};
+      constexpr std::array<std::uint8_t, 3> kRhInv1F{1, 2, 5};
+      constexpr std::array<std::uint8_t, 3> kRhInv2F{1, 3, 5};
+      constexpr std::array<std::uint8_t, 3> kLhRootF{5, 3, 1};
+      constexpr std::array<std::uint8_t, 3> kLhInv1F{5, 3, 1};
+      constexpr std::array<std::uint8_t, 3> kLhInv2F{5, 2, 1};
+      const bool rh = (clef == Clef::Treble);
       const std::array<InvSlot, 7> arc{{
-          {.triad = *c0, .suffix = "Root", .descending = false},
-          {.triad = *c1, .suffix = "1st", .descending = false},
-          {.triad = *c2, .suffix = "2nd", .descending = false},
-          {.triad = *c3, .suffix = "8va", .descending = false},
-          {.triad = *c2, .suffix = "2nd", .descending = true},
-          {.triad = *c1, .suffix = "1st", .descending = true},
-          {.triad = *c0, .suffix = "Root", .descending = true},
+          {.triad = *c0,
+           .suffix = "Root",
+           .descending = false,
+           .fingers = rh ? kRhRootF : kLhRootF},
+          {.triad = *c1, .suffix = "1st", .descending = false, .fingers = rh ? kRhInv1F : kLhInv1F},
+          {.triad = *c2, .suffix = "2nd", .descending = false, .fingers = rh ? kRhInv2F : kLhInv2F},
+          {.triad = *c3, .suffix = "8va", .descending = false, .fingers = rh ? kRhRootF : kLhRootF},
+          {.triad = *c2, .suffix = "2nd", .descending = true, .fingers = rh ? kRhInv2F : kLhInv2F},
+          {.triad = *c1, .suffix = "1st", .descending = true, .fingers = rh ? kRhInv1F : kLhInv1F},
+          {.triad = *c0, .suffix = "Root", .descending = true, .fingers = rh ? kRhRootF : kLhRootF},
       }};
 
       const char* hand_tag = (clef == Clef::Treble) ? "RH" : "LH";
@@ -632,9 +933,11 @@ void WarmUpEngine::rebuild_steps() {
         step.solo_hand_clef = clef;
         step.is_cadence = false;
         step.is_descending = slot.descending;
-        for (const auto& sn : slot.triad.notes) {
+        for (std::size_t ni = 0; ni < slot.triad.notes.size(); ++ni) {
+          const auto& sn = slot.triad.notes[ni];
           if (const auto m = to_midi(sn); m.has_value()) {
-            step.notes.push_back(WarmUpNote{.spelled = sn, .clef = clef, .midi = *m});
+            step.notes.push_back(
+                WarmUpNote{.spelled = sn, .clef = clef, .midi = *m, .finger = slot.fingers[ni]});
           }
         }
         step.label = (config_.hand == HandSelection::HandsTogether)
@@ -740,6 +1043,184 @@ void WarmUpEngine::rebuild_steps() {
           finalize_expected_midi(step);
           steps_.push_back(std::move(step));
         }
+      }
+    }
+  }
+
+  // Station 5: Chromatic Scale (1–2 octaves from tonic)
+  if (include_chromatic) {
+    const SpelledNote rh_tonic{
+        .letter = tonic.letter, .accidental = tonic.accidental, .octave = scale_rh_oct};
+    const SpelledNote lh_tonic{
+        .letter = tonic.letter, .accidental = tonic.accidental, .octave = scale_lh_oct};
+    const auto rh_base = to_midi(rh_tonic);
+    const auto lh_base = to_midi(lh_tonic);
+    if (rh_base.has_value() && lh_base.has_value()) {
+      const int total_semis = 12 * config_.octaves;
+      for (int i = 0; i <= total_semis; ++i) {
+        const auto rm = static_cast<MidiPitch>(static_cast<int>(*rh_base) + i);
+        const auto lm = static_cast<MidiPitch>(static_cast<int>(*lh_base) + i);
+        emit_parallel_note_step(spell_chromatic_midi(rm, true), spell_chromatic_midi(lm, true),
+                                WarmUpStation::ChromaticScale, false, chromatic_finger(rm, true),
+                                chromatic_finger(lm, false));
+      }
+      for (int i = total_semis - 1; i >= 0; --i) {
+        const auto rm = static_cast<MidiPitch>(static_cast<int>(*rh_base) + i);
+        const auto lm = static_cast<MidiPitch>(static_cast<int>(*lh_base) + i);
+        emit_parallel_note_step(spell_chromatic_midi(rm, false), spell_chromatic_midi(lm, false),
+                                WarmUpStation::ChromaticScale, true, chromatic_finger(rm, true),
+                                chromatic_finger(lm, false));
+      }
+    }
+  }
+
+  // Station 6: Dominant 7th (V7) & Diminished 7th (vii°7) Arpeggios
+  if (include_seventh_arp) {
+    const auto dom_triad =
+        build_diatonic_triad(config_.key, 5, scale_rh_oct, Inversion::Root, true);
+    const auto rh_tonic_m = to_midi(SpelledNote{
+        .letter = tonic.letter, .accidental = tonic.accidental, .octave = scale_rh_oct});
+    const auto lh_tonic_m = to_midi(SpelledNote{
+        .letter = tonic.letter, .accidental = tonic.accidental, .octave = scale_lh_oct});
+    if (dom_triad.has_value() && rh_tonic_m.has_value() && lh_tonic_m.has_value()) {
+      int dom_rh_root = static_cast<int>(to_midi(dom_triad->notes[0]).value_or(*rh_tonic_m + 7));
+      while (dom_rh_root > static_cast<int>(*rh_tonic_m) + 7) {
+        dom_rh_root -= 12;
+      }
+      while (dom_rh_root < static_cast<int>(*rh_tonic_m) - 5) {
+        dom_rh_root += 12;
+      }
+      const int dom_lh_root =
+          dom_rh_root - (static_cast<int>(*rh_tonic_m) - static_cast<int>(*lh_tonic_m));
+
+      auto emit_seventh_arp = [&](int rh_root, int lh_root, const std::array<int, 4>& intervals,
+                                  std::string_view tag) {
+        const std::size_t total_asc = static_cast<std::size_t>(4 * config_.octaves + 1);
+        std::vector<MidiPitch> rh_seq;
+        std::vector<MidiPitch> lh_seq;
+        rh_seq.reserve(total_asc);
+        lh_seq.reserve(total_asc);
+        for (std::size_t k = 0; k < total_asc; ++k) {
+          const int oct_off = static_cast<int>(k / 4U) * 12;
+          const int iv = intervals[k % 4U];
+          rh_seq.push_back(static_cast<MidiPitch>(rh_root + oct_off + iv));
+          lh_seq.push_back(static_cast<MidiPitch>(lh_root + oct_off + iv));
+        }
+        for (std::size_t k = 0; k < total_asc; ++k) {
+          const auto r_sn = spell_chromatic_midi(rh_seq[k], true);
+          const auto l_sn = spell_chromatic_midi(lh_seq[k], true);
+          emit_parallel_note_step(r_sn, l_sn, WarmUpStation::SeventhArpeggios, false,
+                                  seventh_arpeggio_finger(true, k, total_asc),
+                                  seventh_arpeggio_finger(false, k, total_asc));
+          steps_.back().label = std::format("{} {}", tag, steps_.back().label);
+        }
+        for (std::size_t k = total_asc - 1; k-- > 0;) {
+          const auto r_sn = spell_chromatic_midi(rh_seq[k], false);
+          const auto l_sn = spell_chromatic_midi(lh_seq[k], false);
+          emit_parallel_note_step(r_sn, l_sn, WarmUpStation::SeventhArpeggios, true,
+                                  seventh_arpeggio_finger(true, k, total_asc),
+                                  seventh_arpeggio_finger(false, k, total_asc));
+          steps_.back().label = std::format("{} {}", tag, steps_.back().label);
+        }
+      };
+
+      emit_seventh_arp(dom_rh_root, dom_lh_root, std::array<int, 4>{0, 4, 7, 10}, "V7");
+      emit_seventh_arp(static_cast<int>(*rh_tonic_m) - 1, static_cast<int>(*lh_tonic_m) - 1,
+                       std::array<int, 4>{0, 3, 6, 9},
+                       "vii\xC2\xB0"
+                       "7");
+    }
+  }
+
+  // Station 7: Contrary Motion Scale (RH ascends & descends; LH descends & ascends)
+  if (include_contrary && rh_scale_cache.has_value() && !rh_scale_cache->empty()) {
+    const int lh_contra_bot_oct = std::max(1, scale_rh_oct - 1 - config_.octaves);
+    const auto lh_contra = build_scale(config_.key, scale_type, lh_contra_bot_oct, config_.octaves);
+    if (lh_contra.has_value() && lh_contra->size() == rh_scale_cache->size()) {
+      const std::size_t n = rh_scale_cache->size();
+      for (std::size_t i = 0; i < n; ++i) {
+        const std::size_t lh_i = (n - 1U) - i;
+        emit_parallel_note_step((*rh_scale_cache)[i], (*lh_contra)[lh_i],
+                                WarmUpStation::ContraryScale, false,
+                                scale_finger_at(config_.key, true, config_.octaves, i),
+                                scale_finger_at(config_.key, false, config_.octaves, lh_i));
+      }
+      for (std::size_t i = n - 1; i-- > 0;) {
+        const std::size_t lh_i = (n - 1U) - i;
+        emit_parallel_note_step((*rh_scale_cache)[i], (*lh_contra)[lh_i],
+                                WarmUpStation::ContraryScale, true,
+                                scale_finger_at(config_.key, true, config_.octaves, i),
+                                scale_finger_at(config_.key, false, config_.octaves, lh_i));
+      }
+    }
+  }
+
+  // Station 8: LH Stride Jumps (3/4 bass root -> mid-register chord -> mid-register chord)
+  if (include_stride) {
+    constexpr std::array<int, 4> kStrideDegrees{1, 4, 5, 1};
+    constexpr std::array<int, 2> kMidOctaves{3, 4};
+    for (const int deg : kStrideDegrees) {
+      const bool deg_harm = (config_.key.mode == Mode::Minor && deg == 5);
+      const auto mid_triad =
+          pick_triad_in_midi_range(config_.key, deg, deg_harm, kMidOctaves, 48, 62);
+      if (!mid_triad.has_value()) {
+        continue;
+      }
+      const int mid_min = static_cast<int>(to_midi(mid_triad->notes[0]).value_or(52));
+      const auto bass_root = pick_bass_root_below(config_.key, deg, deg_harm, mid_min - 5);
+      if (!bass_root.has_value()) {
+        continue;
+      }
+      const auto bass_m = to_midi(*bass_root);
+      if (!bass_m.has_value()) {
+        continue;
+      }
+      const std::string roman(cadence_roman_numeral(config_.key.mode, deg, deg_harm));
+      const std::string chord_sym = format_chord_symbol(*mid_triad);
+
+      // Beat 1: Bass root (plus lower octave in 2-octave mode if >= A0)
+      WarmUpStep bass_step{};
+      bass_step.station = WarmUpStation::LhStrideJumps;
+      bass_step.beat_duration = 1;
+      bass_step.solo_hand_clef = Clef::Bass;
+      bass_step.is_cadence = false;
+      if (config_.octaves == 2 && *bass_m >= 36U) {
+        const SpelledNote low_oct{.letter = bass_root->letter,
+                                  .accidental = bass_root->accidental,
+                                  .octave = bass_root->octave - 1};
+        if (const auto lm = to_midi(low_oct); lm.has_value()) {
+          bass_step.notes.push_back(
+              WarmUpNote{.spelled = low_oct, .clef = Clef::Bass, .midi = *lm, .finger = 5U});
+        }
+      }
+      bass_step.notes.push_back(WarmUpNote{
+          .spelled = *bass_root,
+          .clef = Clef::Bass,
+          .midi = *bass_m,
+          .finger = (config_.octaves == 2 && *bass_m >= 36U) ? std::uint8_t{1} : std::uint8_t{5},
+      });
+      bass_step.label = std::format("{} Bass", roman);
+      finalize_expected_midi(bass_step);
+      steps_.push_back(std::move(bass_step));
+
+      // Beats 2 & 3: Mid-register triad
+      for (int rep = 0; rep < 2; ++rep) {
+        WarmUpStep chord_step{};
+        chord_step.station = WarmUpStation::LhStrideJumps;
+        chord_step.beat_duration = 1;
+        chord_step.solo_hand_clef = Clef::Bass;
+        chord_step.is_cadence = false;
+        constexpr std::array<std::uint8_t, 3> kChordF{5U, 3U, 1U};
+        for (std::size_t ni = 0; ni < mid_triad->notes.size(); ++ni) {
+          const auto& sn = mid_triad->notes[ni];
+          if (const auto m = to_midi(sn); m.has_value()) {
+            chord_step.notes.push_back(
+                WarmUpNote{.spelled = sn, .clef = Clef::Bass, .midi = *m, .finger = kChordF[ni]});
+          }
+        }
+        chord_step.label = (rep == 0) ? chord_sym : std::string{};
+        finalize_expected_midi(chord_step);
+        steps_.push_back(std::move(chord_step));
       }
     }
   }

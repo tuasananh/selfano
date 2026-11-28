@@ -175,6 +175,7 @@ add_library(piano_core STATIC
   src/core/weekly_key.cpp
   src/core/warmup_engine.cpp
   src/core/flashcard_engine.cpp
+  src/core/sight_reading_corpus.cpp
   src/core/etude_engine.cpp
   src/core/chord_symbol.cpp
   src/core/companion_matcher.cpp
@@ -309,9 +310,10 @@ if(NOT EMSCRIPTEN)
   add_dependencies(selfano selfano_sync_assets)
 else()
   file(GLOB SELFANO_LESSON_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/lessons/*.json")
+  file(GLOB SELFANO_SIGHT_READING_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/sight_reading/*.json")
   set_target_properties(selfano PROPERTIES
     SUFFIX ".html"
-    LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${SELFANO_LESSON_FILES}"
+    LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${SELFANO_LESSON_FILES};${SELFANO_SIGHT_READING_FILES}"
   )
   target_link_options(selfano PRIVATE
     "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"

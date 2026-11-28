@@ -54,6 +54,28 @@ inline constexpr std::array<AutopilotBlockSpec, 6> kAutopilotBlocks{{
 
 inline constexpr double kTotalAutopilotDurationSec = 1800.0;
 
+enum class AutopilotDurationPreset : std::uint8_t {
+  Standard30 = 0,
+  Focused45 = 1,
+  Conservatory60 = 2,
+};
+
+[[nodiscard]] constexpr int autopilot_preset_minutes(AutopilotDurationPreset preset) noexcept {
+  switch (preset) {
+  case AutopilotDurationPreset::Standard30:
+    return 30;
+  case AutopilotDurationPreset::Focused45:
+    return 45;
+  case AutopilotDurationPreset::Conservatory60:
+    return 60;
+  }
+  return 30;
+}
+
+[[nodiscard]] std::array<AutopilotBlockSpec, 6>
+build_autopilot_schedule(AutopilotDurationPreset preset, int current_tier,
+                         double avg_flashcard_rt_ms) noexcept;
+
 enum class AutopilotState : std::uint8_t {
   Idle = 0,
   Running = 1,
@@ -93,6 +115,8 @@ public:
   explicit AutopilotSession(double transition_banner_sec = 3.0) noexcept;
 
   void start(std::string weekly_key_name = {});
+  void start(std::string weekly_key_name, const std::array<AutopilotBlockSpec, 6>& schedule,
+             AutopilotDurationPreset preset);
   void pause() noexcept;
   void resume() noexcept;
   void toggle_pause() noexcept;
@@ -107,9 +131,12 @@ public:
 
   [[nodiscard]] AutopilotState state() const noexcept { return state_; }
   [[nodiscard]] std::size_t current_block_index() const noexcept { return current_block_index_; }
+  [[nodiscard]] const std::array<AutopilotBlockSpec, 6>& blocks() const noexcept { return blocks_; }
   [[nodiscard]] const AutopilotBlockSpec& current_block() const noexcept {
-    return kAutopilotBlocks[current_block_index_];
+    return blocks_[current_block_index_];
   }
+  [[nodiscard]] AutopilotDurationPreset preset() const noexcept { return preset_; }
+  [[nodiscard]] double total_duration_sec() const noexcept { return total_duration_sec_; }
   [[nodiscard]] std::optional<AutopilotBlockSpec> next_block() const noexcept;
   [[nodiscard]] double block_elapsed_sec() const noexcept { return block_elapsed_sec_; }
   [[nodiscard]] double block_remaining_sec() const noexcept;
@@ -127,6 +154,9 @@ private:
   double total_elapsed_sec_{0.0};
   double transition_elapsed_sec_{0.0};
   bool block_overtime_{false};
+  std::array<AutopilotBlockSpec, 6> blocks_{kAutopilotBlocks};
+  AutopilotDurationPreset preset_{AutopilotDurationPreset::Standard30};
+  double total_duration_sec_{kTotalAutopilotDurationSec};
   SessionSummary summary_{};
 };
 

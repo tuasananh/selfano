@@ -545,6 +545,16 @@ bool AppController::init(const CliOptions& cli_opts) {
       !lib_res.has_value()) {
     std::cerr << "Warning: failed loading built-in lessons: " << lib_res.error() << '\n';
   }
+  if (const auto corpus_path = resolve_sight_reading_dir() / "corpus.json";
+      std::filesystem::exists(corpus_path)) {
+    if (const auto corpus_res = core::load_sight_reading_corpus(corpus_path);
+        corpus_res.has_value()) {
+      sight_reading_corpus_ = *corpus_res;
+      etude_view_.set_corpus(&sight_reading_corpus_);
+    } else {
+      std::cerr << "Warning: failed loading sight-reading corpus: " << corpus_res.error() << '\n';
+    }
+  }
 
 #ifdef __EMSCRIPTEN__
   idbfs_hydrated_ = false;
@@ -672,6 +682,37 @@ bool AppController::init(const CliOptions& cli_opts) {
       lesson_view_.mutable_engine().set_practice_mode(core::LessonPracticeMode::WaitForNote);
     }
     lesson_view_.mutable_engine().set_memory_fade(*cli_.memory_fade_override);
+  }
+  if (!cli_.weekly_key_override.empty()) {
+    for (std::size_t ki = 0; ki < core::kWeeklyKeyCycle.size(); ++ki) {
+      if (core::format_key_name(core::weekly_key_at(ki)) == cli_.weekly_key_override) {
+        profile_.weekly_key.key_index = ki;
+        profile_.weekly_key.manual_override = true;
+        apply_weekly_key_to_views(prev_now_ms_);
+        break;
+      }
+    }
+  }
+  if (cli_.warmup_circuit_override.has_value()) {
+    warmup_view_.set_circuit_preset(*cli_.warmup_circuit_override);
+  }
+  if (cli_.warmup_exercise_override.has_value()) {
+    warmup_view_.set_exercise(*cli_.warmup_exercise_override);
+  }
+  if (cli_.flashcard_level_override.has_value()) {
+    flashcard_view_.set_level(*cli_.flashcard_level_override, prev_now_ms_);
+  }
+  if (cli_.etude_level_override.has_value()) {
+    etude_view_.set_difficulty(*cli_.etude_level_override);
+  }
+  if (cli_.etude_source_override.has_value()) {
+    etude_view_.set_source_mode(*cli_.etude_source_override);
+  }
+  if (cli_.ear_mode_override.has_value()) {
+    ear_trainer_view_.set_drill_mode(*cli_.ear_mode_override);
+  }
+  if (cli_.autopilot_preset_override.has_value()) {
+    profile_.preferences.autopilot_duration = *cli_.autopilot_preset_override;
   }
   if (cli_.simulate_coach.has_value()) {
     ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;
@@ -1155,6 +1196,7 @@ void AppController::render_ui(double now_ms, std::int64_t today_epoch_day) {
       const ui::SidebarViewState sb_state{
           .active_section = to_shell_section(app_mode_),
           .active_free_stage = free_stage_,
+          .autopilot_preset = profile_.preferences.autopilot_duration,
           .show_piano_dock = show_piano_dock_,
           .due_srs_count = srs_view_.deck().due_cards(today_epoch_day).size(),
           .due_lessons_count = due_lessons,

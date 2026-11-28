@@ -21,6 +21,9 @@ public:
   EtudeView();
 
   void set_key(core::KeySignature key, core::MinorScaleMode minor_mode);
+  void set_corpus(const core::SightReadingCorpus* corpus);
+  void set_difficulty(core::EtudeDifficultyLevel level);
+  void set_source_mode(core::EtudeSourceMode mode);
   void apply_preferences(bool metronome_enabled, bool light_paper, double bpm,
                          core::EtudeHandMode hand_mode);
   void stop() noexcept { engine_.stop(); }

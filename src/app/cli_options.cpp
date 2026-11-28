@@ -225,6 +225,63 @@ CliOptions parse_cli(int argc, char* argv[]) {
       opts.auto_ramp = true;
     } else if (arg == "--seed-trouble-spot") {
       opts.seed_trouble_spot = true;
+    } else if (arg == "--weekly-key" && i + 1 < argc) {
+      opts.weekly_key_override = argv[++i];
+    } else if (arg == "--warmup-circuit" && i + 1 < argc) {
+      const std::string_view c = argv[++i];
+      if (c == "foundation") {
+        opts.warmup_circuit_override = core::WarmUpCircuitPreset::Foundation;
+      } else if (c == "romantic") {
+        opts.warmup_circuit_override = core::WarmUpCircuitPreset::Romantic;
+      }
+    } else if (arg == "--warmup-station" && i + 1 < argc) {
+      const std::string_view st = argv[++i];
+      if (st == "chromatic") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::ChromaticOnly;
+      } else if (st == "seventh") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::SeventhArpeggiosOnly;
+      } else if (st == "contrary") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::ContraryScaleOnly;
+      } else if (st == "stride") {
+        opts.warmup_exercise_override = core::WarmUpExerciseKind::LhStrideOnly;
+      }
+    } else if (arg == "--flashcard-level" && i + 1 < argc) {
+      const std::string_view fl = argv[++i];
+      if (fl == "foundation") {
+        opts.flashcard_level_override = core::FlashcardLevel::Foundation;
+      } else if (fl == "romantic") {
+        opts.flashcard_level_override = core::FlashcardLevel::Romantic;
+      }
+    } else if (arg == "--etude-level" && i + 1 < argc) {
+      if (const auto lvl = parse_strict_int(argv[++i]); lvl.has_value() && *lvl >= 1 && *lvl <= 5) {
+        opts.etude_level_override = static_cast<core::EtudeDifficultyLevel>(*lvl);
+      }
+    } else if (arg == "--etude-source" && i + 1 < argc) {
+      const std::string_view src = argv[++i];
+      if (src == "procedural") {
+        opts.etude_source_override = core::EtudeSourceMode::Procedural;
+      } else if (src == "hybrid") {
+        opts.etude_source_override = core::EtudeSourceMode::HybridClassical;
+      }
+    } else if (arg == "--ear-mode" && i + 1 < argc) {
+      const std::string_view em = argv[++i];
+      if (em == "melody") {
+        opts.ear_mode_override = core::EarDrillMode::Melody;
+      } else if (em == "chords") {
+        opts.ear_mode_override = core::EarDrillMode::ChordQuality;
+      } else if (em == "progressions") {
+        opts.ear_mode_override = core::EarDrillMode::Progression;
+      }
+    } else if (arg == "--autopilot-preset" && i + 1 < argc) {
+      if (const auto mins = parse_strict_int(argv[++i]); mins.has_value()) {
+        if (*mins == 30) {
+          opts.autopilot_preset_override = core::AutopilotDurationPreset::Standard30;
+        } else if (*mins == 45) {
+          opts.autopilot_preset_override = core::AutopilotDurationPreset::Focused45;
+        } else if (*mins == 60) {
+          opts.autopilot_preset_override = core::AutopilotDurationPreset::Conservatory60;
+        }
+      }
     }
   }
   return opts;

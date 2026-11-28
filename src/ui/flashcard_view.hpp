@@ -24,6 +24,7 @@ public:
   FlashcardView();
 
   void set_key(core::KeySignature key, core::MinorScaleMode minor_mode, double now_ms);
+  void set_level(core::FlashcardLevel level, double now_ms);
   void on_played_chord(const midi::PlayedChord& chord, double now_ms);
   void update(double now_ms);
   void skip_card(double now_ms);

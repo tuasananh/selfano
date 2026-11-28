@@ -15,6 +15,11 @@
 
 namespace selfano::core {
 
+enum class FlashcardLevel : std::uint8_t {
+  Foundation = 0,
+  Romantic = 1,
+};
+
 enum class FlashcardCategory : std::uint8_t {
   All = 0,
   Landmarks = 1,
@@ -27,6 +32,10 @@ enum class FlashcardShapeKind : std::uint8_t {
   HarmonicInterval = 1,
   MelodicInterval = 2,
   TriadInversion = 3,
+  SeventhChord = 4,
+  LedgerLandmark = 5,
+  ChromaticAlteration = 6,
+  TwoHandGrab = 7,
 };
 
 struct ShapeTelemetry {
@@ -59,6 +68,7 @@ struct FlashcardStep {
   std::vector<SpelledNote> notes;
   std::vector<MidiPitch> expected_midi;
   Clef clef{Clef::Treble};
+  std::vector<Clef> note_clefs{};
 };
 
 struct FlashcardPrompt {
@@ -93,6 +103,8 @@ struct FlashcardEvalResult {
 
 [[nodiscard]] double compute_shape_weight(const ShapeTelemetry& telemetry) noexcept;
 [[nodiscard]] std::span<const FlashcardShapeMeta> flashcard_shape_bank() noexcept;
+[[nodiscard]] std::span<const FlashcardShapeMeta>
+flashcard_shape_bank(FlashcardLevel level) noexcept;
 
 class FlashcardEngine {
 public:
@@ -102,6 +114,7 @@ public:
 
   void set_key(KeySignature key, MinorScaleMode minor_mode, double now_ms);
   void set_category(FlashcardCategory category, double now_ms);
+  void set_level(FlashcardLevel level, double now_ms);
   void set_auto_advance_delay_ms(double delay_ms) noexcept { auto_advance_delay_ms_ = delay_ms; }
 
   void next_card(double now_ms);
@@ -119,6 +132,7 @@ public:
   [[nodiscard]] KeySignature key() const noexcept { return key_; }
   [[nodiscard]] MinorScaleMode minor_mode() const noexcept { return minor_mode_; }
   [[nodiscard]] FlashcardCategory category() const noexcept { return category_; }
+  [[nodiscard]] FlashcardLevel level() const noexcept { return level_; }
   [[nodiscard]] const FlashcardPrompt& current_prompt() const noexcept { return current_prompt_; }
   [[nodiscard]] std::size_t substep_index() const noexcept { return substep_index_; }
   [[nodiscard]] bool is_card_solved() const noexcept { return card_solved_; }
@@ -140,6 +154,7 @@ private:
   KeySignature key_{.fifths = 0, .mode = Mode::Major};
   MinorScaleMode minor_mode_{MinorScaleMode::Harmonic};
   FlashcardCategory category_{FlashcardCategory::All};
+  FlashcardLevel level_{FlashcardLevel::Foundation};
   std::mt19937 rng_;
 
   std::map<std::string, ShapeTelemetry> telemetry_;

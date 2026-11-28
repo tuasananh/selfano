@@ -1,6 +1,6 @@
 # Phase 31: Harmonic Ear Training & Tier-Adaptive Autopilot (Stage 4B + Shell)
 
-**Status:** `[ ] Planned` (Depends on Phase 21 & Phase 30 — Track C: Daily Drills & MIDI Technique Diagnostics)  
+**Status:** `[x] Complete` (Depends on Phase 21 & Phase 30 — Track C: Daily Drills & MIDI Technique Diagnostics)  
 **Goal:** Upgrade Stage 4B (`EarTrainer`) with **Chord-Quality Recognition** and **Harmonic Progression Dictation** (crucial for hearing and memorizing Chopin structurally), and upgrade `AutopilotSession` with **tier-adaptive time allocation** and selectable **`30 / 45 / 60 min`** practice profiles.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `apple-hig-imgui`, `verification-and-review`
@@ -40,3 +40,11 @@ Memorizing a 9-minute Romantic piece like *Ballade No. 1* depends far more on **
 2. `emcmake cmake --preset web-release && cmake --build --preset web-release` compiles cleanly with **0 warnings**.
 3. `src/core/` purity check returns 0 matches; `clang-format --dry-run --Werror` clean.
 4. Headless Light & Dark screenshots of `--tab ear` (Chord Quality & Progression modes) and `--tab home` (`30m | 45m | 60m` adaptive preview) verify clean Apple HIG layout with zero clipping.
+
+### Verification Evidence
+- `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+- `ctest --preset native-debug --output-on-failure`: 139/139 passed (`ear_trainer_tests`, `autopilot_tests`, `profile_store_tests`, and full suite).
+- `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings.
+- `clang-format --dry-run --Werror`: clean.
+- Core purity check (`grep -rnE --include='*.hpp' --include='*.cpp' '#include\s*[<"](imgui|SDL|libremidi|emscripten)' src/core/`): 0 matches.
+- Headless Light & Dark screenshots verified (`--tab ear --ear-mode chords`, `--tab ear --ear-mode progressions`, `--tab home --autopilot-preset 45`, `--tab home --autopilot-preset 60`).

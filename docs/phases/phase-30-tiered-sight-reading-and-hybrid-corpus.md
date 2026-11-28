@@ -1,6 +1,6 @@
 # Phase 30: Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus (Stage 2A/2B)
 
-**Status:** `[ ] Planned` (Depends on Phase 20 — Track C: Daily Drills & MIDI Technique Diagnostics)  
+**Status:** `[x] Complete` (Depends on Phase 20 — Track C: Daily Drills & MIDI Technique Diagnostics)  
 **Goal:** Break the Grade 1–2 sight-reading ceiling in Stage 2 by upgrading **Flashcards (`Stage 2A`)** with 7th chords, accidentals, and ledger-line extremes, and upgrading **Continuous Etudes (`Stage 2B`)** to **5 progressive difficulty tiers** (`3/4`, `6/8`, 8th notes, dotted rhythms, Alberti/waltz bass, accidentals) plus the planned **Hybrid Micro-Corpus** of unseen 4-bar classical excerpts.
 
 **Required Skills:** `spec-phase-workflow`, `cpp23-tdd`, `music-notation-imgui`, `apple-hig-imgui`, `verification-and-review`
@@ -44,3 +44,11 @@ Right now Autopilot spends **10 minutes/day (33% of practice)** on Stage 2A + 2B
 2. `emcmake cmake --preset web-release && cmake --build --preset web-release` compiles cleanly with **0 warnings** and bundles `assets/sight_reading/` into `selfano.data`.
 3. `src/core/` purity check returns 0 matches; `clang-format --dry-run --Werror` clean.
 4. Headless Light & Dark screenshots of `--tab flashcards` (7th chord / ledger line) and `--tab etude` (Level 3 `6/8` and Level 4 Alberti) confirm crisp notation and zero clipping.
+
+### Verification Evidence
+- `cmake --build --preset native-debug` compiled cleanly with 0 warnings under `-Wall -Wextra -Wpedantic`.
+- `ctest --preset native-debug --output-on-failure`: 135/135 passed (`flashcard_tests`, `etude_tests`, `profile_store_tests`, and full suite).
+- `emcmake cmake --preset web-release && cmake --build --preset web-release` compiled cleanly with 0 warnings; `assets/sight_reading/corpus.json` verified bundled in `build/web-release/selfano.data`.
+- `clang-format --dry-run --Werror`: clean.
+- Core purity check (`grep -rnE --include='*.hpp' --include='*.cpp' '#include\s*[<"](imgui|SDL|libremidi|emscripten)' src/core/`): 0 matches.
+- Headless Light & Dark screenshots verified (`--tab flashcards --flashcard-level romantic`, `--tab etude --etude-level 3`, `--tab etude --etude-level 4`, `--tab etude --etude-level 3 --etude-source hybrid`).

@@ -1406,6 +1406,49 @@ void LessonView::draw_result(const core::LessonLibrary& library,
                               format_bar_range(spot->start_bar_number, spot->end_bar_number)),
                   StatusTone::Warning);
     }
+    const auto& mus = last_run_summary_->musicality;
+    const bool has_any_mus = mus.voicing_available || mus.evenness_available ||
+                             mus.vel_smoothness_available || mus.dynamics_available ||
+                             mus.sustain_available || mus.pedal_available;
+    if (has_any_mus) {
+      const float coach_right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+      auto emit_mus_pill = [&](std::string_view label, StatusTone tone) {
+        if (ImGui::GetItemRectMax().x + 8.0f * scale + 130.0f * scale <= coach_right) {
+          ImGui::SameLine(0.0f, 6.0f * scale);
+        }
+        status_pill(label, tone, IconId::None, true);
+      };
+      if (mus.voicing_available) {
+        emit_mus_pill(std::format("Voicing {:+.0f}", mus.voicing_delta),
+                      mus.voicing_balanced ? StatusTone::Success : StatusTone::Warning);
+      }
+      if (mus.evenness_available) {
+        emit_mus_pill(std::format("Evenness {:.0f}%", mus.ioi_evenness_score * 100.0),
+                      mus.ioi_evenness_score >= 0.78 ? StatusTone::Success : StatusTone::Warning);
+      }
+      if (mus.vel_smoothness_available) {
+        emit_mus_pill(mus.thumb_spike_count == 0U
+                          ? std::string("Tone Smooth")
+                          : std::format("Thumb spikes: {}", mus.thumb_spike_count),
+                      mus.thumb_spike_count == 0U ? StatusTone::Success : StatusTone::Warning);
+      }
+      if (mus.dynamics_available) {
+        emit_mus_pill(mus.dynamic_contrast_ok ? "Dynamics OK" : "Flat dynamics",
+                      mus.dynamic_contrast_ok ? StatusTone::Success : StatusTone::Warning);
+      }
+      if (mus.sustain_available) {
+        emit_mus_pill(std::format("Sustain {:.0f}%", mus.sustain_hold_rate * 100.0),
+                      mus.sustain_hold_rate >= 0.75 ? StatusTone::Success : StatusTone::Warning);
+      }
+      if (mus.pedal_available) {
+        emit_mus_pill(std::format("Pedal {:.0f}%", mus.pedal_clean_rate * 100.0),
+                      mus.pedal_clean_rate >= 0.75 ? StatusTone::Success : StatusTone::Warning);
+      }
+      if (!mus.coach_tip.empty()) {
+        ScopedFont sub(TypeStyle::Subheadline);
+        ImGui::TextColored(colors().text_secondary, "%s", mus.coach_tip.c_str());
+      }
+    }
     ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
   }
   {
@@ -1518,10 +1561,21 @@ void LessonView::draw_result(const core::LessonLibrary& library,
       ImGui::TextWrapped("%.0f%% · %u correct · %u partial · %u missed", run.accuracy * 100.0,
                          run.hits, run.partial_hits, run.misses);
       const auto& mus = run.musicality;
-      if (mus.voicing_available || mus.sustain_available || mus.pedal_available) {
+      if (mus.voicing_available || mus.evenness_available || mus.vel_smoothness_available ||
+          mus.dynamics_available || mus.sustain_available || mus.pedal_available) {
         section_kicker("MUSICALITY");
         if (mus.voicing_available) {
           ImGui::TextWrapped("Melody voicing · %+.0f velocity", mus.voicing_delta);
+        }
+        if (mus.evenness_available) {
+          ImGui::TextWrapped("Rhythmic evenness · %.0f%%", mus.ioi_evenness_score * 100.0);
+        }
+        if (mus.vel_smoothness_available) {
+          ImGui::TextWrapped("Tone smoothness · %u thumb/velocity spike(s)", mus.thumb_spike_count);
+        }
+        if (mus.dynamics_available) {
+          ImGui::TextWrapped("Dynamic contrast · p %.0f vs f %.0f (%s)", mus.soft_avg_velocity,
+                             mus.loud_avg_velocity, mus.dynamic_contrast_ok ? "clear" : "flat");
         }
         if (mus.sustain_available) {
           ImGui::TextWrapped("Sustain · %.0f%% held", mus.sustain_hold_rate * 100.0);
