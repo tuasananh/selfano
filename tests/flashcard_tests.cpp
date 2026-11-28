@@ -3,6 +3,7 @@
 #include "core/pitch.hpp"
 #include "core/weekly_key.hpp"
 
+#include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cstddef>
@@ -39,6 +40,12 @@ TEST_CASE("flashcard_shape_bank covers landmarks, intervals, and triad inversion
       break;
     case FlashcardShapeKind::TriadInversion:
       ++triads;
+      break;
+    case FlashcardShapeKind::SeventhChord:
+    case FlashcardShapeKind::LedgerLandmark:
+    case FlashcardShapeKind::ChromaticAlteration:
+    case FlashcardShapeKind::TwoHandGrab:
+      FAIL("Unexpected Romantic shape kind in Foundation bank");
       break;
     }
   }
