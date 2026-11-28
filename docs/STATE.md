@@ -2,9 +2,9 @@
 
 > Read this file first at the start of every session. Update it at the end of every phase or mid-phase handoff.
 
-- **Last Updated:** 2026-11-27
-- **Active Phase:** **Track B Complete (Phases 24–27)** — Ready for Track C or Track D
-- **Last Completed Phase:** Phase 27 — Automatic Harmonic Analyzer for Imported Scores
+- **Last Updated:** 2026-11-28
+- **Active Phase:** **Phase 31 — Harmonic Ear Training & Tier-Adaptive Autopilot**
+- **Last Completed Phase:** Phase 30 — Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus
 
 ---
 
@@ -312,7 +312,7 @@
   - **Track C (Daily Drills & MIDI Technique Diagnostics — In Progress):**
     - **Phase 28:** Advanced Warm-Up Circuits & Printed Scale Fingerings ([`docs/phases/phase-28-advanced-warmups-and-scale-fingerings.md`](./phases/phase-28-advanced-warmups-and-scale-fingerings.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 130/130 passed across all 24 keys and Chromatic/7th-Arp/Contrary/LH-Stride stations, `emcmake cmake --preset web-release && cmake --build --preset web-release` 0 warnings, core purity 0 matches, `clang-format --dry-run --Werror` clean, Light/Dark screenshots verified in `G Minor` across Parallel Scale, Chromatic, Dom7/Dim7 Arps, and LH Stride Jumps)
     - **Phase 29:** MIDI Evenness, Thumb-Crossing & Dynamic Contour Coaching ([`docs/phases/phase-29-midi-evenness-and-dynamic-coaching.md`](./phases/phase-29-midi-evenness-and-dynamic-coaching.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 133/133 passed covering `is_melody` LH/inner voicing, IOI evenness, thumb-crossing spikes, dynamic `pp`/`ff` contrast, `WarmUpEngine` smoothness, and virtual-input omission; `emcmake cmake --preset web-release && cmake --build --preset web-release` 0 warnings, core purity 0 matches, `clang-format --dry-run --Werror` clean, Light/Dark screenshots verified on `t5_02 --simulate-coach clean|imperfect` and `t1_01 --simulate-coach virtual`)
-    - **Phase 30:** Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus ([`docs/phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md`](./phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md)) (`[ ] Planned`)
+    - **Phase 30:** Tiered Multi-Meter Sight-Reading & Hybrid Micro-Corpus ([`docs/phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md`](./phases/phase-30-tiered-sight-reading-and-hybrid-corpus.md)) (`[x] Complete` — `cmake --build --preset native-debug` 0 warnings, `ctest` 135/135 passed, `web-release` 0 warnings with `corpus.json` bundled in `selfano.data`, core purity 0 matches, `clang-format` clean, Light/Dark screenshots verified on Romantic Flashcards and L3/L4/Hybrid Etudes)
     - **Phase 31:** Harmonic Ear Training & Tier-Adaptive Autopilot ([`docs/phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md`](./phases/phase-31-harmonic-ear-training-and-adaptive-autopilot.md)) (`[ ] Planned`)
   - **Track D (Curriculum Expansion: Missing Middle to Full *Ballade No. 1* — After Track B + Phases 22 & 29):**
     - **Phase 32:** Tier 7: Counterpoint & Classical Velocity ([`docs/phases/phase-32-tier7-counterpoint-and-classical-velocity.md`](./phases/phase-32-tier7-counterpoint-and-classical-velocity.md)) (`[ ] Planned`)
