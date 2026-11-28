@@ -71,10 +71,13 @@ void AppController::apply_profile_to_views(double now_ms) {
   warmup_view_.set_circuit_preset(profile_.preferences.warmup_circuit);
   warmup_view_.set_show_fingerings(profile_.preferences.warmup_show_fingerings);
   flashcard_view_.set_light_paper_theme(profile_.preferences.light_paper_staff);
+  flashcard_view_.set_level(profile_.preferences.flashcard_level, now_ms);
   flashcard_view_.mutable_engine().load_telemetry(profile_.flashcard_telemetry);
   etude_view_.apply_preferences(profile_.preferences.metronome_enabled,
                                 profile_.preferences.light_paper_staff,
                                 profile_.preferences.default_bpm, profile_.preferences.hand_mode);
+  etude_view_.set_difficulty(profile_.preferences.etude_level);
+  etude_view_.set_source_mode(profile_.preferences.etude_source_mode);
   lesson_view_.apply_preferences(
       profile_.preferences.metronome_enabled, profile_.preferences.light_paper_staff,
       profile_.preferences.lesson_show_fingerings, profile_.preferences.lesson_show_harmony);
@@ -133,6 +136,9 @@ void AppController::sync_profile_from_views() {
   profile_.preferences.default_bpm = etude_view_.engine().config().bpm;
   profile_.preferences.chord_window_ms = chord_grouper_.window_ms();
   profile_.preferences.hand_mode = etude_view_.engine().config().hand_mode;
+  profile_.preferences.flashcard_level = flashcard_view_.engine().level();
+  profile_.preferences.etude_level = etude_view_.engine().config().difficulty;
+  profile_.preferences.etude_source_mode = etude_view_.engine().config().source_mode;
   profile_.preferences.minor_scale_mode = warmup_view_.minor_mode();
   profile_.preferences.warmup_circuit = warmup_view_.circuit_preset();
   profile_.preferences.warmup_show_fingerings = warmup_view_.show_fingerings();

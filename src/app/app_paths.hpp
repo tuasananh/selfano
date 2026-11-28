@@ -9,6 +9,7 @@ namespace selfano::app {
 
 [[nodiscard]] std::int64_t current_epoch_day() noexcept;
 [[nodiscard]] std::filesystem::path resolve_lessons_dir();
+[[nodiscard]] std::filesystem::path resolve_sight_reading_dir();
 [[nodiscard]] std::filesystem::path resolve_profile_path(const std::string& cli_override);
 [[nodiscard]] std::filesystem::path
 resolve_imported_lessons_dir(const std::filesystem::path& profile_path);

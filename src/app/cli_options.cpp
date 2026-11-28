@@ -245,6 +245,24 @@ CliOptions parse_cli(int argc, char* argv[]) {
       } else if (st == "stride") {
         opts.warmup_exercise_override = core::WarmUpExerciseKind::LhStrideOnly;
       }
+    } else if (arg == "--flashcard-level" && i + 1 < argc) {
+      const std::string_view fl = argv[++i];
+      if (fl == "foundation") {
+        opts.flashcard_level_override = core::FlashcardLevel::Foundation;
+      } else if (fl == "romantic") {
+        opts.flashcard_level_override = core::FlashcardLevel::Romantic;
+      }
+    } else if (arg == "--etude-level" && i + 1 < argc) {
+      if (const auto lvl = parse_strict_int(argv[++i]); lvl.has_value() && *lvl >= 1 && *lvl <= 5) {
+        opts.etude_level_override = static_cast<core::EtudeDifficultyLevel>(*lvl);
+      }
+    } else if (arg == "--etude-source" && i + 1 < argc) {
+      const std::string_view src = argv[++i];
+      if (src == "procedural") {
+        opts.etude_source_override = core::EtudeSourceMode::Procedural;
+      } else if (src == "hybrid") {
+        opts.etude_source_override = core::EtudeSourceMode::HybridClassical;
+      }
     }
   }
   return opts;

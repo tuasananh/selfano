@@ -60,6 +60,15 @@ void FlashcardView::set_key(core::KeySignature key, core::MinorScaleMode minor_m
   status_banner_ = "Play the displayed shape";
 }
 
+void FlashcardView::set_level(core::FlashcardLevel level, double now_ms) {
+  if (engine_.level() == level) {
+    return;
+  }
+  engine_.set_level(level, now_ms);
+  last_feedback_ = NoteFeedback::Neutral;
+  status_banner_ = "Play the displayed shape";
+}
+
 void FlashcardView::on_played_chord(const midi::PlayedChord& chord, double now_ms) {
   if (chord.notes.empty()) {
     return;
@@ -167,6 +176,10 @@ void FlashcardView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
   ImGui::SameLine(0.0f, 12.0f * scale);
   status_pill(category_label(engine_.category()), StatusTone::Accent);
   ImGui::SameLine(0.0f, 8.0f * scale);
+  status_pill(engine_.level() == core::FlashcardLevel::Romantic ? "Romantic" : "Foundation",
+              engine_.level() == core::FlashcardLevel::Romantic ? StatusTone::Success
+                                                                : StatusTone::Neutral);
+  ImGui::SameLine(0.0f, 8.0f * scale);
   status_pill(core::format_key_name(engine_.key()), StatusTone::Neutral);
 
   const float right_w = (show_piano_key_hints() ? 320.0f : 278.0f) * scale;
@@ -205,6 +218,18 @@ void FlashcardView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     int cat_idx = static_cast<int>(engine_.category());
     if (segmented_control("##fc_cat_seg", &cat_idx, kCats, pop_w / scale, 28.0f)) {
       engine_.set_category(static_cast<core::FlashcardCategory>(cat_idx), now_ms);
+      last_feedback_ = NoteFeedback::Neutral;
+      status_banner_ = "Play the displayed shape";
+    }
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Shape Bank Level");
+    }
+    static constexpr std::array<std::string_view, 2> kLevels{"Foundation (40)", "Romantic (64)"};
+    int lvl_idx = static_cast<int>(engine_.level());
+    if (segmented_control("##fc_lvl_seg", &lvl_idx, kLevels, pop_w / scale, 28.0f)) {
+      engine_.set_level(static_cast<core::FlashcardLevel>(lvl_idx), now_ms);
       last_feedback_ = NoteFeedback::Neutral;
       status_banner_ = "Play the displayed shape";
     }
@@ -267,9 +292,10 @@ void FlashcardView::draw(ImFont* smufl_font, ImFont* ui_font, double now_ms,
     }
 
     for (std::size_t n = 0; n < step.notes.size(); ++n) {
+      const core::Clef nclef = (n < step.note_clefs.size()) ? step.note_clefs[n] : step.clef;
       chord.notes.push_back(StaffNote{
           .note = step.notes[n],
-          .clef = step.clef,
+          .clef = nclef,
           .feedback = fb,
           .played_label = (n == 0) ? played_lbl : std::string{},
           .duration = std::nullopt,

@@ -30,26 +30,38 @@ namespace selfano::ui {
 
 namespace {
 
-[[nodiscard]] NoteDuration to_ui_note_duration(core::EtudeDurationBeats dur) noexcept {
+[[nodiscard]] NoteDuration to_ui_note_duration(core::NoteBaseDuration dur) noexcept {
   switch (dur) {
-  case core::EtudeDurationBeats::Quarter:
+  case core::NoteBaseDuration::Sixteenth:
+    return NoteDuration::Sixteenth;
+  case core::NoteBaseDuration::Eighth:
+    return NoteDuration::Eighth;
+  case core::NoteBaseDuration::Quarter:
     return NoteDuration::Quarter;
-  case core::EtudeDurationBeats::Half:
+  case core::NoteBaseDuration::Half:
     return NoteDuration::Half;
-  case core::EtudeDurationBeats::Whole:
+  case core::NoteBaseDuration::Whole:
     return NoteDuration::Whole;
+  case core::NoteBaseDuration::ThirtySecond:
+    return NoteDuration::ThirtySecond;
   }
   return NoteDuration::Quarter;
 }
 
-[[nodiscard]] RestDuration to_ui_rest_duration(core::EtudeDurationBeats dur) noexcept {
+[[nodiscard]] RestDuration to_ui_rest_duration(core::NoteBaseDuration dur) noexcept {
   switch (dur) {
-  case core::EtudeDurationBeats::Quarter:
+  case core::NoteBaseDuration::Sixteenth:
+    return RestDuration::Sixteenth;
+  case core::NoteBaseDuration::Eighth:
+    return RestDuration::Eighth;
+  case core::NoteBaseDuration::Quarter:
     return RestDuration::Quarter;
-  case core::EtudeDurationBeats::Half:
+  case core::NoteBaseDuration::Half:
     return RestDuration::Half;
-  case core::EtudeDurationBeats::Whole:
+  case core::NoteBaseDuration::Whole:
     return RestDuration::Whole;
+  case core::NoteBaseDuration::ThirtySecond:
+    return RestDuration::ThirtySecond;
   }
   return RestDuration::Quarter;
 }
@@ -63,36 +75,42 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
   std::optional<std::pair<std::size_t, int>> active_wait_pos;
   if (is_active && active_wait_idx.has_value() && *active_wait_idx < sys.targets.size()) {
     active_wait_pos = {sys.targets[*active_wait_idx].bar_index,
-                       sys.targets[*active_wait_idx].beat_in_bar};
+                       sys.targets[*active_wait_idx].tick_in_bar};
   }
+
+  const float beat_ticks = static_cast<float>(std::max(1, sys.time_signature.beat_ticks()));
+  const float pulses = static_cast<float>(std::max(1, sys.time_signature.pulse_count()));
+  const int measure_ticks = sys.time_signature.measure_ticks();
 
   for (std::size_t b = 0; b < 4; ++b) {
     const auto& em = sys.measures[b];
     StaffMeasure sm{};
-    sm.beats_per_measure = 4.0f;
+    sm.beats_per_measure = pulses;
+    sm.measure_ticks = measure_ticks;
 
-    struct BeatSlot {
+    struct TickSlot {
       const core::EtudeVoiceEvent* treble{nullptr};
       const core::EtudeVoiceEvent* bass{nullptr};
     };
-    std::map<int, BeatSlot> slots;
+    std::map<int, TickSlot> slots;
     for (const auto& tev : em.treble_events) {
-      slots[tev.beat_start].treble = &tev;
+      slots[tev.start_tick].treble = &tev;
     }
     for (const auto& bev : em.bass_events) {
-      slots[bev.beat_start].bass = &bev;
+      slots[bev.start_tick].bass = &bev;
     }
 
-    for (const auto& [beat, slot] : slots) {
+    for (const auto& [tick, slot] : slots) {
       StaffChord chord{};
-      chord.beat_offset = static_cast<float>(beat);
+      chord.tick_offset = tick;
+      chord.beat_offset = static_cast<float>(tick) / beat_ticks;
       chord.duration = NoteDuration::Quarter;
-      if (beat == 0) {
+      if (tick == 0) {
         chord.annotation = std::format("Bar {}", em.bar_number);
       }
 
       if (active_wait_pos.has_value() && active_wait_pos->first == b &&
-          active_wait_pos->second == beat) {
+          active_wait_pos->second == tick) {
         chord.is_active_cursor = true;
       }
 
@@ -100,7 +118,7 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
       std::string played_lbl;
       if (is_active) {
         for (const auto& target : sys.targets) {
-          if (target.bar_index == b && target.beat_in_bar == beat) {
+          if (target.bar_index == b && target.tick_in_bar == tick) {
             if (target.status == core::EtudeTargetStatus::Hit) {
               fb = NoteFeedback::Correct;
             } else if (target.status == core::EtudeTargetStatus::Missed) {
@@ -117,10 +135,13 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
       bool attached_badge = false;
       if (slot.treble != nullptr) {
         if (slot.treble->is_rest) {
-          chord.treble_rest = to_ui_rest_duration(slot.treble->duration);
+          chord.treble_rest = to_ui_rest_duration(slot.treble->rhythmic_value.base);
         } else {
-          const auto dur = to_ui_note_duration(slot.treble->duration);
+          const auto dur = to_ui_note_duration(slot.treble->rhythmic_value.base);
+          const auto dots = slot.treble->rhythmic_value.dots;
           chord.duration = dur;
+          chord.dots = dots;
+          chord.dotted = (dots > 0);
           for (const auto& sn : slot.treble->notes) {
             chord.notes.push_back(StaffNote{
                 .note = sn,
@@ -128,6 +149,10 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
                 .feedback = fb,
                 .played_label = (!attached_badge ? played_lbl : std::string{}),
                 .duration = dur,
+                .dotted = (dots > 0),
+                .tie_start = slot.treble->tie_start,
+                .tie_stop = slot.treble->tie_stop,
+                .dots = dots,
             });
             attached_badge = true;
           }
@@ -136,11 +161,14 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
 
       if (slot.bass != nullptr) {
         if (slot.bass->is_rest) {
-          chord.bass_rest = to_ui_rest_duration(slot.bass->duration);
+          chord.bass_rest = to_ui_rest_duration(slot.bass->rhythmic_value.base);
         } else {
-          const auto dur = to_ui_note_duration(slot.bass->duration);
+          const auto dur = to_ui_note_duration(slot.bass->rhythmic_value.base);
+          const auto dots = slot.bass->rhythmic_value.dots;
           if (slot.treble == nullptr) {
             chord.duration = dur;
+            chord.dots = dots;
+            chord.dotted = (dots > 0);
           }
           for (const auto& sn : slot.bass->notes) {
             chord.notes.push_back(StaffNote{
@@ -149,6 +177,10 @@ build_etude_staff_measures(const core::EtudeSystem& sys, core::KeySignature key,
                 .feedback = fb,
                 .played_label = (!attached_badge ? played_lbl : std::string{}),
                 .duration = dur,
+                .dotted = (dots > 0),
+                .tie_start = slot.bass->tie_start,
+                .tie_stop = slot.bass->tie_stop,
+                .dots = dots,
             });
             attached_badge = true;
           }
@@ -199,13 +231,37 @@ void EtudeView::apply_preferences(bool metronome_enabled, bool light_paper, doub
   engine_.configure(cfg);
 }
 
+void EtudeView::set_corpus(const core::SightReadingCorpus* corpus) {
+  engine_.set_corpus(corpus);
+}
+
+void EtudeView::set_difficulty(core::EtudeDifficultyLevel level) {
+  auto cfg = engine_.config();
+  if (cfg.difficulty == level) {
+    return;
+  }
+  cfg.difficulty = level;
+  engine_.configure(cfg);
+}
+
+void EtudeView::set_source_mode(core::EtudeSourceMode mode) {
+  auto cfg = engine_.config();
+  if (cfg.source_mode == mode) {
+    return;
+  }
+  cfg.source_mode = mode;
+  engine_.configure(cfg);
+}
+
 bool EtudeView::is_mid_bar() const noexcept {
   if (engine_.playback_state() != core::EtudePlaybackState::Playing) {
     return false;
   }
+  const double pulses =
+      static_cast<double>(std::max(1, engine_.active_system().time_signature.pulse_count()));
   const double beat = std::max(0.0, engine_.playhead_beat());
-  const double in_bar = std::fmod(beat, 4.0);
-  return in_bar > 0.25 && in_bar < 3.85;
+  const double in_bar = std::fmod(beat, pulses);
+  return in_bar > 0.25 && in_bar < (pulses - 0.15);
 }
 
 void EtudeView::on_played_chord(const midi::PlayedChord& chord) {
@@ -281,6 +337,11 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
   }
   ImGui::SameLine(0.0f, 12.0f * scale);
   status_pill(std::format("{:.0f} BPM", cfg.bpm), StatusTone::Accent, IconId::Metronome);
+  ImGui::SameLine(0.0f, 6.0f * scale);
+  status_pill(std::format("L{} \xC2\xB7 {}/{}", static_cast<int>(cfg.difficulty),
+                          engine_.active_system().time_signature.numerator,
+                          engine_.active_system().time_signature.denominator),
+              StatusTone::Neutral);
   if (show_piano_key_hints()) {
     ImGui::SameLine(0.0f, 5.0f * scale);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.5f * scale);
@@ -395,6 +456,30 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
     }
 
     hairline_separator(8.0f);
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Sight-Reading Tier");
+    }
+    static constexpr std::array<std::string_view, 5> kDiffs{"L1", "L2", "L3", "L4", "L5"};
+    int diff_idx = std::clamp(static_cast<int>(cfg.difficulty) - 1, 0, 4);
+    if (segmented_control("##et_diff_seg", &diff_idx, kDiffs, pop_w / scale, 28.0f)) {
+      cfg.difficulty = static_cast<core::EtudeDifficultyLevel>(diff_idx + 1);
+      rebuild = true;
+    }
+
+    ImGui::Spacing();
+    {
+      ScopedFont sub(TypeStyle::Subheadline);
+      ImGui::TextColored(c.text_secondary, "Repertoire Source");
+    }
+    static constexpr std::array<std::string_view, 2> kSources{"Procedural", "Hybrid Classical"};
+    int src_idx = static_cast<int>(cfg.source_mode);
+    if (segmented_control("##et_src_seg", &src_idx, kSources, pop_w / scale, 28.0f)) {
+      cfg.source_mode = static_cast<core::EtudeSourceMode>(src_idx);
+      rebuild = true;
+    }
+
+    hairline_separator(8.0f);
     settings_toggle_row("Metronome Click", "##et_metro_sw", &metronome_enabled_, nullptr, "F#7");
     settings_toggle_row("Warm Ivory Paper Staff", "##et_paper_sw", &light_paper_theme_);
     ImGui::EndPopup();
@@ -479,7 +564,7 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
   top_opts.grand_staff_gap_spaces = 5.2f;
   top_opts.light_paper_theme = light_paper_theme_;
   top_opts.show_final_barline = false;
-  top_opts.show_time_signature_4_4 = true;
+  top_opts.time_signature = engine_.active_system().time_signature;
   if ((cur_state == core::EtudePlaybackState::Playing ||
        cur_state == core::EtudePlaybackState::Paused) &&
       engine_.playhead_beat() >= 0.0) {
@@ -488,11 +573,22 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
 
   const float canvas_w = std::max(460.0f, ImGui::GetContentRegionAvail().x);
 
+  if (!engine_.active_system().source_label.empty()) {
+    ScopedFont cap(TypeStyle::Caption);
+    ImGui::TextColored(c.text_secondary, "%s", engine_.active_system().source_label.c_str());
+  }
+
   draw_staff_canvas("##etude_active_staff", smufl_font, ui_font, canvas_w, active_measures,
                     top_opts);
 
   ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
-  section_kicker("UPCOMING 4 BARS");
+  if (!engine_.preview_system().source_label.empty()) {
+    const auto kicker =
+        std::format("UPCOMING 4 BARS \xC2\xB7 {}", engine_.preview_system().source_label);
+    section_kicker(kicker.c_str());
+  } else {
+    section_kicker("UPCOMING 4 BARS");
+  }
   ImGui::Spacing();
 
   // System 2 (Bottom): Preview 4 Bars
@@ -500,7 +596,7 @@ void EtudeView::draw(ImFont* smufl_font, ImFont* ui_font, bool& out_click, bool&
       engine_.preview_system(), engine_.config().key, false, std::nullopt);
   StaffRenderOptions bot_opts = top_opts;
   bot_opts.playhead_beat.reset();
-  bot_opts.show_time_signature_4_4 = false;
+  bot_opts.time_signature.reset();
   bot_opts.dim_preview = true;
 
   draw_staff_canvas("##etude_preview_staff", smufl_font, ui_font, canvas_w, preview_measures,

@@ -545,6 +545,16 @@ bool AppController::init(const CliOptions& cli_opts) {
       !lib_res.has_value()) {
     std::cerr << "Warning: failed loading built-in lessons: " << lib_res.error() << '\n';
   }
+  if (const auto corpus_path = resolve_sight_reading_dir() / "corpus.json";
+      std::filesystem::exists(corpus_path)) {
+    if (const auto corpus_res = core::load_sight_reading_corpus(corpus_path);
+        corpus_res.has_value()) {
+      sight_reading_corpus_ = *corpus_res;
+      etude_view_.set_corpus(&sight_reading_corpus_);
+    } else {
+      std::cerr << "Warning: failed loading sight-reading corpus: " << corpus_res.error() << '\n';
+    }
+  }
 
 #ifdef __EMSCRIPTEN__
   idbfs_hydrated_ = false;
@@ -688,6 +698,15 @@ bool AppController::init(const CliOptions& cli_opts) {
   }
   if (cli_.warmup_exercise_override.has_value()) {
     warmup_view_.set_exercise(*cli_.warmup_exercise_override);
+  }
+  if (cli_.flashcard_level_override.has_value()) {
+    flashcard_view_.set_level(*cli_.flashcard_level_override, prev_now_ms_);
+  }
+  if (cli_.etude_level_override.has_value()) {
+    etude_view_.set_difficulty(*cli_.etude_level_override);
+  }
+  if (cli_.etude_source_override.has_value()) {
+    etude_view_.set_source_mode(*cli_.etude_source_override);
   }
   if (cli_.simulate_coach.has_value()) {
     ui::SmokeCoachSimMode sim_mode = ui::SmokeCoachSimMode::Clean;

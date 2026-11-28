@@ -1,6 +1,8 @@
 #pragma once
 
 #include "core/autopilot.hpp"
+#include "core/etude_engine.hpp"
+#include "core/flashcard_engine.hpp"
 #include "core/lesson_engine.hpp"
 #include "core/warmup_engine.hpp"
 
@@ -61,6 +63,9 @@ struct CliOptions {
   std::string weekly_key_override{};
   std::optional<core::WarmUpCircuitPreset> warmup_circuit_override;
   std::optional<core::WarmUpExerciseKind> warmup_exercise_override;
+  std::optional<core::FlashcardLevel> flashcard_level_override;
+  std::optional<core::EtudeDifficultyLevel> etude_level_override;
+  std::optional<core::EtudeSourceMode> etude_source_override;
 };
 
 [[nodiscard]] CliOptions parse_cli(int argc, char* argv[]);
